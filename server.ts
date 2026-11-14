@@ -182,7 +182,7 @@ async function sendBrevoEmail(options: {
   }
 
   const brevoApiKey = process.env.BREVO_API_KEY || '';
-  const senderEmail = process.env.SENDER_EMAIL || 'quant@oddspira.com';
+  const senderEmail = process.env.SENDER_EMAIL || 'oddspira@gmail.com';
   const senderName = process.env.SENDER_NAME || 'Oddspira Quant Intelligence';
   const nowIso = new Date().toISOString();
 
