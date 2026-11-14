@@ -104,6 +104,8 @@ db.exec(`
     email TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'vip_trial',
+    email_verified INTEGER NOT NULL DEFAULT 1,
+    verification_code TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL
   );
 
@@ -155,6 +157,18 @@ db.exec(`
     updated_at TEXT NOT NULL
   );
 `);
+
+// Safe online schema migration for existing VPS databases
+try {
+  db.exec('ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 1;');
+} catch {
+  // Column already exists
+}
+try {
+  db.exec("ALTER TABLE users ADD COLUMN verification_code TEXT NOT NULL DEFAULT '';");
+} catch {
+  // Column already exists
+}
 
 /**
  * Brevo (Sendinblue) Transactional Email Service with 300/day Free Tier Rate Limiter
@@ -341,7 +355,7 @@ async function startServer() {
   // =========================================================================
   // 1. AUTHENTICATION ROUTES (/api/auth/register, /api/auth/login, /api/auth/me)
   // =========================================================================
-  app.post('/api/auth/register', (req: Request, res: Response) => {
+  app.post('/api/auth/register', async (req: Request, res: Response) => {
     try {
       const { name, email, password } = req.body || {};
       const cleanEmail = String(email || '').trim().toLowerCase();
@@ -357,53 +371,153 @@ async function startServer() {
         return;
       }
 
-      const existingStmt = db.prepare('SELECT id FROM users WHERE email = ?');
-      const existing = existingStmt.get(cleanEmail) as { id: number } | undefined;
-      if (existing) {
-        res.status(409).json({ error: 'Този имейл адрес вече е регистриран. Използвайте Вход.' });
-        return;
-      }
+      const existingStmt = db.prepare(
+        'SELECT id, email_verified FROM users WHERE email = ?'
+      );
+      const existing = existingStmt.get(cleanEmail) as
+        | { id: number; email_verified: number }
+        | undefined;
 
+      const verificationCode = `OSP-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
       const passwordHash = hashPassword(rawPassword);
       const now = new Date().toISOString();
-
-      const insertStmt = db.prepare(
-        'INSERT INTO users (name, email, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?)'
-      );
-      const result = insertStmt.run(cleanName, cleanEmail, passwordHash, 'vip_trial', now);
-      const userId = Number(result.lastInsertRowid);
-
-      const userPayload = {
-        userId,
-        name: cleanName,
-        email: cleanEmail,
-        role: 'vip_trial',
-      };
-      const token = signToken(userPayload);
-
-      // Trigger Brevo Welcome & Activation Email asynchronously
       const appUrl = process.env.APP_URL || 'https://oddspira.com';
-      sendBrevoEmail({
+
+      if (existing) {
+        if (existing.email_verified === 1) {
+          res.status(409).json({ error: 'Този имейл адрес вече е регистриран. Използвайте Вход.' });
+          return;
+        }
+        // Unverified existing registration: update password/name and send a fresh verification code
+        db.prepare(
+          'UPDATE users SET name = ?, password_hash = ?, verification_code = ? WHERE id = ?'
+        ).run(cleanName, passwordHash, verificationCode, existing.id);
+      } else {
+        const insertStmt = db.prepare(
+          'INSERT INTO users (name, email, password_hash, role, email_verified, verification_code, created_at) VALUES (?, ?, ?, ?, 0, ?, ?)'
+        );
+        insertStmt.run(cleanName, cleanEmail, passwordHash, 'vip_trial', verificationCode, now);
+      }
+
+      await sendBrevoEmail({
         toEmail: cleanEmail,
         toName: cleanName,
-        subject: 'Welcome to Oddspira Quant Terminal v2.1 — Account Active',
-        htmlContent: buildWelcomeEmailHtml(cleanName, appUrl),
+        subject: `Oddspira Security — Код за потвърждение: ${verificationCode}`,
+        htmlContent: buildWelcomeEmailHtml(cleanName, appUrl, verificationCode),
         templateType: 'welcome',
-      }).catch((e) => console.error('Brevo welcome email error:', e));
+      });
 
       res.status(201).json({
-        token,
-        user: {
-          id: userId,
-          name: cleanName,
-          email: cleanEmail,
-          role: 'vip_trial',
-          createdAt: now,
-        },
+        requiresVerification: true,
+        email: cleanEmail,
+        demoCodePreview: process.env.BREVO_API_KEY ? undefined : verificationCode,
+        message: 'Изпратихме код за потвърждение на вашия имейл адрес. Въведете го по-долу, за да активирате профила си.',
       });
     } catch (err) {
       console.error('Register error:', err);
       res.status(500).json({ error: 'Възникна грешка при регистрацията.' });
+    }
+  });
+
+  app.post('/api/auth/verify-email', (req: Request, res: Response) => {
+    try {
+      const cleanEmail = String(req.body?.email || '').trim().toLowerCase();
+      const cleanCode = String(req.body?.code || '').trim().toUpperCase();
+
+      if (!cleanEmail || !cleanCode) {
+        res.status(400).json({ error: 'Моля, въведете кода за потвърждение от вашия имейл.' });
+        return;
+      }
+
+      const user = db
+        .prepare(
+          'SELECT id, name, email, role, verification_code, created_at FROM users WHERE email = ?'
+        )
+        .get(cleanEmail) as
+        | {
+            id: number;
+            name: string;
+            email: string;
+            role: string;
+            verification_code: string;
+            created_at: string;
+          }
+        | undefined;
+
+      if (!user || !user.verification_code || user.verification_code.toUpperCase() !== cleanCode) {
+        res.status(400).json({ error: 'Невалиден код за потвърждение. Проверете имейла си и опитайте отново.' });
+        return;
+      }
+
+      db.prepare('UPDATE users SET email_verified = 1, verification_code = ? WHERE id = ?').run(
+        '',
+        user.id
+      );
+
+      const token = signToken({
+        userId: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      });
+
+      res.json({
+        ok: true,
+        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          createdAt: user.created_at,
+        },
+      });
+    } catch (err) {
+      console.error('Verify email error:', err);
+      res.status(500).json({ error: 'Грешка при потвърждаване на имейла.' });
+    }
+  });
+
+  app.post('/api/auth/resend-verification', async (req: Request, res: Response) => {
+    try {
+      const cleanEmail = String(req.body?.email || '').trim().toLowerCase();
+      if (!cleanEmail || !cleanEmail.includes('@')) {
+        res.status(400).json({ error: 'Невалиден имейл адрес.' });
+        return;
+      }
+
+      const user = db
+        .prepare('SELECT id, name, email FROM users WHERE email = ?')
+        .get(cleanEmail) as { id: number; name: string; email: string } | undefined;
+
+      if (!user) {
+        res.status(404).json({ error: 'Профилът не е намерен.' });
+        return;
+      }
+
+      const verificationCode = `OSP-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+      db.prepare('UPDATE users SET verification_code = ? WHERE id = ?').run(
+        verificationCode,
+        user.id
+      );
+
+      const appUrl = process.env.APP_URL || 'https://oddspira.com';
+      await sendBrevoEmail({
+        toEmail: cleanEmail,
+        toName: user.name,
+        subject: `Oddspira Security — Нов код за потвърждение: ${verificationCode}`,
+        htmlContent: buildWelcomeEmailHtml(user.name, appUrl, verificationCode),
+        templateType: 'welcome',
+      });
+
+      res.json({
+        ok: true,
+        demoCodePreview: process.env.BREVO_API_KEY ? undefined : verificationCode,
+        message: 'Изпратихме нов код за потвърждение на вашия имейл адрес.',
+      });
+    } catch (err) {
+      console.error('Resend verification error:', err);
+      res.status(500).json({ error: 'Грешка при повторно изпращане на код.' });
     }
   });
 
@@ -485,7 +599,7 @@ async function startServer() {
     }
   });
 
-  app.post('/api/auth/login', (req: Request, res: Response) => {
+  app.post('/api/auth/login', async (req: Request, res: Response) => {
     try {
       const { email, password } = req.body || {};
       const cleanEmail = String(email || '').trim().toLowerCase();
@@ -497,7 +611,7 @@ async function startServer() {
       }
 
       const stmt = db.prepare(
-        'SELECT id, name, email, password_hash, role, created_at FROM users WHERE email = ?'
+        'SELECT id, name, email, password_hash, role, email_verified, created_at FROM users WHERE email = ?'
       );
       const user = stmt.get(cleanEmail) as
         | {
@@ -506,12 +620,37 @@ async function startServer() {
             email: string;
             password_hash: string;
             role: string;
+            email_verified: number;
             created_at: string;
           }
         | undefined;
 
       if (!user || !verifyPassword(rawPassword, user.password_hash)) {
         res.status(401).json({ error: 'Невалиден имейл или парола.' });
+        return;
+      }
+
+      if (user.email_verified === 0) {
+        const verificationCode = `OSP-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+        db.prepare('UPDATE users SET verification_code = ? WHERE id = ?').run(
+          verificationCode,
+          user.id
+        );
+        const appUrl = process.env.APP_URL || 'https://oddspira.com';
+        await sendBrevoEmail({
+          toEmail: user.email,
+          toName: user.name,
+          subject: `Oddspira Security — Код за потвърждение: ${verificationCode}`,
+          htmlContent: buildWelcomeEmailHtml(user.name, appUrl, verificationCode),
+          templateType: 'welcome',
+        });
+
+        res.json({
+          requiresVerification: true,
+          email: user.email,
+          demoCodePreview: process.env.BREVO_API_KEY ? undefined : verificationCode,
+          message: 'Моля, въведете кода за потвърждение, който изпратихме на вашия имейл адрес.',
+        });
         return;
       }
 

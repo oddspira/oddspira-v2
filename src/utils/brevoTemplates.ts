@@ -13,7 +13,22 @@ export interface DigestMatchItem {
   kellyStakePct: number;
 }
 
-export function buildWelcomeEmailHtml(userName: string, appUrl: string = 'https://oddspira.com'): string {
+export function buildWelcomeEmailHtml(
+  userName: string,
+  appUrl: string = 'https://oddspira.com',
+  verificationCode?: string
+): string {
+  const verificationBlock = verificationCode
+    ? `<div style="margin:20px 0;padding:18px;background-color:#0b0f19;border:1px solid #10b981;border-radius:12px;text-align:center;">
+        <div style="font-family:monospace;font-size:11px;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">
+          Код за потвърждение на имейл / Account Verification Code
+        </div>
+        <div style="font-family:monospace;font-size:22px;font-weight:800;color:#10b981;letter-spacing:2px;">
+          ${verificationCode}
+        </div>
+      </div>`
+    : '';
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -30,7 +45,7 @@ export function buildWelcomeEmailHtml(userName: string, appUrl: string = 'https:
           <tr>
             <td style="padding:24px 32px;background-color:#080c14;border-bottom:1px solid #1e293b;">
               <span style="display:inline-block;padding:4px 10px;border-radius:6px;background-color:#062e22;border:1px solid #10b981;color:#10b981;font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1px;">
-                ODDSPIRA QUANT TERMINAL v2.1
+                ODDSPIRA QUANT SECURITY • EMAIL VERIFICATION
               </span>
               <h1 style="margin:12px 0 0 0;font-size:24px;font-weight:800;color:#ffffff;">
                 Welcome to Oddspira, ${userName}
@@ -41,7 +56,11 @@ export function buildWelcomeEmailHtml(userName: string, appUrl: string = 'https:
           <tr>
             <td style="padding:28px 32px;font-size:14px;line-height:1.65;color:#cbd5e1;">
               <p style="margin:0 0 16px 0;">
-                Your quantitative betting intelligence account is now <strong style="color:#10b981;">ACTIVE</strong>. You now have access to our institutional stochastic modeling suite:
+                Моля, въведете следния код в прозореца за регистрация на <strong>Oddspira</strong>, за да потвърдите вашия имейл адрес и да активирате профила си:
+              </p>
+              ${verificationBlock}
+              <p style="margin:0 0 16px 0;">
+                След потвърждение получавате пълен достъп до:
               </p>
               <table width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0;background-color:#0b0f19;border:1px solid #1e293b;border-radius:12px;padding:16px;">
                 <tr>

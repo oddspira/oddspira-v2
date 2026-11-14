@@ -22,10 +22,11 @@ export const JoinOddspiraModal: React.FC<JoinOddspiraModalProps> = ({
   language = 'bg',
   onAuthSuccess,
 }) => {
-  const [mode, setMode] = useState<'register' | 'login' | 'forgot' | 'reset'>('register');
+  const [mode, setMode] = useState<'register' | 'login' | 'verify' | 'forgot' | 'reset'>('register');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [verifyCode, setVerifyCode] = useState('');
   const [resetToken, setResetToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -41,6 +42,7 @@ export const JoinOddspiraModal: React.FC<JoinOddspiraModalProps> = ({
       badge: 'ODDSPIRA QUANT SECURITY · ЗАЩИТЕН ПРОФИЛ',
       registerTitle: 'Създай акаунт в',
       loginTitle: 'Вход в твоя профил в',
+      verifyTitle: 'Потвърди имейла си в',
       forgotTitle: 'Възстановяване на парола в',
       subText:
         'Синхронизирай своите +EV залози и банка между всички устройства и получавай автоматични известия за математическа стойност.',
@@ -52,6 +54,9 @@ export const JoinOddspiraModal: React.FC<JoinOddspiraModalProps> = ({
       passwordPlaceholder: '••••••••',
       registerBtn: 'Създай безплатен акаунт →',
       loginBtn: 'Влез в профила си →',
+      verifyBtn: 'Потвърди имейла и активирай профила →',
+      verifyCodeLabel: 'Код за потвърждение от имейла (напр. OSP-89F42A)',
+      resendCodeBtn: 'Изпрати нов код на имейла',
       forgotLink: 'Забравена парола?',
       sendCodeBtn: 'Изпрати код по имейл →',
       resetBtn: 'Запази новата парола →',
@@ -69,6 +74,7 @@ export const JoinOddspiraModal: React.FC<JoinOddspiraModalProps> = ({
       badge: 'ODDSPIRA QUANT SECURITY · ENCRYPTED ACCOUNT',
       registerTitle: 'Create your account on',
       loginTitle: 'Sign in to your account on',
+      verifyTitle: 'Verify your email on',
       forgotTitle: 'Reset your password on',
       subText:
         'Sync your +EV wagers and bankroll across all devices and receive automated value notifications.',
@@ -80,6 +86,9 @@ export const JoinOddspiraModal: React.FC<JoinOddspiraModalProps> = ({
       passwordPlaceholder: '••••••••',
       registerBtn: 'Create Free Account →',
       loginBtn: 'Sign In to Account →',
+      verifyBtn: 'Verify Email & Activate Account →',
+      verifyCodeLabel: 'Email Verification Code (e.g. OSP-89F42A)',
+      resendCodeBtn: 'Resend verification code',
       forgotLink: 'Forgot password?',
       sendCodeBtn: 'Send Reset Code to Email →',
       resetBtn: 'Save New Password →',
@@ -97,6 +106,7 @@ export const JoinOddspiraModal: React.FC<JoinOddspiraModalProps> = ({
       badge: 'ODDSPIRA QUANT SECURITY · CUENTA PROTEGIDA',
       registerTitle: 'Crea tu cuenta en',
       loginTitle: 'Inicia sesión en',
+      verifyTitle: 'Verifica tu correo en',
       forgotTitle: 'Recuperar contraseña en',
       subText:
         'Guarda tus apuestas +EV y tu bankroll de forma sincronizada desde cualquier dispositivo.',
@@ -108,6 +118,9 @@ export const JoinOddspiraModal: React.FC<JoinOddspiraModalProps> = ({
       passwordPlaceholder: '••••••••',
       registerBtn: 'Crear Cuenta Gratis →',
       loginBtn: 'Iniciar Sesión →',
+      verifyBtn: 'Verificar correo y activar cuenta →',
+      verifyCodeLabel: 'Código de verificación (ej. OSP-89F42A)',
+      resendCodeBtn: 'Reenviar código al correo',
       forgotLink: '¿Olvidaste tu contraseña?',
       sendCodeBtn: 'Enviar código por correo →',
       resetBtn: 'Guardar nueva contraseña →',
@@ -125,6 +138,7 @@ export const JoinOddspiraModal: React.FC<JoinOddspiraModalProps> = ({
       badge: 'ODDSPIRA QUANT SECURITY · GESCHÜTZTES KONTO',
       registerTitle: 'Konto erstellen bei',
       loginTitle: 'Anmelden bei',
+      verifyTitle: 'E-Mail bestätigen bei',
       forgotTitle: 'Passwort zurücksetzen bei',
       subText:
         'Synchronisieren Sie Ihre +EV-Wetten und Bankroll-Daten sicher über alle Ihre Geräte.',
@@ -136,6 +150,9 @@ export const JoinOddspiraModal: React.FC<JoinOddspiraModalProps> = ({
       passwordPlaceholder: '••••••••',
       registerBtn: 'Kostenloses Konto erstellen →',
       loginBtn: 'Jetzt anmelden →',
+      verifyBtn: 'E-Mail bestätigen & Konto aktivieren →',
+      verifyCodeLabel: 'Bestätigungscode (z.B. OSP-89F42A)',
+      resendCodeBtn: 'Neuen Code senden',
       forgotLink: 'Passwort vergessen?',
       sendCodeBtn: 'Reset-Code per E-Mail senden →',
       resetBtn: 'Neues Passwort speichern →',
@@ -151,6 +168,27 @@ export const JoinOddspiraModal: React.FC<JoinOddspiraModalProps> = ({
 
   const t = (dict as Record<string, typeof dict.en>)[language] || dict.en;
 
+  const handleResendCode = async () => {
+    setErrorMessage(null);
+    setInfoMessage(null);
+    try {
+      const res = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (data.demoCodePreview) setVerifyCode(data.demoCodePreview);
+        setInfoMessage(data.message || 'Изпратихме нов код на вашия имейл.');
+      } else {
+        setErrorMessage(data.error || 'Грешка при повторно изпращане.');
+      }
+    } catch {
+      setErrorMessage('Няма връзка със сървъра.');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -158,6 +196,28 @@ export const JoinOddspiraModal: React.FC<JoinOddspiraModalProps> = ({
     setIsSubmitting(true);
 
     try {
+      if (mode === 'verify') {
+        const res = await fetch('/api/auth/verify-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: email.trim(),
+            code: verifyCode.trim(),
+          }),
+        });
+        const data = await res.json();
+        setIsSubmitting(false);
+        if (!res.ok) {
+          setErrorMessage(data.error || 'Невалиден код за потвърждение.');
+          return;
+        }
+        onAuthSuccess(data.user, data.token, true);
+        setPassword('');
+        setVerifyCode('');
+        onClose();
+        return;
+      }
+
       if (mode === 'forgot') {
         const res = await fetch('/api/auth/forgot-password', {
           method: 'POST',
@@ -220,6 +280,16 @@ export const JoinOddspiraModal: React.FC<JoinOddspiraModalProps> = ({
         return;
       }
 
+      if (data.requiresVerification) {
+        setIsSubmitting(false);
+        if (data.demoCodePreview) {
+          setVerifyCode(data.demoCodePreview);
+        }
+        setInfoMessage(data.message || 'Въведете кода за потвърждение от вашия имейл.');
+        setMode('verify');
+        return;
+      }
+
       setIsSubmitting(false);
       onAuthSuccess(data.user, data.token, mode === 'register');
       setPassword('');
@@ -265,7 +335,7 @@ export const JoinOddspiraModal: React.FC<JoinOddspiraModalProps> = ({
                 setInfoMessage(null);
               }}
               className={`py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                mode === 'register'
+                mode === 'register' || mode === 'verify'
                   ? 'bg-[#43f08a] text-[#05130b] shadow-sm'
                   : 'text-[#8f9cae] hover:text-white'
               }`}
@@ -297,6 +367,8 @@ export const JoinOddspiraModal: React.FC<JoinOddspiraModalProps> = ({
             <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-[#f7f8fb]">
               {mode === 'register'
                 ? t.registerTitle
+                : mode === 'verify'
+                ? t.verifyTitle
                 : mode === 'login'
                 ? t.loginTitle
                 : t.forgotTitle}{' '}
@@ -337,7 +409,7 @@ export const JoinOddspiraModal: React.FC<JoinOddspiraModalProps> = ({
               </div>
             )}
 
-            {mode !== 'reset' && (
+            {mode !== 'reset' && mode !== 'verify' && (
               <div>
                 <label className="block text-xs font-mono text-[#8f9cae] mb-1">
                   {t.emailLabel}
@@ -350,6 +422,34 @@ export const JoinOddspiraModal: React.FC<JoinOddspiraModalProps> = ({
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-[#080d14] border border-[#1e293b] focus:border-[#43f08a] rounded-xl px-3.5 py-2.5 text-sm text-[#f7f8fb] placeholder-[#475569] focus:outline-none transition-colors"
                 />
+              </div>
+            )}
+
+            {mode === 'verify' && (
+              <div className="space-y-2.5">
+                <div>
+                  <label className="block text-xs font-mono text-[#8f9cae] mb-1">
+                    {t.verifyCodeLabel}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="OSP-XXXXXX"
+                    value={verifyCode}
+                    onChange={(e) => setVerifyCode(e.target.value)}
+                    className="w-full bg-[#080d14] border border-[#43f08a]/50 rounded-xl px-3.5 py-2.5 text-sm font-mono font-bold text-[#43f08a] focus:outline-none tracking-wider"
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[11px] font-mono">
+                  <span className="text-[#8f9cae] truncate max-w-[230px]">{email}</span>
+                  <button
+                    type="button"
+                    onClick={handleResendCode}
+                    className="text-[#43f08a] hover:underline cursor-pointer"
+                  >
+                    ↻ {t.resendCodeBtn}
+                  </button>
+                </div>
               </div>
             )}
 
@@ -445,6 +545,8 @@ export const JoinOddspiraModal: React.FC<JoinOddspiraModalProps> = ({
                   ? t.loadingBtn
                   : mode === 'register'
                   ? t.registerBtn
+                  : mode === 'verify'
+                  ? t.verifyBtn
                   : mode === 'login'
                   ? t.loginBtn
                   : mode === 'forgot'
