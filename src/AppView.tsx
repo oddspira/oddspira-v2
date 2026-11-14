@@ -59,7 +59,7 @@ export default function AppView() {
     return params.get('admin') === '1';
   });
 
-  const OWNER_EMAILS = ['oddspira@gmail.com', 'golemboi9@gmail.com', 'stonegranex@gmail.com'];
+  const OWNER_EMAILS = ['oddspira@gmail.com', 'golemboi9@gmail.com'];
   const isOwnerAdmin =
     adminUnlockedViaUrl ||
     Boolean(

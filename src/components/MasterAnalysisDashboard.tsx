@@ -169,6 +169,7 @@ export function MasterAnalysisDashboard({
     }
   });
   const [savedNotice, setSavedNotice] = useState<boolean>(false);
+  const [tgPostStatus, setTgPostStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
 
   // Live API Telemetry State (Open-Meteo Stadium Weather + BBC Sport Live News)
   const [liveWeatherMeta, setLiveWeatherMeta] = useState<{
@@ -848,6 +849,41 @@ export function MasterAnalysisDashboard({
                   {language === 'bg' ? 'Сподели +EV Анализ:' : 'Share +EV Signal:'}
                 </span>
                 <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={tgPostStatus === 'sending'}
+                    onClick={async () => {
+                      setTgPostStatus('sending');
+                      const tgMessage = `🔥 ODDSPIRA QUANT SIGNAL 🔥\n⚽ ${activeMatch.homeTeam} vs ${activeMatch.awayTeam} (${activeMatch.league})\n🎯 Pick: ${sim.bestCandidate.selection} @${sim.bestCandidate.bookieOdds.toFixed(2)}\n📐 Fair Odds: @${sim.bestCandidate.fairOdds.toFixed(2)} (+${sim.bestCandidate.ev.toFixed(1)}% Math Edge)\n💰 Recommended Kelly Stake: €${sim.recommendedStake}\n🔗 ${window.location.origin}/analysis`;
+                      try {
+                        const res = await fetch('/api/social/telegram-broadcast', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ text: tgMessage }),
+                        });
+                        const data = await res.json();
+                        if (data.ok) {
+                          setTgPostStatus('sent');
+                          setTimeout(() => setTgPostStatus('idle'), 3500);
+                        } else {
+                          setTgPostStatus('error');
+                          setTimeout(() => setTgPostStatus('idle'), 3500);
+                        }
+                      } catch {
+                        setTgPostStatus('error');
+                        setTimeout(() => setTgPostStatus('idle'), 3500);
+                      }
+                    }}
+                    className="px-2.5 py-1 rounded bg-emerald-500/20 border border-emerald-400/50 hover:border-emerald-300 text-emerald-300 font-bold transition-colors"
+                  >
+                    {tgPostStatus === 'sending'
+                      ? '⏳ Изпращане...'
+                      : tgPostStatus === 'sent'
+                      ? '✅ Публикувано в @oddspira!'
+                      : tgPostStatus === 'error'
+                      ? '⚠️ Провери Бот Правата'
+                      : '📲 Auto-Post to @oddspira'}
+                  </button>
                   <a
                     href={`https://t.me/share/url?url=${encodeURIComponent(
                       window.location.origin + '/analysis'
