@@ -80,6 +80,28 @@ export default function AppView() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
+  // Hydrate Live & Today's Matches from API-Football v3 when FOOTBALL_API_KEY is configured on server
+  useEffect(() => {
+    let active = true;
+    const loadLiveFootballFeed = () => {
+      fetch('/api/football/live-feed')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (active && data?.configured && Array.isArray(data.matches) && data.matches.length > 0) {
+            setMatches(data.matches);
+          }
+        })
+        .catch(() => {});
+    };
+
+    loadLiveFootballFeed();
+    const timer = setInterval(loadLiveFootballFeed, 180 * 1000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, []);
+
   // Bankroll Bets State with LocalStorage + SQL Server Sync
   const [bets, setBets] = useState<BetRecord[]>(() => {
     const saved = localStorage.getItem('oddspira_bets_v2');
