@@ -17,7 +17,7 @@ echo "⬇️ [2/4] Изтегляне на най-новите промени о
 git pull origin main
 
 echo "⚙️ [3/4] Обновяване на пакетите и компилиране на новия дизайн (vite build)..."
-npm install
+npm install --legacy-peer-deps
 npm run build
 
 echo "🚀 [4/4] Рестартиране на сървъра за 0.5 секунди чрез PM2..."

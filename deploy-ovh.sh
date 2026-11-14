@@ -30,7 +30,7 @@ if [ ! -f ".env" ] && [ -f ".env.example" ]; then
   echo "✅ Създаден е .env файл от .env.example (попълнете вашите ключове с: nano .env)"
 fi
 
-npm install
+npm install --legacy-peer-deps
 npm run build
 
 echo "🚀 [4/6] Стартиране на Oddspira Full-Stack сървъра с PM2 (24/7 авто-рестарт)..."
