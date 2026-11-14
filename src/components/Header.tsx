@@ -1,0 +1,530 @@
+import { useState } from 'react';
+import { ActiveTab, Language } from '../types';
+import { BrandLogo } from './BrandLogo';
+import { UserProfile } from './JoinOddspiraModal';
+
+interface HeaderProps {
+  activeTab: ActiveTab;
+  setActiveTab: (tab: ActiveTab) => void;
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  onOpenSearch: () => void;
+  onOpenJoinModal: () => void;
+  onOpenAdmin?: () => void;
+  currentUser?: UserProfile | null;
+  onLogout?: () => void;
+}
+
+export function Header({
+  activeTab,
+  setActiveTab,
+  language,
+  setLanguage,
+  onOpenSearch,
+  onOpenJoinModal,
+  onOpenAdmin,
+  currentUser,
+  onLogout,
+}: HeaderProps) {
+  const [isAlertsOpen, setIsAlertsOpen] = useState(false);
+  const handleGoHome = () => {
+    setActiveTab('home');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const isLiveActive = activeTab === 'live' || activeTab === 'matches';
+  const isCompetitionsActive = activeTab === 'competitions';
+  const isAnalysisActive = activeTab === 'analysis' || activeTab === 'poisson';
+  const isBetsActive = activeTab === 'bets' || activeTab === 'bankroll';
+  const isToolsActive = activeTab === 'tools' || activeTab === 'calculators';
+  const isLearnActive = activeTab === 'learn';
+
+  const navDict: Record<
+    Language,
+    {
+      live: string;
+      competitions: string;
+      analysis: string;
+      bets: string;
+      tools: string;
+      learn: string;
+      search: string;
+      logout: string;
+      homeTitle: string;
+      searchTitle: string;
+    }
+  > = {
+    bg: {
+      live: 'На живо',
+      competitions: 'Състезания',
+      analysis: 'Анализ',
+      bets: 'Моите залози',
+      tools: 'Инструменти',
+      learn: 'Научи',
+      search: 'Търсене',
+      logout: 'Изход',
+      homeTitle: 'Oddspira — Начална страница',
+      searchTitle: 'Търсене на мач или състезание',
+    },
+    en: {
+      live: 'Live',
+      competitions: 'Leagues',
+      analysis: 'Analysis',
+      bets: 'My Bets',
+      tools: 'Tools',
+      learn: 'Guides',
+      search: 'Search',
+      logout: 'Log out',
+      homeTitle: 'Oddspira — Home',
+      searchTitle: 'Search matches or leagues',
+    },
+    es: {
+      live: 'En Vivo',
+      competitions: 'Ligas',
+      analysis: 'Análisis',
+      bets: 'Mis Apuestas',
+      tools: 'Herramientas',
+      learn: 'Guías',
+      search: 'Buscar',
+      logout: 'Salir',
+      homeTitle: 'Oddspira — Inicio',
+      searchTitle: 'Buscar partido o liga',
+    },
+    de: {
+      live: 'Live',
+      competitions: 'Ligen',
+      analysis: 'Analyse',
+      bets: 'Meine Wetten',
+      tools: 'Tools',
+      learn: 'Guides',
+      search: 'Suche',
+      logout: 'Abmelden',
+      homeTitle: 'Oddspira — Startseite',
+      searchTitle: 'Spiel oder Liga suchen',
+    },
+    it: {
+      live: 'Live',
+      competitions: 'Campionati',
+      analysis: 'Analisi',
+      bets: 'Le Mie Scommesse',
+      tools: 'Strumenti',
+      learn: 'Guide',
+      search: 'Cerca',
+      logout: 'Esci',
+      homeTitle: 'Oddspira — Home',
+      searchTitle: 'Cerca partita o campionato',
+    },
+    pt: {
+      live: 'Ao Vivo',
+      competitions: 'Ligas',
+      analysis: 'Análise',
+      bets: 'Minhas Apostas',
+      tools: 'Ferramentas',
+      learn: 'Guias',
+      search: 'Buscar',
+      logout: 'Sair',
+      homeTitle: 'Oddspira — Início',
+      searchTitle: 'Buscar jogo ou campeonato',
+    },
+    fr: {
+      live: 'En Direct',
+      competitions: 'Championnats',
+      analysis: 'Analyse',
+      bets: 'Mes Paris',
+      tools: 'Outils',
+      learn: 'Guides',
+      search: 'Rechercher',
+      logout: 'Déconnexion',
+      homeTitle: 'Oddspira — Accueil',
+      searchTitle: 'Rechercher un match ou championnat',
+    },
+    tr: {
+      live: 'Canlı',
+      competitions: 'Ligler',
+      analysis: 'Analiz',
+      bets: 'Bahislerim',
+      tools: 'Araçlar',
+      learn: 'Rehber',
+      search: 'Ara',
+      logout: 'Çıkış',
+      homeTitle: 'Oddspira — Ana Sayfa',
+      searchTitle: 'Maç veya lig ara',
+    },
+    pl: {
+      live: 'Na Żywo',
+      competitions: 'Ligi',
+      analysis: 'Analiza',
+      bets: 'Moje Zakłady',
+      tools: 'Narzędzia',
+      learn: 'Poradniki',
+      search: 'Szukaj',
+      logout: 'Wyloguj',
+      homeTitle: 'Oddspira — Strona główna',
+      searchTitle: 'Szukaj meczu lub ligi',
+    },
+    el: {
+      live: 'Ζωντανά',
+      competitions: 'Πρωταθλήματα',
+      analysis: 'Ανάλυση',
+      bets: 'Τα Στοιχήματά μου',
+      tools: 'Εργαλεία',
+      learn: 'Οδηγοί',
+      search: 'Αναζήτηση',
+      logout: 'Έξοδος',
+      homeTitle: 'Oddspira — Αρχική',
+      searchTitle: 'Αναζήτηση αγώνα ή πρωταθλήματος',
+    },
+    ro: {
+      live: 'Live',
+      competitions: 'Campionate',
+      analysis: 'Analiză',
+      bets: 'Pariurile Mele',
+      tools: 'Instrumente',
+      learn: 'Ghiduri',
+      search: 'Caută',
+      logout: 'Ieșire',
+      homeTitle: 'Oddspira — Acasă',
+      searchTitle: 'Caută meci sau campionat',
+    },
+    ru: {
+      live: 'Лайв',
+      competitions: 'Лиги',
+      analysis: 'Анализ',
+      bets: 'Мои Ставки',
+      tools: 'Инструменты',
+      learn: 'База знаний',
+      search: 'Поиск',
+      logout: 'Выход',
+      homeTitle: 'Oddspira — Главная',
+      searchTitle: 'Поиск матча или лиги',
+    },
+  };
+
+  const t = navDict[language] || navDict.en;
+
+  return (
+    <header className="sticky top-0 z-40 w-full bg-[#070b11] border-b border-[#18202c] select-none">
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 h-[68px] sm:h-[72px] flex items-center justify-between gap-4 lg:gap-8">
+        {/* Oddspira Brand Logo (Directly returns to home page) */}
+        <button
+          onClick={handleGoHome}
+          className="flex items-center text-left whitespace-nowrap shrink-0 hover:opacity-95 transition-opacity duration-150 focus:outline-none cursor-pointer"
+          title={t.homeTitle}
+        >
+          <BrandLogo showSubtitle={false} className="h-10 sm:h-11" />
+        </button>
+
+        {/* Desktop Navigation Links: Evenly spaced between Logo and Search */}
+        <nav className="hidden lg:flex items-center justify-evenly flex-1 px-4 xl:px-8 h-full text-sm font-medium">
+          {/* 1. На живо */}
+          <button
+            onClick={() => setActiveTab('live')}
+            className={`relative h-full flex items-center px-1.5 whitespace-nowrap transition-colors duration-150 cursor-pointer ${
+              isLiveActive ? 'text-[#43f08a] font-semibold' : 'text-[#8f9cae] hover:text-[#f7f8fb]'
+            }`}
+          >
+            <span>{t.live}</span>
+            {isLiveActive && (
+              <span className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#43f08a] rounded-t-sm" />
+            )}
+          </button>
+
+          {/* 2. Състезания */}
+          <button
+            onClick={() => setActiveTab('competitions')}
+            className={`relative h-full flex items-center px-1.5 whitespace-nowrap transition-colors duration-150 cursor-pointer ${
+              isCompetitionsActive ? 'text-[#43f08a] font-semibold' : 'text-[#8f9cae] hover:text-[#f7f8fb]'
+            }`}
+          >
+            <span>{t.competitions}</span>
+            {isCompetitionsActive && (
+              <span className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#43f08a] rounded-t-sm" />
+            )}
+          </button>
+
+          {/* 3. Анализ */}
+          <button
+            onClick={() => setActiveTab('analysis')}
+            className={`relative h-full flex items-center px-1.5 whitespace-nowrap transition-colors duration-150 cursor-pointer ${
+              isAnalysisActive ? 'text-[#43f08a] font-semibold' : 'text-[#8f9cae] hover:text-[#f7f8fb]'
+            }`}
+          >
+            <span>{t.analysis}</span>
+            {isAnalysisActive && (
+              <span className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#43f08a] rounded-t-sm" />
+            )}
+          </button>
+
+          {/* 4. Моите залози */}
+          <button
+            onClick={() => setActiveTab('bets')}
+            className={`relative h-full flex items-center px-1.5 whitespace-nowrap transition-colors duration-150 cursor-pointer ${
+              isBetsActive ? 'text-[#43f08a] font-semibold' : 'text-[#8f9cae] hover:text-[#f7f8fb]'
+            }`}
+          >
+            <span>{t.bets}</span>
+            {isBetsActive && (
+              <span className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#43f08a] rounded-t-sm" />
+            )}
+          </button>
+
+          {/* 5. Инструменти */}
+          <button
+            onClick={() => setActiveTab('tools')}
+            className={`relative h-full flex items-center px-1.5 whitespace-nowrap transition-colors duration-150 cursor-pointer ${
+              isToolsActive ? 'text-[#43f08a] font-semibold' : 'text-[#8f9cae] hover:text-[#f7f8fb]'
+            }`}
+          >
+            <span>{t.tools}</span>
+            {isToolsActive && (
+              <span className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#43f08a] rounded-t-sm" />
+            )}
+          </button>
+
+          {/* 6. Научи */}
+          <button
+            onClick={() => setActiveTab('learn')}
+            className={`relative h-full flex items-center px-1.5 whitespace-nowrap transition-colors duration-150 cursor-pointer ${
+              isLearnActive ? 'text-[#43f08a] font-semibold' : 'text-[#8f9cae] hover:text-[#f7f8fb]'
+            }`}
+          >
+            <span>{t.learn}</span>
+            {isLearnActive && (
+              <span className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#43f08a] rounded-t-sm" />
+            )}
+          </button>
+        </nav>
+
+        {/* Right Side: Търсене → Известия → Админ → Език → JOIN ODDSPIRA */}
+        <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+          {/* Търсене */}
+          <button
+            onClick={onOpenSearch}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm text-[#8f9cae] hover:text-[#f7f8fb] hover:bg-[#0f1522] border border-transparent hover:border-[#1b2230] transition-colors duration-150 cursor-pointer"
+            title={t.searchTitle}
+          >
+            <svg
+              className="w-4 h-4 text-[#8f9cae]"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <span className="hidden xl:inline text-xs font-medium">{t.search}</span>
+          </button>
+
+          {/* Live Value Alerts Bell */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsAlertsOpen((prev) => !prev)}
+              className="relative flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#0c1420] hover:bg-[#131f33] border border-[#1e293b] text-xs font-mono text-white cursor-pointer"
+              title="Live +EV & Steam Alerts"
+            >
+              <span>🔔</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-[#43f08a] text-[#04130a] text-[10px] font-black">
+                3
+              </span>
+            </button>
+
+            {isAlertsOpen && (
+              <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-[#0b0f19] border border-[#43f08a]/50 shadow-2xl p-3.5 z-50 space-y-2.5">
+                <div className="flex items-center justify-between border-b border-[#1c283d] pb-2">
+                  <span className="text-[10px] font-mono font-bold uppercase text-[#43f08a]">
+                    ⚡ LIVE QUANT ALERTS (REAL-TIME)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsAlertsOpen(false)}
+                    className="text-xs text-[#8f9cae] hover:text-white cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {[
+                  {
+                    tag: '+11.95% EV DETECTED',
+                    match: 'Bayer Leverkusen vs AS Roma',
+                    pick: 'Over 2.5 Goals (@1.78 vs Fair 1.59)',
+                    time: '2m ago',
+                  },
+                  {
+                    tag: 'STEAM DROP -12.9%',
+                    match: 'Newcastle United vs Man United',
+                    pick: 'Newcastle (1) dropped 2.24 → 1.95',
+                    time: '6m ago',
+                  },
+                  {
+                    tag: 'T-60 LINEUPS CONFIRMED',
+                    match: 'Real Madrid vs Villarreal',
+                    pick: 'Over 9.5 Corners (@1.84 • +8.87% Edge)',
+                    time: '14m ago',
+                  },
+                ].map((al, i) => (
+                  <div
+                    key={i}
+                    onClick={() => {
+                      setIsAlertsOpen(false);
+                      setActiveTab('analysis');
+                    }}
+                    className="p-2.5 rounded-xl bg-[#0e1422] hover:bg-[#152036] border border-[#1d293d] cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-center justify-between text-[10px] font-mono">
+                      <span className="text-[#43f08a] font-bold">{al.tag}</span>
+                      <span className="text-[#64748b]">{al.time}</span>
+                    </div>
+                    <div className="text-xs font-bold text-white mt-0.5">{al.match}</div>
+                    <div className="text-[11px] font-mono text-[#cbd5e1]">{al.pick}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Admin / Monetization / Brevo Control Button */}
+          {onOpenAdmin && (
+            <button
+              type="button"
+              onClick={onOpenAdmin}
+              className="px-2.5 py-1.5 rounded-lg bg-[#0d1f18] hover:bg-[#132e23] border border-[#43f08a]/40 text-[11px] font-mono font-bold text-[#43f08a] transition-colors cursor-pointer"
+              title="Admin, Monetization, Brevo & OVHcloud Control"
+            >
+              ⚙️ Admin
+            </button>
+          )}
+
+          {/* Език Dropdown (12 Global Football Analytics & Betting Languages) */}
+          <div className="relative inline-flex items-center">
+            <select
+              aria-label="Language selection"
+              title="Select Platform Language (12 Global Markets)"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as Language)}
+              className="bg-[#070b11] border border-[#1e2638] rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold text-[#f7f8fb] focus:outline-none focus:border-[#43f08a] cursor-pointer hover:border-[#2a374d] transition-colors duration-150"
+            >
+              <option value="bg">БГ · Български</option>
+              <option value="en">EN · English</option>
+              <option value="es">ES · Español</option>
+              <option value="de">DE · Deutsch</option>
+              <option value="it">IT · Italiano</option>
+              <option value="pt">PT · Português</option>
+              <option value="fr">FR · Français</option>
+              <option value="tr">TR · Türkçe</option>
+              <option value="pl">PL · Polski</option>
+              <option value="el">EL · Ελληνικά</option>
+              <option value="ro">RO · Română</option>
+              <option value="ru">RU · Русский</option>
+            </select>
+          </div>
+
+          {/* AUTHENTICATED USER PROFILE OR JOIN ODDSPIRA CTA */}
+          {currentUser ? (
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setActiveTab('bets')}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0c1512] border border-emerald-500/40 text-xs font-semibold text-white hover:border-emerald-400 transition-colors cursor-pointer"
+                title={t.bets}
+              >
+                <span className="w-5 h-5 rounded-full bg-[#43f08a] text-[#05130b] font-black text-[10px] flex items-center justify-center uppercase">
+                  {currentUser.name.charAt(0)}
+                </span>
+                <span className="max-w-[110px] truncate">{currentUser.name}</span>
+              </button>
+              {onLogout && (
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  className="px-2.5 py-1.5 rounded-lg bg-[#111926] border border-[#1e293b] hover:border-red-500/40 text-[11px] font-medium text-neutral-400 hover:text-red-300 transition-colors cursor-pointer"
+                >
+                  {t.logout}
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="relative group shrink-0">
+              {/* Ambient Breathing Emerald Glow Halo */}
+              <div
+                className="absolute -inset-1 rounded-xl bg-gradient-to-r from-[#43f08a] via-[#3fe384] to-[#2cd873] opacity-40 group-hover:opacity-100 blur-md transition-all duration-300 pointer-events-none"
+                aria-hidden="true"
+              />
+
+              {/* Main Interactive Button with Specular Rim & Shimmer */}
+              <button
+                onClick={onOpenJoinModal}
+                className="relative px-4 sm:px-5 py-2 rounded-xl font-black text-xs sm:text-sm text-[#05130b] bg-gradient-to-r from-[#43f08a] via-[#3fe384] to-[#2cd873] hover:from-[#56f498] hover:to-[#38e07e] transition-all duration-200 whitespace-nowrap cursor-pointer shadow-[inset_0_1px_1px_rgba(255,255,255,0.7),0_3px_12px_rgba(67,240,138,0.4)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_5px_20px_rgba(67,240,138,0.55)] flex items-center gap-1.5 overflow-hidden active:scale-95 uppercase"
+              >
+                <div
+                  className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none"
+                  aria-hidden="true"
+                />
+                <span className="relative z-10 tracking-tight font-extrabold uppercase text-[11px] sm:text-xs">
+                  JOIN ODDSPIRA
+                </span>
+                <span className="relative z-10 text-xs sm:text-sm font-black transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
+                  ↗
+                </span>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Mobile Navigation Strip */}
+      <div className="lg:hidden flex items-center justify-between overflow-x-auto no-scrollbar px-4 py-2 bg-[#05080c] border-t border-[#18202c] text-xs">
+        <button
+          onClick={() => setActiveTab('live')}
+          className={`px-2.5 py-1 rounded whitespace-nowrap transition-colors duration-150 cursor-pointer ${
+            isLiveActive ? 'text-[#43f08a] font-bold border-b border-[#43f08a]' : 'text-[#8f9cae]'
+          }`}
+        >
+          {t.live}
+        </button>
+        <button
+          onClick={() => setActiveTab('competitions')}
+          className={`px-2.5 py-1 rounded whitespace-nowrap transition-colors duration-150 cursor-pointer ${
+            isCompetitionsActive ? 'text-[#43f08a] font-bold border-b border-[#43f08a]' : 'text-[#8f9cae]'
+          }`}
+        >
+          {t.competitions}
+        </button>
+        <button
+          onClick={() => setActiveTab('analysis')}
+          className={`px-2.5 py-1 rounded whitespace-nowrap transition-colors duration-150 cursor-pointer ${
+            isAnalysisActive ? 'text-[#43f08a] font-bold border-b border-[#43f08a]' : 'text-[#8f9cae]'
+          }`}
+        >
+          {t.analysis}
+        </button>
+        <button
+          onClick={() => setActiveTab('bets')}
+          className={`px-2.5 py-1 rounded whitespace-nowrap transition-colors duration-150 cursor-pointer ${
+            isBetsActive ? 'text-[#43f08a] font-bold border-b border-[#43f08a]' : 'text-[#8f9cae]'
+          }`}
+        >
+          {t.bets}
+        </button>
+        <button
+          onClick={() => setActiveTab('tools')}
+          className={`px-2.5 py-1 rounded whitespace-nowrap transition-colors duration-150 cursor-pointer ${
+            isToolsActive ? 'text-[#43f08a] font-bold border-b border-[#43f08a]' : 'text-[#8f9cae]'
+          }`}
+        >
+          {t.tools}
+        </button>
+        <button
+          onClick={() => setActiveTab('learn')}
+          className={`px-2.5 py-1 rounded whitespace-nowrap transition-colors duration-150 cursor-pointer ${
+            isLearnActive ? 'text-[#43f08a] font-bold border-b border-[#43f08a]' : 'text-[#8f9cae]'
+          }`}
+        >
+          {t.learn}
+        </button>
+      </div>
+    </header>
+  );
+}

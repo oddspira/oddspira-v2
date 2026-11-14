@@ -1,0 +1,6 @@
+{
+  "name": "Oddspira — Quantitative Sports Analytics & Stochastic Betting Engine",
+  "description": "High-performance sports betting analytics platform featuring bivariate Poisson distribution models, Expected Value (+EV) calculations, real-time live match simulation, and bankroll tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
