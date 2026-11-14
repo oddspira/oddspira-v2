@@ -54,6 +54,31 @@ export default function AppView() {
     return localStorage.getItem('oddspira_token');
   });
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [adminUnlockedViaUrl] = useState<boolean>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('admin') === '1';
+  });
+
+  const OWNER_EMAILS = ['oddspira@gmail.com', 'golemboi9@gmail.com', 'stonegranex@gmail.com'];
+  const isOwnerAdmin =
+    adminUnlockedViaUrl ||
+    Boolean(
+      currentUser &&
+        (currentUser.role === 'admin' ||
+          OWNER_EMAILS.includes(currentUser.email.trim().toLowerCase()))
+    );
+
+  // Secret Owner Keyboard Shortcut: Ctrl + Shift + A opens Admin Panel
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        setIsAdminOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   // Bankroll Bets State with LocalStorage + SQL Server Sync
   const [bets, setBets] = useState<BetRecord[]>(() => {
@@ -286,7 +311,7 @@ export default function AppView() {
         setLanguage={setLanguage}
         onOpenSearch={() => setIsSearchOpen(true)}
         onOpenJoinModal={() => setIsJoinModalOpen(true)}
-        onOpenAdmin={() => setIsAdminOpen(true)}
+        onOpenAdmin={isOwnerAdmin ? () => setIsAdminOpen(true) : undefined}
         currentUser={currentUser}
         onLogout={handleLogout}
       />
