@@ -78,7 +78,7 @@ export function buildWelcomeEmailHtml(userName: string, appUrl: string = 'https:
           <!-- Footer -->
           <tr>
             <td style="padding:18px 32px;background-color:#080c14;border-top:1px solid #1e293b;font-family:monospace;font-size:11px;color:#64748b;text-align:center;">
-              &copy; 2026 Oddspira Quantitative Intelligence (${appUrl}) • Powered by Brevo SMTP Engine
+              &copy; 2026 Oddspira Quantitative Intelligence (${appUrl}) • Verified Quant Terminal
             </td>
           </tr>
         </table>
@@ -231,7 +231,7 @@ export function buildEvDigestEmailHtml(
           </tr>
           <tr>
             <td style="padding:16px 32px;background-color:#080c14;border-top:1px solid #1e293b;font-family:monospace;font-size:11px;color:#64748b;text-align:center;">
-              Oddspira Quant Engine • Rate-Limited 300/day Brevo Dispatch • Unsubscribe anytime in Profile
+              Oddspira Quant Engine (${appUrl}) • Unsubscribe anytime in Profile
             </td>
           </tr>
         </table>
