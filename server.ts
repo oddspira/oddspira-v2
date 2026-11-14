@@ -896,7 +896,7 @@ async function startServer() {
       return;
     }
 
-    const cacheKey = 'football:normalized_live_feed_v1';
+    const cacheKey = 'football:normalized_live_feed_v2';
     const ttlMs = 3 * 60 * 1000; // 3 minutes SQLite cache to protect API quota
 
     try {
@@ -973,8 +973,12 @@ async function startServer() {
         const fixId = String(item?.fixture?.id || `live-${idx}`);
         const homeTeam = String(item?.teams?.home?.name || 'Home Team');
         const awayTeam = String(item?.teams?.away?.name || 'Away Team');
+        const homeLogo = String(item?.teams?.home?.logo || '');
+        const awayLogo = String(item?.teams?.away?.logo || '');
         const league = String(item?.league?.name || 'Premier League');
         const leagueCountry = String(item?.league?.country || 'Europe');
+        const leagueLogo = String(item?.league?.logo || '');
+        const leagueFlag = String(item?.league?.flag || '');
         const homeScore = Number(item?.goals?.home ?? 0);
         const awayScore = Number(item?.goals?.away ?? 0);
         const shortStatus = String(item?.fixture?.status?.short || 'NS');
@@ -1031,8 +1035,12 @@ async function startServer() {
           id: `api-${fixId}`,
           league,
           leagueCountry,
+          leagueLogo,
+          leagueFlag,
           homeTeam,
           awayTeam,
+          homeLogo,
+          awayLogo,
           homeScore,
           awayScore,
           status: isLive ? 'LIVE' : isFinished ? 'FINISHED' : 'SCHEDULED',

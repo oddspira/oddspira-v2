@@ -1,16 +1,127 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Match } from '../types';
+
+// Official API-Sports CDN Club Crests + Dynamic Runtime Registry
+const TEAM_LOGO_REGISTRY: Record<string, string> = {
+  'manchester city': 'https://media.api-sports.io/football/teams/50.png',
+  'man city': 'https://media.api-sports.io/football/teams/50.png',
+  'manchester united': 'https://media.api-sports.io/football/teams/33.png',
+  'man united': 'https://media.api-sports.io/football/teams/33.png',
+  'man utd': 'https://media.api-sports.io/football/teams/33.png',
+  'newcastle united': 'https://media.api-sports.io/football/teams/34.png',
+  newcastle: 'https://media.api-sports.io/football/teams/34.png',
+  arsenal: 'https://media.api-sports.io/football/teams/42.png',
+  chelsea: 'https://media.api-sports.io/football/teams/49.png',
+  liverpool: 'https://media.api-sports.io/football/teams/40.png',
+  tottenham: 'https://media.api-sports.io/football/teams/47.png',
+  'aston villa': 'https://media.api-sports.io/football/teams/66.png',
+  'real madrid': 'https://media.api-sports.io/football/teams/541.png',
+  barcelona: 'https://media.api-sports.io/football/teams/529.png',
+  'atletico madrid': 'https://media.api-sports.io/football/teams/530.png',
+  'athletic club': 'https://media.api-sports.io/football/teams/531.png',
+  villarreal: 'https://media.api-sports.io/football/teams/533.png',
+  'bayern munich': 'https://media.api-sports.io/football/teams/157.png',
+  dortmund: 'https://media.api-sports.io/football/teams/165.png',
+  'borussia dortmund': 'https://media.api-sports.io/football/teams/165.png',
+  'bayer leverkusen': 'https://media.api-sports.io/football/teams/168.png',
+  leverkusen: 'https://media.api-sports.io/football/teams/168.png',
+  'inter milan': 'https://media.api-sports.io/football/teams/505.png',
+  inter: 'https://media.api-sports.io/football/teams/505.png',
+  'ac milan': 'https://media.api-sports.io/football/teams/489.png',
+  juventus: 'https://media.api-sports.io/football/teams/496.png',
+  'as roma': 'https://media.api-sports.io/football/teams/497.png',
+  roma: 'https://media.api-sports.io/football/teams/497.png',
+  atalanta: 'https://media.api-sports.io/football/teams/499.png',
+  napoli: 'https://media.api-sports.io/football/teams/492.png',
+  psg: 'https://media.api-sports.io/football/teams/85.png',
+  'paris saint germain': 'https://media.api-sports.io/football/teams/85.png',
+  lyon: 'https://media.api-sports.io/football/teams/80.png',
+  'sporting cp': 'https://media.api-sports.io/football/teams/228.png',
+  benfica: 'https://media.api-sports.io/football/teams/211.png',
+  'young boys': 'https://media.api-sports.io/football/teams/565.png',
+  'sturm graz': 'https://media.api-sports.io/football/teams/637.png',
+  'america mineiro': 'https://media.api-sports.io/football/teams/125.png',
+  avai: 'https://media.api-sports.io/football/teams/145.png',
+  'atletico goianiense': 'https://media.api-sports.io/football/teams/144.png',
+  'atletico-go': 'https://media.api-sports.io/football/teams/144.png',
+  cuiaba: 'https://media.api-sports.io/football/teams/1193.png',
+  crb: 'https://media.api-sports.io/football/teams/146.png',
+  ceara: 'https://media.api-sports.io/football/teams/129.png',
+  criciuma: 'https://media.api-sports.io/football/teams/140.png',
+  novorizontino: 'https://media.api-sports.io/football/teams/755.png',
+};
+
+const LEAGUE_LOGO_REGISTRY: Record<string, string> = {
+  'premier league': 'https://media.api-sports.io/football/leagues/39.png',
+  'la liga': 'https://media.api-sports.io/football/leagues/140.png',
+  laliga: 'https://media.api-sports.io/football/leagues/140.png',
+  'serie a': 'https://media.api-sports.io/football/leagues/135.png',
+  'serie b': 'https://media.api-sports.io/football/leagues/72.png',
+  bundesliga: 'https://media.api-sports.io/football/leagues/78.png',
+  'ligue 1': 'https://media.api-sports.io/football/leagues/61.png',
+  'champions league': 'https://media.api-sports.io/football/leagues/2.png',
+  'uefa champions league': 'https://media.api-sports.io/football/leagues/2.png',
+  'europa league': 'https://media.api-sports.io/football/leagues/3.png',
+  'uefa europa league': 'https://media.api-sports.io/football/leagues/3.png',
+  'primeira liga': 'https://media.api-sports.io/football/leagues/94.png',
+  eredivisie: 'https://media.api-sports.io/football/leagues/88.png',
+  'first league': 'https://media.api-sports.io/football/leagues/172.png',
+};
+
+export function registerMatchLogos(matches: Match[]): void {
+  for (const m of matches) {
+    if (m.homeTeam && m.homeLogo) {
+      TEAM_LOGO_REGISTRY[m.homeTeam.trim().toLowerCase()] = m.homeLogo;
+    }
+    if (m.awayTeam && m.awayLogo) {
+      TEAM_LOGO_REGISTRY[m.awayTeam.trim().toLowerCase()] = m.awayLogo;
+    }
+    if (m.league && m.leagueLogo) {
+      LEAGUE_LOGO_REGISTRY[m.league.trim().toLowerCase()] = m.leagueLogo;
+    }
+  }
+}
+
+export function getTeamLogoUrl(teamName: string, explicitLogo?: string): string | null {
+  if (explicitLogo) return explicitLogo;
+  const key = (teamName || '').trim().toLowerCase();
+  if (TEAM_LOGO_REGISTRY[key]) return TEAM_LOGO_REGISTRY[key];
+  for (const [knownName, url] of Object.entries(TEAM_LOGO_REGISTRY)) {
+    if (key.includes(knownName) || knownName.includes(key)) {
+      return url;
+    }
+  }
+  return null;
+}
+
+export function getLeagueLogoUrl(leagueName: string, explicitLogo?: string): string | null {
+  if (explicitLogo) return explicitLogo;
+  const key = (leagueName || '').trim().toLowerCase();
+  if (LEAGUE_LOGO_REGISTRY[key]) return LEAGUE_LOGO_REGISTRY[key];
+  for (const [knownName, url] of Object.entries(LEAGUE_LOGO_REGISTRY)) {
+    if (key === knownName || key.includes(knownName)) {
+      return url;
+    }
+  }
+  return null;
+}
 
 interface TeamBadgeProps {
   name: string;
+  logoUrl?: string;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
 
 export const TeamBadge: React.FC<TeamBadgeProps> = ({
   name,
+  logoUrl,
   size = 'md',
   className = '',
 }) => {
+  const [imgError, setImgError] = useState(false);
+  const resolvedLogo = getTeamLogoUrl(name, logoUrl);
+
   const sizeMap = {
     sm: 'w-6 h-6 text-[10px]',
     md: 'w-9 h-9 text-xs',
@@ -389,6 +500,24 @@ export const TeamBadge: React.FC<TeamBadgeProps> = ({
   };
 
   const visuals = getTeamVisuals(name);
+
+  if (resolvedLogo && !imgError) {
+    return (
+      <div
+        className={`relative inline-flex items-center justify-center rounded-xl bg-[#0e1624] border border-[#223049] ${sizeMap[size]} shadow-sm shrink-0 overflow-hidden select-none p-0.5 ${className}`}
+        title={name}
+        aria-label={name}
+      >
+        <img
+          src={resolvedLogo}
+          alt={name}
+          loading="lazy"
+          onError={() => setImgError(true)}
+          className="w-full h-full object-contain drop-shadow-sm"
+        />
+      </div>
+    );
+  }
 
   return (
     <div

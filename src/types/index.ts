@@ -46,8 +46,12 @@ export interface Match {
   id: string;
   league: string;
   leagueCountry: string;
+  leagueLogo?: string;
+  leagueFlag?: string;
   homeTeam: string;
   awayTeam: string;
+  homeLogo?: string;
+  awayLogo?: string;
   homeScore: number;
   awayScore: number;
   status: 'LIVE' | 'SCHEDULED' | 'FINISHED';

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ActiveTab, Language, Match } from '../types';
-import { TeamBadge } from './TeamBadge';
+import { TeamBadge, getLeagueLogoUrl } from './TeamBadge';
 
 interface TopMatchesSectionProps {
   language: Language;
@@ -569,60 +569,26 @@ export function TopMatchesSection({
 
   const t = (dict as Record<string, typeof dict.en>)[language] || dict.en;
 
-  // League badge helper for Top Matches mini cards
-  const renderLeagueBadge = (league: string) => {
-    const l = league.toLowerCase();
-    if (l.includes('premier')) {
-      return (
-        <span className="flex items-center gap-1.5 text-[11px] font-medium text-neutral-300">
-          <span className="w-4 h-4 rounded-full bg-[#38003c] border border-purple-400/40 flex items-center justify-center text-[9px] font-black text-purple-200 shrink-0">
-            🦁
-          </span>
-          <span className="truncate">Premier League</span>
-        </span>
-      );
-    }
-    if (l.includes('la liga') || l.includes('laliga')) {
-      return (
-        <span className="flex items-center gap-1.5 text-[11px] font-medium text-neutral-300">
-          <span className="w-4 h-4 rounded-full bg-[#ee3238] border border-red-400/40 flex items-center justify-center text-[8px] font-black text-white shrink-0">
-            ⚡
-          </span>
-          <span className="truncate">La Liga</span>
-        </span>
-      );
-    }
-    if (l.includes('serie')) {
-      return (
-        <span className="flex items-center gap-1.5 text-[11px] font-medium text-neutral-300">
-          <span className="w-4 h-4 rounded bg-[#008fd7] border border-sky-400/40 flex items-center justify-center text-[9px] font-black text-white shrink-0">
-            A
-          </span>
-          <span className="truncate">Serie A</span>
-        </span>
-      );
-    }
-    if (l.includes('bundesliga')) {
-      return (
-        <span className="flex items-center gap-1.5 text-[11px] font-medium text-neutral-300">
-          <span className="w-4 h-4 rounded bg-[#d20515] border border-red-500/40 flex items-center justify-center text-[9px] font-black text-white shrink-0">
-            ⚽
-          </span>
-          <span className="truncate">Bundesliga</span>
-        </span>
-      );
-    }
+  // League badge helper for Top Matches mini cards with real API-Football League Logo
+  const renderLeagueBadge = (league: string, explicitLogo?: string) => {
+    const logoUrl = getLeagueLogoUrl(league, explicitLogo);
     return (
       <span className="flex items-center gap-1.5 text-[11px] font-medium text-neutral-300">
-        <span className="w-4 h-4 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-[9px] font-black text-emerald-400 shrink-0">
-          ⚽
-        </span>
+        {logoUrl ? (
+          <span className="w-4 h-4 rounded bg-white/95 border border-white/20 flex items-center justify-center p-0.5 shrink-0 overflow-hidden">
+            <img src={logoUrl} alt={league} loading="lazy" className="w-full h-full object-contain" />
+          </span>
+        ) : (
+          <span className="w-4 h-4 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-[9px] font-black text-emerald-400 shrink-0">
+            ⚽
+          </span>
+        )}
         <span className="truncate">{league}</span>
       </span>
     );
   };
 
-  // Popular Leagues data matching screenshot 1:1
+  // Popular Leagues data with real official API-Sports League Crests
   const popularLeaguesData = [
     {
       id: 'epl',
@@ -630,10 +596,13 @@ export function TopMatchesSection({
       matches: 380,
       avgGoals: '1.96',
       renderCrest: () => (
-        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#4a0e5c] to-[#240029] border border-purple-400/40 flex items-center justify-center shadow-[0_0_20px_rgba(147,51,234,0.25)]">
-          <svg className="w-7 h-7 text-white" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
-          </svg>
+        <div className="w-12 h-12 rounded-2xl bg-white/95 border border-purple-400/50 p-1.5 flex items-center justify-center shadow-[0_0_20px_rgba(147,51,234,0.25)]">
+          <img
+            src="https://media.api-sports.io/football/leagues/39.png"
+            alt="Premier League"
+            loading="lazy"
+            className="w-full h-full object-contain"
+          />
         </div>
       ),
     },
@@ -643,10 +612,13 @@ export function TopMatchesSection({
       matches: 380,
       avgGoals: '2.45',
       renderCrest: () => (
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#ff4b4b]/20 to-[#991b1b]/20 border border-[#ff4b4b]/40 flex items-center justify-center shadow-[0_0_20px_rgba(239,68,68,0.2)]">
-          <svg className="w-7 h-7 text-[#ff4b4b]" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M13.5 2L6 14h5.5L9.5 22 19 9.5h-5.5L13.5 2z" />
-          </svg>
+        <div className="w-12 h-12 rounded-2xl bg-white/95 border border-[#ff4b4b]/50 p-1.5 flex items-center justify-center shadow-[0_0_20px_rgba(239,68,68,0.2)]">
+          <img
+            src="https://media.api-sports.io/football/leagues/140.png"
+            alt="La Liga"
+            loading="lazy"
+            className="w-full h-full object-contain"
+          />
         </div>
       ),
     },
@@ -656,10 +628,13 @@ export function TopMatchesSection({
       matches: 380,
       avgGoals: '2.22',
       renderCrest: () => (
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-b from-[#0284c7]/25 to-[#0369a1]/20 border border-sky-400/40 flex items-center justify-center shadow-[0_0_20px_rgba(14,165,233,0.25)]">
-          <svg className="w-7 h-7 text-[#38bdf8]" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2L4 20h4.5l1.6-4h3.8l1.6 4H20L12 2zm-1.1 10.5L12 8.8l1.1 3.7h-2.2z" />
-          </svg>
+        <div className="w-12 h-12 rounded-2xl bg-white/95 border border-sky-400/50 p-1.5 flex items-center justify-center shadow-[0_0_20px_rgba(14,165,233,0.25)]">
+          <img
+            src="https://media.api-sports.io/football/leagues/135.png"
+            alt="Serie A"
+            loading="lazy"
+            className="w-full h-full object-contain"
+          />
         </div>
       ),
     },
@@ -669,11 +644,13 @@ export function TopMatchesSection({
       matches: 306,
       avgGoals: '2.78',
       renderCrest: () => (
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#dc2626] to-[#991b1b] border border-red-400/50 flex items-center justify-center shadow-[0_0_20px_rgba(220,38,38,0.3)]">
-          <svg className="w-7 h-7 text-white" viewBox="0 0 24 24" fill="currentColor">
-            <circle cx="16.5" cy="5.5" r="2" />
-            <path d="M5 18l4.5-4.5 2.5 2.5 5.5-6.5L19 11l-7 8-3-3-2.5 2.5L5 18z" />
-          </svg>
+        <div className="w-12 h-12 rounded-2xl bg-white/95 border border-red-400/50 p-1.5 flex items-center justify-center shadow-[0_0_20px_rgba(220,38,38,0.3)]">
+          <img
+            src="https://media.api-sports.io/football/leagues/78.png"
+            alt="Bundesliga"
+            loading="lazy"
+            className="w-full h-full object-contain"
+          />
         </div>
       ),
     },
@@ -683,10 +660,13 @@ export function TopMatchesSection({
       matches: 125,
       avgGoals: '2.66',
       renderCrest: () => (
-        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-slate-800 to-slate-950 border border-slate-500/40 flex items-center justify-center shadow-[0_0_20px_rgba(148,163,184,0.2)]">
-          <svg className="w-7 h-7 text-white" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2l2.4 5.2 5.6.6-4.2 3.8 1.2 5.4L12 14.2 7 17l1.2-5.4L4 7.8l5.6-.6L12 2z" />
-          </svg>
+        <div className="w-12 h-12 rounded-2xl bg-white/95 border border-slate-400/50 p-1.5 flex items-center justify-center shadow-[0_0_20px_rgba(148,163,184,0.2)]">
+          <img
+            src="https://media.api-sports.io/football/leagues/2.png"
+            alt="Champions League"
+            loading="lazy"
+            className="w-full h-full object-contain"
+          />
         </div>
       ),
     },
@@ -752,7 +732,7 @@ export function TopMatchesSection({
                   {/* Top: League info + Time/Live status badge */}
                   <div className="flex items-center justify-between gap-1 mb-2.5">
                     <div className="min-w-0 flex-1">
-                      {renderLeagueBadge(m.league)}
+                      {renderLeagueBadge(m.league, m.leagueLogo)}
                     </div>
                     {isLive ? (
                       <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold text-red-400 bg-red-500/10 border border-red-500/30 flex items-center gap-1">
@@ -771,7 +751,12 @@ export function TopMatchesSection({
                     {/* Home Team */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <TeamBadge name={m.homeTeam} size="sm" className="w-5 h-5 text-[9px]" />
+                        <TeamBadge
+                          name={m.homeTeam}
+                          logoUrl={m.homeLogo}
+                          size="sm"
+                          className="w-5 h-5 text-[9px]"
+                        />
                         <span className="text-xs sm:text-[13px] font-semibold text-white group-hover:text-emerald-300 transition-colors truncate">
                           {m.homeTeam}
                         </span>
@@ -786,7 +771,12 @@ export function TopMatchesSection({
                     {/* Away Team */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <TeamBadge name={m.awayTeam} size="sm" className="w-5 h-5 text-[9px]" />
+                        <TeamBadge
+                          name={m.awayTeam}
+                          logoUrl={m.awayLogo}
+                          size="sm"
+                          className="w-5 h-5 text-[9px]"
+                        />
                         <span className="text-xs sm:text-[13px] font-semibold text-white group-hover:text-emerald-300 transition-colors truncate">
                           {m.awayTeam}
                         </span>

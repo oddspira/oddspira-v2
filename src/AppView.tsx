@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { ActiveTab, BetRecord, Language, Match } from './types';
 import { initialBets, initialMatches } from './data/mockMatches';
 import { Header } from './components/Header';
+import { registerMatchLogos } from './components/TeamBadge';
 import { HeroShowcase } from './components/HeroShowcase';
 import { HomeBentoGrid } from './components/HomeBentoGrid';
 import { LiveMatchesBoard } from './components/LiveMatchesBoard';
@@ -88,6 +89,7 @@ export default function AppView() {
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (active && data?.configured && Array.isArray(data.matches) && data.matches.length > 0) {
+            registerMatchLogos(data.matches);
             setMatches(data.matches);
           }
         })
