@@ -1,12 +1,58 @@
 import React, { useEffect, useState } from 'react';
 import { ActiveTab, Language, Match } from '../types';
 import { computePoissonMatrix } from '../utils/mathModels';
-import { TeamBadge } from './TeamBadge';
+import { TeamBadge, registerMatchLogos } from './TeamBadge';
+
+export interface FormMatchItem {
+  fixtureId?: string | number;
+  date?: string;
+  league?: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeLogo?: string;
+  awayLogo?: string;
+  homeScore: number;
+  awayScore: number;
+  opp: string;
+  res: 'W' | 'D' | 'L';
+  score: string;
+}
+
+export interface StandingRow {
+  rank: number;
+  teamId?: number;
+  club: string;
+  clubLogo?: string;
+  p: number;
+  w: number;
+  d: number;
+  l: number;
+  gf: number;
+  ga: number;
+  gd: string | number;
+  pts: number;
+  form: ('W' | 'D' | 'L')[];
+}
 
 interface LiveMatchIntel {
   configured?: boolean;
   found?: boolean;
+  fixtureId?: string | number;
+  date?: string;
+  homeTeam?: string;
+  awayTeam?: string;
+  homeLogo?: string;
+  awayLogo?: string;
+  homeScore?: number;
+  awayScore?: number;
+  minute?: number;
+  status?: string;
+  halftimeScore?: string;
+  league?: string;
+  leagueCountry?: string;
+  leagueLogo?: string;
   hasRealStats?: boolean;
+  hasRealLineups?: boolean;
   leagueRound?: string | null;
   venue?: string | null;
   referee?: string | null;
@@ -55,6 +101,16 @@ interface LiveMatchIntel {
     sub: string;
     highlight?: boolean;
   }[];
+  standings?: StandingRow[];
+  homeFormMatches?: FormMatchItem[];
+  awayFormMatches?: FormMatchItem[];
+  h2h?: {
+    homeWins: number;
+    draws: number;
+    awayWins: number;
+    last5: ('W' | 'D' | 'L')[];
+    matches: FormMatchItem[];
+  } | null;
 }
 
 interface MatchDetailPageProps {
@@ -93,9 +149,15 @@ interface MatchMetadata {
   awayScorerText?: string;
   homePlayers: PlayerNode[];
   awayPlayers: PlayerNode[];
-  homeFormMatches: { opp: string; res: 'W' | 'D' | 'L'; score: string }[];
-  awayFormMatches: { opp: string; res: 'W' | 'D' | 'L'; score: string }[];
-  h2h: { homeWins: number; draws: number; awayWins: number; last5: ('W' | 'D' | 'L')[] };
+  homeFormMatches: FormMatchItem[];
+  awayFormMatches: FormMatchItem[];
+  h2h: {
+    homeWins: number;
+    draws: number;
+    awayWins: number;
+    last5: ('W' | 'D' | 'L')[];
+    matches: FormMatchItem[];
+  };
 }
 
 const DEFAULT_HOME_PLAYERS: PlayerNode[] = [
@@ -126,10 +188,11 @@ const DEFAULT_AWAY_PLAYERS: PlayerNode[] = [
 ];
 
 function buildTeamSpecificPitchNodes(teamName: string, isHome: boolean): PlayerNode[] {
-  const shortTag = teamName
-    .replace(/[^A-Za-zА-Яа-я]/g, '')
-    .slice(0, 3)
-    .toUpperCase() || (isHome ? 'HOM' : 'AWY');
+  const shortTag =
+    teamName
+      .replace(/[^A-Za-zА-Яа-я]/g, '')
+      .slice(0, 3)
+      .toUpperCase() || (isHome ? 'HOM' : 'AWY');
   const roles = ['GK', 'RB', 'CB', 'CB', 'LB', 'CDM', 'CM', 'CAM', 'RW', 'ST', 'LW'];
   const nums = [1, 2, 4, 5, 3, 6, 8, 10, 7, 9, 11];
   const homeCoords = [
@@ -182,75 +245,32 @@ const getMatchMetadata = (match: Match, liveIntel?: LiveMatchIntel | null): Matc
       homePlayers: DEFAULT_HOME_PLAYERS,
       awayPlayers: DEFAULT_AWAY_PLAYERS,
       homeFormMatches: [
-        { opp: 'vs Brighton', res: 'W', score: '4-1' },
-        { opp: '@ Everton', res: 'W', score: '1-0' },
-        { opp: 'vs Arsenal', res: 'D', score: '1-1' },
-        { opp: '@ Spurs', res: 'W', score: '3-2' },
-        { opp: 'vs Aston Villa', res: 'L', score: '1-2' },
+        { date: '10.11.2026', league: match.league, homeTeam: match.homeTeam, awayTeam: 'Brighton', homeScore: 4, awayScore: 1, opp: 'vs Brighton', res: 'W', score: '4-1' },
+        { date: '03.11.2026', league: match.league, homeTeam: 'Everton', awayTeam: match.homeTeam, homeScore: 0, awayScore: 1, opp: '@ Everton', res: 'W', score: '1-0' },
+        { date: '27.10.2026', league: match.league, homeTeam: match.homeTeam, awayTeam: 'Arsenal', homeScore: 1, awayScore: 1, opp: 'vs Arsenal', res: 'D', score: '1-1' },
+        { date: '20.10.2026', league: match.league, homeTeam: 'Spurs', awayTeam: match.homeTeam, homeScore: 2, awayScore: 3, opp: '@ Spurs', res: 'W', score: '3-2' },
+        { date: '14.10.2026', league: match.league, homeTeam: match.homeTeam, awayTeam: 'Aston Villa', homeScore: 1, awayScore: 2, opp: 'vs Aston Villa', res: 'L', score: '1-2' },
       ],
       awayFormMatches: [
-        { opp: 'vs Chelsea', res: 'W', score: '2-1' },
-        { opp: '@ Crystal Palace', res: 'D', score: '1-1' },
-        { opp: 'vs Brentford', res: 'L', score: '0-2' },
-        { opp: '@ Burnley', res: 'W', score: '3-1' },
-        { opp: 'vs Liverpool', res: 'D', score: '2-2' },
+        { date: '10.11.2026', league: match.league, homeTeam: match.awayTeam, awayTeam: 'Chelsea', homeScore: 2, awayScore: 1, opp: 'vs Chelsea', res: 'W', score: '2-1' },
+        { date: '03.11.2026', league: match.league, homeTeam: 'Crystal Palace', awayTeam: match.awayTeam, homeScore: 1, awayScore: 1, opp: '@ Crystal Palace', res: 'D', score: '1-1' },
+        { date: '27.10.2026', league: match.league, homeTeam: match.awayTeam, awayTeam: 'Brentford', homeScore: 0, awayScore: 2, opp: 'vs Brentford', res: 'L', score: '0-2' },
+        { date: '20.10.2026', league: match.league, homeTeam: 'Burnley', awayTeam: match.awayTeam, homeScore: 1, awayScore: 3, opp: '@ Burnley', res: 'W', score: '3-1' },
+        { date: '14.10.2026', league: match.league, homeTeam: match.awayTeam, awayTeam: 'Liverpool', homeScore: 2, awayScore: 2, opp: 'vs Liverpool', res: 'D', score: '2-2' },
       ],
-      h2h: { homeWins: 9, draws: 10, awayWins: 15, last5: ['D', 'L', 'W', 'D', 'W'] },
-    };
-  }
-
-  if (id === 'match-leverkusen-roma') {
-    return {
-      stadium: 'BayArena, Leverkusen',
-      attendance: '30,210',
-      referee: 'Daniele Orsato',
-      weather: '16°C, Clear',
-      pitch: 'Excellent',
-      homeFormation: '3-4-2-1',
-      awayFormation: '4-3-3',
-      homeScorerText: "F. Wirtz 21', P. Schick 34'",
-      awayScorerText: "P. Dybala 56'",
-      homePlayers: [
-        { num: 1, name: 'Hrádecký', x: 7, y: 50 },
-        { num: 12, name: 'Tapsoba', x: 19, y: 24 },
-        { num: 4, name: 'Tah', x: 18, y: 50 },
-        { num: 3, name: 'Hincapié', x: 19, y: 76 },
-        { num: 30, name: 'Frimpong', x: 33, y: 18 },
-        { num: 34, name: 'Xhaka', x: 31, y: 40 },
-        { num: 8, name: 'Andrich', x: 31, y: 60 },
-        { num: 20, name: 'Grimaldo', x: 33, y: 82 },
-        { num: 10, name: 'Wirtz', x: 44, y: 32 },
-        { num: 14, name: 'Schick', x: 46, y: 50 },
-        { num: 7, name: 'Hofmann', x: 44, y: 68 },
-      ],
-      awayPlayers: [
-        { num: 99, name: 'Svilar', x: 93, y: 50 },
-        { num: 19, name: 'Çelik', x: 80, y: 18 },
-        { num: 23, name: 'Mancini', x: 82, y: 38 },
-        { num: 5, name: 'Ndicka', x: 82, y: 62 },
-        { num: 69, name: 'Angeliño', x: 80, y: 82 },
-        { num: 4, name: 'Cristante', x: 67, y: 30 },
-        { num: 16, name: 'Paredes', x: 68, y: 50 },
-        { num: 7, name: 'Pellegrini', x: 67, y: 70 },
-        { num: 21, name: 'Dybala', x: 56, y: 24 },
-        { num: 90, name: 'Lukaku', x: 54, y: 50 },
-        { num: 92, name: 'El Shaarawy', x: 56, y: 76 },
-      ],
-      homeFormMatches: [
-        { opp: 'vs Stuttgart', res: 'W', score: '2-1' },
-        { opp: '@ Dortmund', res: 'D', score: '1-1' },
-        { opp: 'vs West Ham', res: 'W', score: '2-0' },
-        { opp: 'vs Bremen', res: 'W', score: '5-0' },
-        { opp: '@ Atalanta', res: 'L', score: '0-3' },
-      ],
-      awayFormMatches: [
-        { opp: 'vs AC Milan', res: 'W', score: '2-1' },
-        { opp: '@ Bologna', res: 'L', score: '1-3' },
-        { opp: '@ Napoli', res: 'D', score: '2-2' },
-        { opp: 'vs Udinese', res: 'W', score: '2-1' },
-        { opp: 'vs Juventus', res: 'D', score: '1-1' },
-      ],
-      h2h: { homeWins: 2, draws: 3, awayWins: 2, last5: ['D', 'W', 'L', 'D', 'W'] },
+      h2h: {
+        homeWins: 9,
+        draws: 10,
+        awayWins: 15,
+        last5: ['D', 'L', 'W', 'D', 'W'],
+        matches: [
+          { date: '15.05.2026', league: match.league, homeTeam: match.homeTeam, awayTeam: match.awayTeam, homeScore: 1, awayScore: 1, opp: match.awayTeam, res: 'D', score: '1-1' },
+          { date: '02.12.2025', league: match.league, homeTeam: match.awayTeam, awayTeam: match.homeTeam, homeScore: 2, awayScore: 0, opp: match.awayTeam, res: 'L', score: '0-2' },
+          { date: '01.04.2025', league: match.league, homeTeam: match.homeTeam, awayTeam: match.awayTeam, homeScore: 2, awayScore: 0, opp: match.awayTeam, res: 'W', score: '2-0' },
+          { date: '16.10.2024', league: match.league, homeTeam: match.awayTeam, awayTeam: match.homeTeam, homeScore: 0, awayScore: 0, opp: match.awayTeam, res: 'D', score: '0-0' },
+          { date: '20.04.2024', league: match.league, homeTeam: match.homeTeam, awayTeam: match.awayTeam, homeScore: 3, awayScore: 1, opp: match.awayTeam, res: 'W', score: '3-1' },
+        ],
+      },
     };
   }
 
@@ -273,6 +293,8 @@ const getMatchMetadata = (match: Match, liveIntel?: LiveMatchIntel | null): Matc
   const formationsPool = ['4-3-3', '4-2-3-1', '3-5-2', '4-4-2', '3-4-2-1'];
 
   const isApiMatch = match.id.startsWith('api-') || /^\d+$/.test(match.id);
+  const currentHomeScore = liveIntel?.homeScore ?? match.homeScore;
+  const currentAwayScore = liveIntel?.awayScore ?? match.awayScore;
 
   // Extract real goal scorers from API-Football events or match.events
   const liveHomeGoals = (liveIntel?.events || [])
@@ -292,6 +314,122 @@ const getMatchMetadata = (match: Match, liveIntel?: LiveMatchIntel | null): Matc
   const homeGoalsList = liveHomeGoals.length > 0 ? liveHomeGoals : fallbackHomeGoals;
   const awayGoalsList = liveAwayGoals.length > 0 ? liveAwayGoals : fallbackAwayGoals;
 
+  const fallbackHomeForm: FormMatchItem[] = [
+    {
+      date: '09.11.2026',
+      league: match.league,
+      homeTeam: match.homeTeam,
+      awayTeam: 'Matchday -1',
+      homeScore: seed % 2 === 0 ? 2 : 1,
+      awayScore: seed % 2 === 0 ? 0 : 1,
+      opp: 'Matchday -1',
+      res: seed % 2 === 0 ? 'W' : 'D',
+      score: seed % 2 === 0 ? '2-0' : '1-1',
+    },
+    {
+      date: '02.11.2026',
+      league: match.league,
+      homeTeam: 'Matchday -2',
+      awayTeam: match.homeTeam,
+      homeScore: 1,
+      awayScore: 2,
+      opp: 'Matchday -2',
+      res: 'W',
+      score: '2-1',
+    },
+    {
+      date: '26.10.2026',
+      league: match.league,
+      homeTeam: match.homeTeam,
+      awayTeam: 'Matchday -3',
+      homeScore: seed % 3 === 0 ? 0 : 3,
+      awayScore: 1,
+      opp: 'Matchday -3',
+      res: seed % 3 === 0 ? 'L' : 'W',
+      score: seed % 3 === 0 ? '0-1' : '3-1',
+    },
+    {
+      date: '19.10.2026',
+      league: match.league,
+      homeTeam: 'Matchday -4',
+      awayTeam: match.homeTeam,
+      homeScore: 1,
+      awayScore: 1,
+      opp: 'Matchday -4',
+      res: 'D',
+      score: '1-1',
+    },
+    {
+      date: '12.10.2026',
+      league: match.league,
+      homeTeam: match.homeTeam,
+      awayTeam: 'Matchday -5',
+      homeScore: 1,
+      awayScore: 0,
+      opp: 'Matchday -5',
+      res: 'W',
+      score: '1-0',
+    },
+  ];
+
+  const fallbackAwayForm: FormMatchItem[] = [
+    {
+      date: '09.11.2026',
+      league: match.league,
+      homeTeam: match.awayTeam,
+      awayTeam: 'Matchday -1',
+      homeScore: seed % 3 === 0 ? 2 : 1,
+      awayScore: seed % 3 === 0 ? 1 : 2,
+      opp: 'Matchday -1',
+      res: seed % 3 === 0 ? 'W' : 'L',
+      score: seed % 3 === 0 ? '2-1' : '1-2',
+    },
+    {
+      date: '02.11.2026',
+      league: match.league,
+      homeTeam: 'Matchday -2',
+      awayTeam: match.awayTeam,
+      homeScore: 0,
+      awayScore: 0,
+      opp: 'Matchday -2',
+      res: 'D',
+      score: '0-0',
+    },
+    {
+      date: '26.10.2026',
+      league: match.league,
+      homeTeam: match.awayTeam,
+      awayTeam: 'Matchday -3',
+      homeScore: 2,
+      awayScore: 0,
+      opp: 'Matchday -3',
+      res: 'W',
+      score: '2-0',
+    },
+    {
+      date: '19.10.2026',
+      league: match.league,
+      homeTeam: 'Matchday -4',
+      awayTeam: match.awayTeam,
+      homeScore: 2,
+      awayScore: seed % 2 === 0 ? 0 : 2,
+      opp: 'Matchday -4',
+      res: seed % 2 === 0 ? 'L' : 'D',
+      score: seed % 2 === 0 ? '0-2' : '2-2',
+    },
+    {
+      date: '12.10.2026',
+      league: match.league,
+      homeTeam: match.awayTeam,
+      awayTeam: 'Matchday -5',
+      homeScore: 3,
+      awayScore: 1,
+      opp: 'Matchday -5',
+      res: 'W',
+      score: '3-1',
+    },
+  ];
+
   return {
     stadium:
       liveIntel?.venue ||
@@ -305,9 +443,9 @@ const getMatchMetadata = (match: Match, liveIntel?: LiveMatchIntel | null): Matc
     referee:
       liveIntel?.referee ||
       match.referee ||
-      (isApiMatch ? 'Не е обявен в API' : refereesPool[seed % refereesPool.length]),
-    weather: `${12 + (seed % 14)}°C, Clear`,
-    pitch: seed % 3 === 0 ? 'Good' : 'Excellent',
+      (isApiMatch ? '' : refereesPool[seed % refereesPool.length]),
+    weather: isApiMatch ? '' : `${12 + (seed % 14)}°C, Clear`,
+    pitch: isApiMatch ? '' : seed % 3 === 0 ? 'Good' : 'Excellent',
     homeFormation:
       liveIntel?.lineups?.homeFormation ||
       formationsPool[seed % formationsPool.length],
@@ -317,14 +455,14 @@ const getMatchMetadata = (match: Match, liveIntel?: LiveMatchIntel | null): Matc
     homeScorerText:
       homeGoalsList.length > 0
         ? homeGoalsList.join(', ')
-        : match.homeScore > 0
-        ? `${match.homeTeam} (${match.homeScore})`
-        : `xG: ${match.fairOdds.expectedGoalsHome.toFixed(2)}`,
+        : currentHomeScore > 0
+        ? `${match.homeTeam} (${currentHomeScore})`
+        : '',
     awayScorerText:
       awayGoalsList.length > 0
         ? awayGoalsList.join(', ')
-        : match.awayScore > 0
-        ? `${match.awayTeam} (${match.awayScore})`
+        : currentAwayScore > 0
+        ? `${match.awayTeam} (${currentAwayScore})`
         : undefined,
     homePlayers:
       liveIntel?.lineups?.homePlayers && liveIntel.lineups.homePlayers.length > 0
@@ -334,32 +472,45 @@ const getMatchMetadata = (match: Match, liveIntel?: LiveMatchIntel | null): Matc
       liveIntel?.lineups?.awayPlayers && liveIntel.lineups.awayPlayers.length > 0
         ? liveIntel.lineups.awayPlayers
         : buildTeamSpecificPitchNodes(match.awayTeam, false),
-    homeFormMatches: [
-      { opp: `Matchday -1`, res: seed % 2 === 0 ? 'W' : 'D', score: seed % 2 === 0 ? '2-0' : '1-1' },
-      { opp: `Matchday -2`, res: 'W', score: '2-1' },
-      { opp: `Matchday -3`, res: seed % 3 === 0 ? 'L' : 'W', score: seed % 3 === 0 ? '0-1' : '3-1' },
-      { opp: `Matchday -4`, res: 'D', score: '1-1' },
-      { opp: `Matchday -5`, res: 'W', score: '1-0' },
-    ],
-    awayFormMatches: [
-      { opp: `Matchday -1`, res: seed % 3 === 0 ? 'W' : 'L', score: seed % 3 === 0 ? '2-1' : '1-2' },
-      { opp: `Matchday -2`, res: 'D', score: '0-0' },
-      { opp: `Matchday -3`, res: 'W', score: '2-0' },
-      { opp: `Matchday -4`, res: seed % 2 === 0 ? 'L' : 'D', score: seed % 2 === 0 ? '0-2' : '2-2' },
-      { opp: `Matchday -5`, res: 'W', score: '3-1' },
-    ],
-    h2h: {
-      homeWins: 3 + (seed % 9),
-      draws: 2 + ((seed * 3) % 6),
-      awayWins: 2 + ((seed * 7) % 8),
-      last5: [
-        seed % 2 === 0 ? 'W' : 'D',
-        'W',
-        seed % 3 === 0 ? 'L' : 'D',
-        'W',
-        seed % 2 === 0 ? 'L' : 'W',
-      ],
-    },
+    homeFormMatches:
+      liveIntel?.homeFormMatches && liveIntel.homeFormMatches.length > 0
+        ? liveIntel.homeFormMatches
+        : isApiMatch
+        ? []
+        : fallbackHomeForm,
+    awayFormMatches:
+      liveIntel?.awayFormMatches && liveIntel.awayFormMatches.length > 0
+        ? liveIntel.awayFormMatches
+        : isApiMatch
+        ? []
+        : fallbackAwayForm,
+    h2h:
+      liveIntel?.h2h
+        ? {
+            homeWins: liveIntel.h2h.homeWins,
+            draws: liveIntel.h2h.draws,
+            awayWins: liveIntel.h2h.awayWins,
+            last5:
+              liveIntel.h2h.last5 && liveIntel.h2h.last5.length > 0
+                ? liveIntel.h2h.last5
+                : (liveIntel.h2h.matches || []).map((m) => m.res),
+            matches: liveIntel.h2h.matches || [],
+          }
+        : isApiMatch
+        ? { homeWins: 0, draws: 0, awayWins: 0, last5: [], matches: [] }
+        : {
+            homeWins: 3 + (seed % 9),
+            draws: 2 + ((seed * 3) % 6),
+            awayWins: 2 + ((seed * 7) % 8),
+            last5: [
+              seed % 2 === 0 ? 'W' : 'D',
+              'W',
+              seed % 3 === 0 ? 'L' : 'D',
+              'W',
+              seed % 2 === 0 ? 'L' : 'W',
+            ],
+            matches: [],
+          },
   };
 };
 
@@ -657,16 +808,65 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
 }) => {
   const t = (DICT as Record<string, typeof DICT.en>)[language] || DICT.en;
   const [liveIntel, setLiveIntel] = useState<LiveMatchIntel | null>(null);
+  const [selectedPastMatch, setSelectedPastMatch] = useState<FormMatchItem | null>(null);
+  const [pastMatchIntel, setPastMatchIntel] = useState<LiveMatchIntel | null>(null);
+  const [pastMatchLoading, setPastMatchLoading] = useState<boolean>(false);
+
+  const isApiMatch = match.id.startsWith('api-') || /^\d+$/.test(match.id);
 
   useEffect(() => {
     let cancelled = false;
     setLiveIntel(null);
-    if (match.id.startsWith('api-') || /^\d+$/.test(match.id)) {
+    if (isApiMatch) {
       fetch(`/api/football/match-intel/${encodeURIComponent(match.id)}`)
         .then((r) => r.json())
-        .then((data) => {
+        .then((data: LiveMatchIntel) => {
           if (!cancelled && data?.found) {
             setLiveIntel(data);
+            const logoBatch: Array<{
+              homeTeam?: string;
+              awayTeam?: string;
+              homeLogo?: string;
+              awayLogo?: string;
+            }> = [];
+            if (data.homeTeam && data.homeLogo) {
+              logoBatch.push({ homeTeam: data.homeTeam, homeLogo: data.homeLogo });
+            }
+            if (data.awayTeam && data.awayLogo) {
+              logoBatch.push({ awayTeam: data.awayTeam, awayLogo: data.awayLogo });
+            }
+            (data.standings || []).forEach((s) => {
+              if (s.club && s.clubLogo) {
+                logoBatch.push({ homeTeam: s.club, homeLogo: s.clubLogo });
+              }
+            });
+            (data.homeFormMatches || []).forEach((fm) => {
+              logoBatch.push({
+                homeTeam: fm.homeTeam,
+                awayTeam: fm.awayTeam,
+                homeLogo: fm.homeLogo,
+                awayLogo: fm.awayLogo,
+              });
+            });
+            (data.awayFormMatches || []).forEach((fm) => {
+              logoBatch.push({
+                homeTeam: fm.homeTeam,
+                awayTeam: fm.awayTeam,
+                homeLogo: fm.homeLogo,
+                awayLogo: fm.awayLogo,
+              });
+            });
+            (data.h2h?.matches || []).forEach((fm) => {
+              logoBatch.push({
+                homeTeam: fm.homeTeam,
+                awayTeam: fm.awayTeam,
+                homeLogo: fm.homeLogo,
+                awayLogo: fm.awayLogo,
+              });
+            });
+            if (logoBatch.length > 0) {
+              registerMatchLogos(logoBatch);
+            }
           }
         })
         .catch(() => {});
@@ -674,28 +874,82 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [match.id]);
+  }, [match.id, isApiMatch]);
+
+  // Fetch past match details when user clicks on a W/D/L dot or Form/H2H match row
+  useEffect(() => {
+    let cancelled = false;
+    if (!selectedPastMatch) {
+      setPastMatchIntel(null);
+      setPastMatchLoading(false);
+      return;
+    }
+    if (selectedPastMatch.fixtureId) {
+      setPastMatchLoading(true);
+      setPastMatchIntel(null);
+      fetch(`/api/football/match-intel/${encodeURIComponent(String(selectedPastMatch.fixtureId))}`)
+        .then((r) => r.json())
+        .then((data: LiveMatchIntel) => {
+          if (!cancelled) {
+            if (data?.found) {
+              setPastMatchIntel(data);
+            }
+            setPastMatchLoading(false);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setPastMatchLoading(false);
+        });
+    } else {
+      setPastMatchIntel(null);
+      setPastMatchLoading(false);
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPastMatch]);
 
   const meta = getMatchMetadata(match, liveIntel);
 
   const [subTab, setSubTab] = useState<
-    'overview' | 'stats' | 'timeline' | 'lineups' | 'h2h' | 'odds' | 'predictions'
+    'overview' | 'standings' | 'stats' | 'timeline' | 'lineups' | 'h2h' | 'odds' | 'predictions'
   >('overview');
   const [isTracked, setIsTracked] = useState<boolean>(false);
 
-  const isLive = match.status === 'LIVE';
-  const posHome = liveIntel?.stats?.possessionHome ?? match.stats.possessionHome ?? 52;
-  const posAway = liveIntel?.stats?.possessionAway ?? match.stats.possessionAway ?? 48;
-  const shotsHome = liveIntel?.stats?.shotsHome ?? match.stats.shotsHome ?? 6;
-  const shotsAway = liveIntel?.stats?.shotsAway ?? match.stats.shotsAway ?? 5;
-  const sotHome = liveIntel?.stats?.shotsOnTargetHome ?? match.stats.shotsOnTargetHome ?? 3;
-  const sotAway = liveIntel?.stats?.shotsOnTargetAway ?? match.stats.shotsOnTargetAway ?? 2;
-  const cornersHome = liveIntel?.stats?.cornersHome ?? match.stats.cornersHome ?? 4;
-  const cornersAway = liveIntel?.stats?.cornersAway ?? match.stats.cornersAway ?? 3;
-  const foulsHome = liveIntel?.stats?.foulsHome ?? match.stats.foulsHome ?? 9;
-  const foulsAway = liveIntel?.stats?.foulsAway ?? match.stats.foulsAway ?? 10;
-  const yellowHome = liveIntel?.stats?.yellowCardsHome ?? match.stats.yellowCardsHome ?? 1;
-  const yellowAway = liveIntel?.stats?.yellowCardsAway ?? match.stats.yellowCardsAway ?? 1;
+  // Use fresh score/status from liveIntel if available
+  const displayHomeScore = liveIntel?.homeScore ?? match.homeScore;
+  const displayAwayScore = liveIntel?.awayScore ?? match.awayScore;
+  const displayMinute = liveIntel?.minute ?? match.minute;
+  const displayStatus = liveIntel?.status || match.status;
+  const displayHalftime =
+    liveIntel?.halftimeScore ||
+    match.halftimeScore ||
+    (displayStatus === 'LIVE' && (displayMinute || 0) <= 45
+      ? '1-ВО ПОЛУВРЕМЕ'
+      : displayStatus === 'LIVE'
+      ? '2-РО ПОЛУВРЕМЕ'
+      : 'PRE-MATCH');
+
+  const isLive = displayStatus === 'LIVE';
+
+  // Visibility flags ("Zero Lies" rule: hide stats/lineups on API matches when API-Football does not provide them)
+  const showStatsPanel = !isApiMatch || Boolean(liveIntel?.hasRealStats);
+  const showLineupsPanel = !isApiMatch || Boolean(liveIntel?.hasRealLineups);
+  const standingsRows: StandingRow[] = liveIntel?.standings || [];
+  const hasStandings = standingsRows.length > 0;
+
+  const posHome = liveIntel?.stats?.possessionHome ?? match.stats.possessionHome ?? 50;
+  const posAway = liveIntel?.stats?.possessionAway ?? match.stats.possessionAway ?? 50;
+  const shotsHome = liveIntel?.stats?.shotsHome ?? match.stats.shotsHome ?? 0;
+  const shotsAway = liveIntel?.stats?.shotsAway ?? match.stats.shotsAway ?? 0;
+  const sotHome = liveIntel?.stats?.shotsOnTargetHome ?? match.stats.shotsOnTargetHome ?? 0;
+  const sotAway = liveIntel?.stats?.shotsOnTargetAway ?? match.stats.shotsOnTargetAway ?? 0;
+  const cornersHome = liveIntel?.stats?.cornersHome ?? match.stats.cornersHome ?? 0;
+  const cornersAway = liveIntel?.stats?.cornersAway ?? match.stats.cornersAway ?? 0;
+  const foulsHome = liveIntel?.stats?.foulsHome ?? match.stats.foulsHome ?? 0;
+  const foulsAway = liveIntel?.stats?.foulsAway ?? match.stats.foulsAway ?? 0;
+  const yellowHome = liveIntel?.stats?.yellowCardsHome ?? match.stats.yellowCardsHome ?? 0;
+  const yellowAway = liveIntel?.stats?.yellowCardsAway ?? match.stats.yellowCardsAway ?? 0;
   const redHome = liveIntel?.stats?.redCardsHome ?? match.stats.redCardsHome ?? 0;
   const redAway = liveIntel?.stats?.redCardsAway ?? match.stats.redCardsAway ?? 0;
 
@@ -722,7 +976,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
     true
   );
 
-  // Timeline events: 1) API-Football liveIntel.events, 2) match.events, 3) Match-specific summary
+  // Timeline events: ONLY real events on API matches (never fake STAT / CARDS / EV+ filler rows)
   const timelineItems =
     liveIntel?.events && liveIntel.events.length > 0
       ? liveIntel.events
@@ -741,82 +995,109 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
           sub: ev.description,
           highlight: ev.type === 'goal',
         }))
-      : match.id === 'match-newcastle-manutd'
+      : isApiMatch
       ? [
           {
-            min: "67'",
-            icon: '🟨',
-            title: 'Bruno Fernandes',
-            sub: 'Yellow Card',
-          },
-          {
-            min: "63'",
-            icon: '🔄',
-            title: 'Substitution',
-            sub: 'R. Højlund ↔ M. Rashford',
-          },
-          {
-            min: "45'+2",
-            icon: '⏱️',
-            title: 'Half Time',
-            sub: `${match.homeTeam} ${match.homeScore} - ${match.awayScore} ${match.awayTeam}`,
-          },
-          {
-            min: "32'",
+            min: isLive ? `${displayMinute || 1}'` : match.startTime,
             icon: '⚽',
-            title: 'GOAL!',
-            sub: `A. Gordon   1 - 0`,
-            highlight: true,
+            title: `${match.homeTeam} ${displayHomeScore} - ${displayAwayScore} ${match.awayTeam}`,
+            sub:
+              displayHomeScore + displayAwayScore === 0
+                ? language === 'bg'
+                  ? 'Все още няма отбелязани голове или картони в срещата'
+                  : 'No goals or cards recorded yet in this match'
+                : displayHalftime,
+            highlight: displayHomeScore + displayAwayScore > 0,
           },
         ]
       : [
           {
-            min: isLive ? `${match.minute || 45}'` : match.startTime,
+            min: isLive ? `${displayMinute || 45}'` : match.startTime,
             icon: '⚽',
-            title: `${match.homeTeam} ${match.homeScore} - ${match.awayScore} ${match.awayTeam}`,
+            title: `${match.homeTeam} ${displayHomeScore} - ${displayAwayScore} ${match.awayTeam}`,
             sub: `xG: ${match.fairOdds.expectedGoalsHome.toFixed(2)} vs ${match.fairOdds.expectedGoalsAway.toFixed(2)}`,
-            highlight: match.homeScore + match.awayScore > 0,
-          },
-          {
-            min: 'STAT',
-            icon: '📊',
-            title: `${t.possession}: ${posHome}% - ${posAway}%`,
-            sub: `${t.shots}: ${shotsHome} (${sotHome}) - ${shotsAway} (${sotAway})`,
-          },
-          {
-            min: 'CARDS',
-            icon: '🟨',
-            title: `${t.yellowCards}: ${yellowHome} - ${yellowAway}`,
-            sub: `${t.corners}: ${cornersHome} - ${cornersAway} · ${t.fouls}: ${foulsHome} - ${foulsAway}`,
-          },
-          {
-            min: 'EV+',
-            icon: '📈',
-            title: bestMarketLabel,
-            sub: `Edge +${edgePercent}% · Kelly ${recKelly}%`,
+            highlight: displayHomeScore + displayAwayScore > 0,
           },
         ];
 
   const relatedMatches = allMatches.filter((m) => m.id !== match.id).slice(0, 4);
 
-  const renderFormPills = (pills: ('W' | 'D' | 'L')[]) => (
-    <div className="flex items-center gap-1">
-      {pills.map((r, i) => (
-        <span
-          key={i}
-          className={`w-4 h-4 rounded-full text-[9px] font-mono font-black flex items-center justify-center ${
-            r === 'W'
-              ? 'bg-[#10b981] text-[#04130b]'
-              : r === 'D'
-              ? 'bg-[#334155] text-neutral-200'
-              : 'bg-[#ef4444] text-white'
-          }`}
-        >
-          {r}
-        </span>
-      ))}
-    </div>
-  );
+  // Interactive W / D / L Form Dots: Hover Tooltip + Click to open Match Details Modal
+  const renderInteractiveFormPills = (
+    formMatches: FormMatchItem[],
+    fallbackPills?: ('W' | 'D' | 'L')[]
+  ) => {
+    if (formMatches && formMatches.length > 0) {
+      return (
+        <div className="flex items-center gap-1.5">
+          {formMatches.slice(0, 5).map((fm, i) => (
+            <div key={i} className="relative group inline-flex">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedPastMatch(fm);
+                }}
+                className={`w-5 h-5 rounded-full text-[9px] font-mono font-black flex items-center justify-center transition-transform hover:scale-125 cursor-pointer ring-1 ring-black/40 shadow-sm ${
+                  fm.res === 'W'
+                    ? 'bg-[#10b981] text-[#04130b] hover:ring-[#43f08a]'
+                    : fm.res === 'D'
+                    ? 'bg-[#475569] text-white hover:ring-neutral-300'
+                    : 'bg-[#ef4444] text-white hover:ring-red-300'
+                }`}
+                aria-label={`${fm.homeTeam} ${fm.score} ${fm.awayTeam}`}
+              >
+                {fm.res}
+              </button>
+
+              {/* Hover Popover Tooltip */}
+              <div className="pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-56 rounded-xl border border-[#22c55e]/50 bg-[#060c14]/95 backdrop-blur-md p-2.5 shadow-2xl text-left">
+                <div className="flex items-center justify-between text-[10px] text-[#8f9cae] border-b border-[#162232] pb-1 mb-1.5">
+                  <span className="truncate max-w-[125px] font-semibold text-neutral-300">
+                    {fm.league || match.league}
+                  </span>
+                  {fm.date && <span className="font-mono text-[#43f08a]">{fm.date}</span>}
+                </div>
+                <div className="flex items-center justify-between text-xs font-bold text-white gap-1">
+                  <span className="truncate flex-1">{fm.homeTeam}</span>
+                  <span className="px-1.5 py-0.5 rounded bg-[#111d2b] font-mono text-[#43f08a] shrink-0">
+                    {fm.homeScore} : {fm.awayScore}
+                  </span>
+                  <span className="truncate flex-1 text-right">{fm.awayTeam}</span>
+                </div>
+                <div className="mt-1.5 text-[9px] text-center font-semibold text-[#43f08a]">
+                  {language === 'bg'
+                    ? 'Кликни за прозорец с мача ↗'
+                    : 'Click to open match details ↗'}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (!fallbackPills || fallbackPills.length === 0) return null;
+
+    return (
+      <div className="flex items-center gap-1">
+        {fallbackPills.map((r, i) => (
+          <span
+            key={i}
+            className={`w-4 h-4 rounded-full text-[9px] font-mono font-black flex items-center justify-center ${
+              r === 'W'
+                ? 'bg-[#10b981] text-[#04130b]'
+                : r === 'D'
+                ? 'bg-[#334155] text-neutral-200'
+                : 'bg-[#ef4444] text-white'
+            }`}
+          >
+            {r}
+          </span>
+        ))}
+      </div>
+    );
+  };
 
   // Donut math for Last 5 Min Possession
   const last5PosHome = Math.min(78, Math.max(22, posHome + (shotsHome - shotsAway)));
@@ -825,7 +1106,151 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
   const cDonut = 2 * Math.PI * rDonut;
   const stroke62 = (last5PosHome / 100) * cDonut;
 
-  const h2hTotal = meta.h2h.homeWins + meta.h2h.draws + meta.h2h.awayWins;
+  const h2hTotal = Math.max(1, meta.h2h.homeWins + meta.h2h.draws + meta.h2h.awayWins);
+
+  // Reusable Standings Table Renderer
+  const renderStandingsTable = (compact = false) => {
+    if (!hasStandings) {
+      return (
+        <div className="text-center py-8 text-xs text-[#8f9cae]">
+          {language === 'bg'
+            ? 'Зареждане на официалното класиране за лигата...'
+            : 'Loading official league standings...'}
+        </div>
+      );
+    }
+
+    const rowsToRender = compact ? standingsRows.slice(0, 14) : standingsRows;
+
+    return (
+      <div className="overflow-x-auto no-scrollbar">
+        <table className="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr className="border-b border-[#162232] text-[10px] font-mono uppercase text-[#8f9cae]">
+              <th className="py-2 pl-2 pr-1 w-7">#</th>
+              <th className="py-2 px-2">{language === 'bg' ? 'Отбор' : 'Club'}</th>
+              <th className="py-2 px-1.5 text-center" title="Изиграни мачове">
+                {language === 'bg' ? 'М' : 'P'}
+              </th>
+              {!compact && (
+                <>
+                  <th className="py-2 px-1.5 text-center">{language === 'bg' ? 'П' : 'W'}</th>
+                  <th className="py-2 px-1.5 text-center">{language === 'bg' ? 'Р' : 'D'}</th>
+                  <th className="py-2 px-1.5 text-center">{language === 'bg' ? 'З' : 'L'}</th>
+                  <th className="py-2 px-2 text-center">{language === 'bg' ? 'ГР' : 'GF:GA'}</th>
+                </>
+              )}
+              <th className="py-2 px-1.5 text-center">+/-</th>
+              <th className="py-2 px-2 text-center font-bold text-white">
+                {language === 'bg' ? 'Т' : 'PTS'}
+              </th>
+              {!compact && (
+                <th className="py-2 pl-2 pr-2 text-right">
+                  {language === 'bg' ? 'Форма' : 'Form'}
+                </th>
+              )}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#131e2c]">
+            {rowsToRender.map((row) => {
+              const isMatchTeam =
+                row.club.toLowerCase() === match.homeTeam.toLowerCase() ||
+                row.club.toLowerCase() === match.awayTeam.toLowerCase();
+              return (
+                <tr
+                  key={`${row.rank}-${row.club}`}
+                  className={`transition-colors ${
+                    isMatchTeam
+                      ? 'bg-[#0f291e]/90 border-l-2 border-l-[#43f08a]'
+                      : 'hover:bg-[#0e1622]'
+                  }`}
+                >
+                  <td className="py-2 pl-2 pr-1 font-mono text-[11px] font-bold text-[#8f9cae]">
+                    {row.rank}
+                  </td>
+                  <td className="py-2 px-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <TeamBadge name={row.club} size="sm" />
+                      <span
+                        className={`truncate ${
+                          isMatchTeam ? 'font-extrabold text-[#43f08a]' : 'font-semibold text-white'
+                        }`}
+                      >
+                        {row.club}
+                      </span>
+                      {isMatchTeam && (
+                        <span className="px-1.5 py-0.5 rounded bg-[#22c55e]/20 border border-[#22c55e]/40 text-[9px] font-mono font-bold text-[#43f08a] shrink-0">
+                          {language === 'bg' ? 'В МАЧА' : 'IN MATCH'}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="py-2 px-1.5 text-center font-mono text-neutral-300">{row.p}</td>
+                  {!compact && (
+                    <>
+                      <td className="py-2 px-1.5 text-center font-mono text-neutral-300">
+                        {row.w}
+                      </td>
+                      <td className="py-2 px-1.5 text-center font-mono text-neutral-300">
+                        {row.d}
+                      </td>
+                      <td className="py-2 px-1.5 text-center font-mono text-neutral-300">
+                        {row.l}
+                      </td>
+                      <td className="py-2 px-2 text-center font-mono text-neutral-400">
+                        {row.gf}:{row.ga}
+                      </td>
+                    </>
+                  )}
+                  <td className="py-2 px-1.5 text-center font-mono text-neutral-300">{row.gd}</td>
+                  <td className="py-2 px-2 text-center font-mono font-black text-[#43f08a]">
+                    {row.pts}
+                  </td>
+                  {!compact && (
+                    <td className="py-2 pl-2 pr-2">
+                      <div className="flex items-center justify-end gap-1">
+                        {(row.form || []).map((f, idx) => (
+                          <span
+                            key={idx}
+                            className={`w-4 h-4 rounded-full text-[9px] font-mono font-black flex items-center justify-center ${
+                              f === 'W'
+                                ? 'bg-[#10b981] text-[#04130b]'
+                                : f === 'D'
+                                ? 'bg-[#475569] text-white'
+                                : 'bg-[#ef4444] text-white'
+                            }`}
+                          >
+                            {f}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  // Sub-navigation tabs filtered dynamically so we NEVER show empty/fake tabs
+  const navTabs = [
+    { key: 'overview', label: t.tabOverview, icon: '📊', visible: true },
+    {
+      key: 'standings',
+      label: language === 'bg' ? 'Класиране' : 'Standings',
+      icon: '🏆',
+      visible: hasStandings || isApiMatch,
+    },
+    { key: 'stats', label: t.tabStats, icon: '📈', visible: showStatsPanel },
+    { key: 'timeline', label: t.tabTimeline, icon: '⏱️', visible: true },
+    { key: 'lineups', label: t.tabLineups, icon: '👕', visible: showLineupsPanel },
+    { key: 'h2h', label: t.tabH2H, icon: '⚔️', visible: true },
+    { key: 'odds', label: t.tabOdds, icon: '🎯', visible: true },
+    { key: 'predictions', label: t.tabPredictions, icon: '🧠', visible: true },
+  ].filter((item) => item.visible);
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -843,8 +1268,8 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
           </button>
           <span className="text-neutral-600">›</span>
           <span className="inline-flex items-center gap-1 text-neutral-300">
-            <span>🏴󠁧󠁢󠁥󠁮󠁧󠁿</span>
-            <span>{match.leagueCountry}</span>
+            <span>🌍</span>
+            <span>{liveIntel?.leagueCountry || match.leagueCountry}</span>
           </span>
           <span className="text-neutral-600">›</span>
           <button
@@ -852,7 +1277,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
             onClick={() => setActiveTab('competitions')}
             className="hover:text-white transition-colors cursor-pointer"
           >
-            {match.league}
+            {liveIntel?.league || match.league}
           </button>
           <span className="text-neutral-600">›</span>
           <span className="text-white font-semibold">
@@ -874,10 +1299,10 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
       {/* =================================================================== */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-stretch">
         {/* LEFT 8 COLS: Match Scoreboard Banner */}
-        <div className="xl:col-span-8 rounded-2xl border border-[#1a2938] bg-gradient-to-r from-[#07111a] via-[#0b1b20] to-[#08111a] p-5 sm:p-6 relative overflow-hidden flex flex-col justify-between shadow-2xl">
+        <div className="xl:col-span-8 rounded-2xl border border-[#1a2938] bg-gradient-to-r from-[#07111a] via-[#0b1b20] to-[#08111a] p-5 sm:p-6 relative overflow-visible flex flex-col justify-between shadow-2xl">
           {/* Subtle dot grid & emerald stadium glow */}
           <div
-            className="pointer-events-none absolute inset-0 opacity-20"
+            className="pointer-events-none absolute inset-0 rounded-2xl overflow-hidden opacity-20"
             style={{
               backgroundImage:
                 'radial-gradient(circle at 50% 35%, rgba(34, 197, 94, 0.28) 0%, transparent 65%), radial-gradient(rgba(255,255,255,0.1) 1px, transparent 1px)',
@@ -890,11 +1315,15 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
           <div className="relative z-10 text-center space-y-1">
             <div className="inline-flex items-center gap-2 text-xs text-neutral-200 font-semibold">
               <span>⚽</span>
-              <span>{match.league}</span>
-              <span className="text-neutral-500">·</span>
-              <span className="text-[#94a3b8] font-normal">
-                {liveIntel?.leagueRound || match.leagueRound || t.matchweek}
-              </span>
+              <span>{liveIntel?.league || match.league}</span>
+              {(liveIntel?.leagueRound || match.leagueRound) && (
+                <>
+                  <span className="text-neutral-500">·</span>
+                  <span className="text-[#94a3b8] font-normal">
+                    {liveIntel?.leagueRound || match.leagueRound}
+                  </span>
+                </>
+              )}
             </div>
             <div className="text-[11px] text-[#8f9cae] flex items-center justify-center gap-3">
               <span>📍 {meta.stadium}</span>
@@ -908,7 +1337,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
           </div>
 
           {/* Center 3-Column Scoreboard */}
-          <div className="relative z-10 grid grid-cols-1 sm:grid-cols-11 gap-4 items-center my-5">
+          <div className="relative z-20 grid grid-cols-1 sm:grid-cols-11 gap-4 items-center my-5">
             {/* Home Team (4 cols) */}
             <div className="sm:col-span-4 flex items-center justify-center sm:justify-start gap-4">
               <TeamBadge name={match.homeTeam} size="lg" className="w-16 h-16 text-base rounded-2xl" />
@@ -916,11 +1345,13 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                 <h1 className="text-lg sm:text-2xl font-extrabold text-white tracking-tight leading-tight">
                   {match.homeTeam}
                 </h1>
-                {renderFormPills(['W', 'W', 'D', 'W', 'L'])}
-                <div className="text-xs text-neutral-300 pt-1 flex items-center gap-1.5 font-mono">
-                  <span>{meta.homeScorerText}</span>
-                  {match.homeScore > 0 && <span className="text-[#43f08a]">⚽</span>}
-                </div>
+                {renderInteractiveFormPills(meta.homeFormMatches)}
+                {meta.homeScorerText && (
+                  <div className="text-xs text-neutral-300 pt-1 flex items-center gap-1.5 font-mono">
+                    <span>{meta.homeScorerText}</span>
+                    {displayHomeScore > 0 && <span className="text-[#43f08a]">⚽</span>}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -930,7 +1361,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                 {isLive ? (
                   <div className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-[#43f08a] mb-1">
                     <span className="w-2 h-2 rounded-full bg-[#43f08a] animate-ping" />
-                    <span>LIVE {match.minute}&apos;</span>
+                    <span>LIVE {displayMinute}&apos;</span>
                   </div>
                 ) : (
                   <div className="text-xs font-mono font-bold text-amber-400 mb-1">
@@ -938,16 +1369,9 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                   </div>
                 )}
                 <div className="text-3xl sm:text-4xl font-black text-white font-mono tracking-wider tabular-nums">
-                  {match.homeScore} - {match.awayScore}
+                  {displayHomeScore} - {displayAwayScore}
                 </div>
-                <div className="text-[11px] font-mono text-[#8f9cae] mt-1">
-                  {match.halftimeScore ||
-                    (isLive && (match.minute || 0) <= 45
-                      ? '1-ВО ПОЛУВРЕМЕ'
-                      : isLive
-                      ? '2-РО ПОЛУВРЕМЕ'
-                      : 'PRE-MATCH')}
-                </div>
+                <div className="text-[11px] font-mono text-[#8f9cae] mt-1">{displayHalftime}</div>
               </div>
             </div>
 
@@ -957,7 +1381,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                 <h2 className="text-lg sm:text-2xl font-extrabold text-white tracking-tight leading-tight">
                   {match.awayTeam}
                 </h2>
-                {renderFormPills(['W', 'D', 'L', 'W', 'D'])}
+                {renderInteractiveFormPills(meta.awayFormMatches)}
                 {meta.awayScorerText && (
                   <div className="text-xs text-neutral-300 pt-1 flex items-center gap-1.5 font-mono">
                     <span className="text-[#43f08a]">⚽</span>
@@ -969,20 +1393,32 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
             </div>
           </div>
 
-          {/* Bottom Referee & Weather Info */}
-          <div className="relative z-10 text-center text-[11px] text-[#8f9cae] border-t border-[#172434]/80 pt-3">
-            <span>
-              {t.referee}: <strong className="text-neutral-300">{meta.referee}</strong>
-            </span>
-            <span className="mx-2.5">·</span>
-            <span>
-              {t.weather}: <strong className="text-neutral-300">{meta.weather}</strong>
-            </span>
-            <span className="mx-2.5">·</span>
-            <span>
-              {t.pitch}: <strong className="text-neutral-300">{meta.pitch}</strong>
-            </span>
-          </div>
+          {/* Bottom Referee & Weather Info — hidden on API matches if no referee is announced */}
+          {(meta.referee || meta.weather || meta.pitch) && (
+            <div className="relative z-10 text-center text-[11px] text-[#8f9cae] border-t border-[#172434]/80 pt-3 flex items-center justify-center gap-2.5 flex-wrap">
+              {meta.referee && (
+                <span>
+                  {t.referee}: <strong className="text-neutral-300">{meta.referee}</strong>
+                </span>
+              )}
+              {meta.weather && (
+                <>
+                  {meta.referee && <span>·</span>}
+                  <span>
+                    {t.weather}: <strong className="text-neutral-300">{meta.weather}</strong>
+                  </span>
+                </>
+              )}
+              {meta.pitch && (
+                <>
+                  {(meta.referee || meta.weather) && <span>·</span>}
+                  <span>
+                    {t.pitch}: <strong className="text-neutral-300">{meta.pitch}</strong>
+                  </span>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* RIGHT 4 COLS: Top Markets Card */}
@@ -1130,18 +1566,10 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
       </div>
 
       {/* =================================================================== */}
-      {/* ROW 2: SUB-NAVIGATION TABS BAR */}
+      {/* ROW 2: SUB-NAVIGATION TABS BAR (Only shows tabs with real data) */}
       {/* =================================================================== */}
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar rounded-2xl border border-[#162230] bg-[#090f17] px-3 py-1.5 text-xs font-semibold">
-        {[
-          { key: 'overview', label: t.tabOverview, icon: '📊' },
-          { key: 'stats', label: t.tabStats, icon: '📈' },
-          { key: 'timeline', label: t.tabTimeline, icon: '⏱️' },
-          { key: 'lineups', label: t.tabLineups, icon: '👕' },
-          { key: 'h2h', label: t.tabH2H, icon: '⚔️' },
-          { key: 'odds', label: t.tabOdds, icon: '🎯' },
-          { key: 'predictions', label: t.tabPredictions, icon: '🧠' },
-        ].map((item) => {
+        {navTabs.map((item) => {
           const active = subTab === item.key;
           return (
             <button
@@ -1160,6 +1588,33 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
           );
         })}
       </div>
+
+      {/* =================================================================== */}
+      {/* STANDINGS SUB-TAB SPECIAL VIEW (Full League Standings Table) */}
+      {/* =================================================================== */}
+      {subTab === 'standings' && (
+        <div className="rounded-2xl border border-[#1a2938] bg-[#0b111a] p-5 sm:p-6 space-y-4 shadow-xl">
+          <div className="flex items-center justify-between border-b border-[#162232] pb-3 flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <span className="text-lg">🏆</span>
+              <div>
+                <h3 className="text-base font-extrabold text-white">
+                  {language === 'bg' ? 'Класиране в лигата' : 'League Standings'} —{' '}
+                  {liveIntel?.league || match.league}
+                </h3>
+                <p className="text-[11px] text-[#8f9cae]">
+                  {liveIntel?.leagueCountry || match.leagueCountry} ·{' '}
+                  {liveIntel?.leagueRound || match.leagueRound || ''}
+                </p>
+              </div>
+            </div>
+            <span className="px-2.5 py-1 rounded-lg bg-[#0f291e] border border-[#22c55e]/40 text-xs font-mono font-bold text-[#43f08a]">
+              🟢 API-Football Official
+            </span>
+          </div>
+          {renderStandingsTable(false)}
+        </div>
+      )}
 
       {/* =================================================================== */}
       {/* PREDICTIONS SUB-TAB SPECIAL VIEW (Poisson Scoreline Matrix) */}
@@ -1193,180 +1648,214 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
       )}
 
       {/* =================================================================== */}
-      {/* ROW 3: MATCH OVERVIEW (4) | TIMELINE (4) | BETTING INSIGHTS (4) */}
+      {/* ROW 3: OVERVIEW / STANDINGS (4) | TIMELINE (4) | BETTING INSIGHTS (4) */}
       {/* =================================================================== */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-        {/* PANEL 1: Match Overview (4 cols) */}
-        <div className="lg:col-span-4 rounded-2xl border border-[#182434] bg-[#0b111a] p-5 flex flex-col justify-between shadow-xl space-y-4">
-          <div className="flex items-center justify-between border-b border-[#162232] pb-3 gap-2 flex-wrap">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-extrabold text-white">{t.matchOverview}</h3>
-              <span className="px-2 py-0.5 rounded bg-[#0f291e] border border-[#22c55e]/50 text-[10px] font-mono font-bold text-[#43f08a]">
-                {isLive ? t.liveBadge : t.scheduledBadge}
+        {/* PANEL 1: Optical Stats Overview OR League Standings if API has no stats for this division */}
+        {showStatsPanel ? (
+          <div className="lg:col-span-4 rounded-2xl border border-[#182434] bg-[#0b111a] p-5 flex flex-col justify-between shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-[#162232] pb-3 gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-extrabold text-white">{t.matchOverview}</h3>
+                <span className="px-2 py-0.5 rounded bg-[#0f291e] border border-[#22c55e]/50 text-[10px] font-mono font-bold text-[#43f08a]">
+                  {isLive ? t.liveBadge : t.scheduledBadge}
+                </span>
+              </div>
+              <span className="text-[10px] font-mono text-[#43f08a]">
+                🟢 API-Sports Статистика
               </span>
             </div>
-            <span className="text-[10px] font-mono text-[#8f9cae]">
-              {liveIntel?.hasRealStats
-                ? '🟢 Оптични данни API-Sports'
-                : match.id.startsWith('api-')
-                ? '⚡ Оценка по време (2-ра дивизия без оптичен тракер)'
-                : '🟢 Quant Engine'}
-            </span>
+
+            <div className="grid grid-cols-12 gap-3 items-center flex-1">
+              {/* Left Score & Crests (2 cols) */}
+              <div className="col-span-2 flex flex-col justify-between h-full py-2 items-center border-r border-[#162232] pr-2">
+                <div className="flex flex-col items-center gap-1">
+                  <TeamBadge name={match.homeTeam} size="sm" />
+                  <span className="text-2xl font-black text-white font-mono">
+                    {displayHomeScore}
+                  </span>
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                  <TeamBadge name={match.awayTeam} size="sm" />
+                  <span className="text-2xl font-black text-white font-mono">
+                    {displayAwayScore}
+                  </span>
+                </div>
+              </div>
+
+              {/* Center Stat Bars (6 cols) */}
+              <div className="col-span-6 space-y-2 text-[10px] font-mono">
+                {[
+                  {
+                    label: 'xG',
+                    homeVal: (liveIntel?.stats?.xgHome || match.fairOdds.expectedGoalsHome).toFixed(
+                      2
+                    ),
+                    awayVal: (liveIntel?.stats?.xgAway || match.fairOdds.expectedGoalsAway).toFixed(
+                      2
+                    ),
+                    homePct:
+                      ((liveIntel?.stats?.xgHome || match.fairOdds.expectedGoalsHome) /
+                        Math.max(
+                          (liveIntel?.stats?.xgHome || match.fairOdds.expectedGoalsHome) +
+                            (liveIntel?.stats?.xgAway || match.fairOdds.expectedGoalsAway),
+                          0.1
+                        )) *
+                      100,
+                  },
+                  {
+                    label: t.possession,
+                    homeVal: `${posHome}%`,
+                    awayVal: `${posAway}%`,
+                    homePct: posHome,
+                  },
+                  {
+                    label: t.shots,
+                    homeVal: shotsHome,
+                    awayVal: shotsAway,
+                    homePct: (shotsHome / Math.max(shotsHome + shotsAway, 1)) * 100,
+                  },
+                  {
+                    label: t.shotsOnTarget,
+                    homeVal: sotHome,
+                    awayVal: sotAway,
+                    homePct: (sotHome / Math.max(sotHome + sotAway, 1)) * 100,
+                  },
+                  {
+                    label: t.corners,
+                    homeVal: cornersHome,
+                    awayVal: cornersAway,
+                    homePct: (cornersHome / Math.max(cornersHome + cornersAway, 1)) * 100,
+                  },
+                  {
+                    label: t.fouls,
+                    homeVal: foulsHome,
+                    awayVal: foulsAway,
+                    homePct: (foulsHome / Math.max(foulsHome + foulsAway, 1)) * 100,
+                  },
+                  {
+                    label: `🟨 ${t.yellowCards}`,
+                    homeVal: yellowHome,
+                    awayVal: yellowAway,
+                    homePct:
+                      yellowHome + yellowAway > 0
+                        ? (yellowHome / (yellowHome + yellowAway)) * 100
+                        : 50,
+                  },
+                  {
+                    label: `🟥 ${t.redCards}`,
+                    homeVal: redHome,
+                    awayVal: redAway,
+                    homePct:
+                      redHome + redAway > 0 ? (redHome / (redHome + redAway)) * 100 : 50,
+                  },
+                ].map((st, idx) => (
+                  <div key={idx}>
+                    <div className="flex justify-between text-neutral-300 mb-0.5">
+                      <span className="font-bold text-white">{st.homeVal}</span>
+                      <span className="text-[#8f9cae] truncate px-1">{st.label}</span>
+                      <span className="font-bold text-white">{st.awayVal}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-[#162230] overflow-hidden flex">
+                      <div
+                        className="bg-[#22c55e] h-full"
+                        style={{ width: `${st.homePct}%` }}
+                      />
+                      <div
+                        className="bg-[#334155] h-full"
+                        style={{ width: `${100 - st.homePct}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Right Momentum & Last 5 Min Possession (4 cols) */}
+              <div className="col-span-4 flex flex-col justify-between h-full pl-1 space-y-3">
+                <div>
+                  <span className="text-[10px] font-semibold text-neutral-300 block mb-1">
+                    {t.momentum}
+                  </span>
+                  <div className="rounded-xl bg-[#080e16] border border-[#162232] p-2">
+                    <svg className="w-full h-20 overflow-visible" viewBox="0 0 120 60">
+                      <line x1="0" y1="30" x2="120" y2="30" stroke="#1e293b" strokeWidth="1" />
+                      <path
+                        d="M 5 30 L 18 18 L 32 24 L 48 10 L 62 22 L 78 26 L 94 38 L 110 34 L 110 30 L 5 30 Z"
+                        fill="rgba(34, 197, 94, 0.35)"
+                      />
+                      <path
+                        d="M 5 30 L 18 18 L 32 24 L 48 10 L 62 22 L 78 26 L 94 38 L 110 34"
+                        fill="none"
+                        stroke="#43f08a"
+                        strokeWidth="1.8"
+                      />
+                      <circle cx="48" cy="10" r="3" fill="#ffffff" />
+                    </svg>
+                    <div className="flex justify-between text-[8px] font-mono text-[#64748b] mt-1">
+                      <span>0&apos;</span>
+                      <span>HT</span>
+                      <span>67&apos;</span>
+                      <span>FT</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-center">
+                  <span className="text-[10px] font-semibold text-neutral-300 block mb-1.5">
+                    {t.last5MinPos}
+                  </span>
+                  <div className="flex items-center justify-center gap-2 font-mono text-xs">
+                    <span className="font-bold text-white">{last5PosHome}%</span>
+                    <svg className="w-11 h-11 -rotate-90" viewBox="0 0 44 44">
+                      <circle
+                        cx="22"
+                        cy="22"
+                        r={rDonut}
+                        fill="none"
+                        stroke="#334155"
+                        strokeWidth="5"
+                      />
+                      <circle
+                        cx="22"
+                        cy="22"
+                        r={rDonut}
+                        fill="none"
+                        stroke="#22c55e"
+                        strokeWidth="5"
+                        strokeDasharray={`${stroke62} ${cDonut}`}
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    <span className="font-bold text-neutral-300">{last5PosAway}%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-
-          <div className="grid grid-cols-12 gap-3 items-center flex-1">
-            {/* Left Score & Crests (2 cols) */}
-            <div className="col-span-2 flex flex-col justify-between h-full py-2 items-center border-r border-[#162232] pr-2">
-              <div className="flex flex-col items-center gap-1">
-                <TeamBadge name={match.homeTeam} size="sm" />
-                <span className="text-2xl font-black text-white font-mono">{match.homeScore}</span>
+        ) : (
+          /* When API-Football does NOT provide optical stats for this league, show the real League Standings instead! */
+          <div className="lg:col-span-4 rounded-2xl border border-[#182434] bg-[#0b111a] p-5 flex flex-col justify-between shadow-xl space-y-3">
+            <div className="flex items-center justify-between border-b border-[#162232] pb-2.5">
+              <div className="flex items-center gap-2">
+                <span>🏆</span>
+                <h3 className="text-sm font-extrabold text-white">
+                  {language === 'bg' ? 'Класиране' : 'Standings'} —{' '}
+                  {liveIntel?.league || match.league}
+                </h3>
               </div>
-              <div className="flex flex-col items-center gap-1">
-                <TeamBadge name={match.awayTeam} size="sm" />
-                <span className="text-2xl font-black text-white font-mono">{match.awayScore}</span>
-              </div>
+              <button
+                type="button"
+                onClick={() => setSubTab('standings')}
+                className="text-xs text-[#8f9cae] hover:text-[#43f08a] transition-colors cursor-pointer"
+              >
+                {language === 'bg' ? 'Пълно класиране ›' : 'Full table ›'}
+              </button>
             </div>
-
-            {/* Center 8 Stat Bars (6 cols) */}
-            <div className="col-span-6 space-y-2 text-[10px] font-mono">
-              {[
-                {
-                  label: 'xG',
-                  homeVal: (liveIntel?.stats?.xgHome || match.fairOdds.expectedGoalsHome).toFixed(2),
-                  awayVal: (liveIntel?.stats?.xgAway || match.fairOdds.expectedGoalsAway).toFixed(2),
-                  homePct:
-                    ((liveIntel?.stats?.xgHome || match.fairOdds.expectedGoalsHome) /
-                      Math.max(
-                        (liveIntel?.stats?.xgHome || match.fairOdds.expectedGoalsHome) +
-                          (liveIntel?.stats?.xgAway || match.fairOdds.expectedGoalsAway),
-                        0.1
-                      )) *
-                    100,
-                },
-                {
-                  label: t.possession,
-                  homeVal: `${posHome}%`,
-                  awayVal: `${posAway}%`,
-                  homePct: posHome,
-                },
-                {
-                  label: t.shots,
-                  homeVal: shotsHome,
-                  awayVal: shotsAway,
-                  homePct: (shotsHome / Math.max(shotsHome + shotsAway, 1)) * 100,
-                },
-                {
-                  label: t.shotsOnTarget,
-                  homeVal: sotHome,
-                  awayVal: sotAway,
-                  homePct: (sotHome / Math.max(sotHome + sotAway, 1)) * 100,
-                },
-                {
-                  label: t.corners,
-                  homeVal: cornersHome,
-                  awayVal: cornersAway,
-                  homePct: (cornersHome / Math.max(cornersHome + cornersAway, 1)) * 100,
-                },
-                {
-                  label: t.fouls,
-                  homeVal: foulsHome,
-                  awayVal: foulsAway,
-                  homePct: (foulsHome / Math.max(foulsHome + foulsAway, 1)) * 100,
-                },
-                {
-                  label: `🟨 ${t.yellowCards}`,
-                  homeVal: yellowHome,
-                  awayVal: yellowAway,
-                  homePct:
-                    yellowHome + yellowAway > 0
-                      ? (yellowHome / (yellowHome + yellowAway)) * 100
-                      : 50,
-                },
-                {
-                  label: `🟥 ${t.redCards}`,
-                  homeVal: redHome,
-                  awayVal: redAway,
-                  homePct:
-                    redHome + redAway > 0 ? (redHome / (redHome + redAway)) * 100 : 50,
-                },
-              ].map((st, idx) => (
-                <div key={idx}>
-                  <div className="flex justify-between text-neutral-300 mb-0.5">
-                    <span className="font-bold text-white">{st.homeVal}</span>
-                    <span className="text-[#8f9cae] truncate px-1">{st.label}</span>
-                    <span className="font-bold text-white">{st.awayVal}</span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-[#162230] overflow-hidden flex">
-                    <div
-                      className="bg-[#22c55e] h-full"
-                      style={{ width: `${st.homePct}%` }}
-                    />
-                    <div
-                      className="bg-[#334155] h-full"
-                      style={{ width: `${100 - st.homePct}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Right Momentum & Last 5 Min Possession (4 cols) */}
-            <div className="col-span-4 flex flex-col justify-between h-full pl-1 space-y-3">
-              {/* Momentum Mini Chart */}
-              <div>
-                <span className="text-[10px] font-semibold text-neutral-300 block mb-1">
-                  {t.momentum}
-                </span>
-                <div className="rounded-xl bg-[#080e16] border border-[#162232] p-2">
-                  <svg className="w-full h-20 overflow-visible" viewBox="0 0 120 60">
-                    <line x1="0" y1="30" x2="120" y2="30" stroke="#1e293b" strokeWidth="1" />
-                    <path
-                      d="M 5 30 L 18 18 L 32 24 L 48 10 L 62 22 L 78 26 L 94 38 L 110 34 L 110 30 L 5 30 Z"
-                      fill="rgba(34, 197, 94, 0.35)"
-                    />
-                    <path
-                      d="M 5 30 L 18 18 L 32 24 L 48 10 L 62 22 L 78 26 L 94 38 L 110 34"
-                      fill="none"
-                      stroke="#43f08a"
-                      strokeWidth="1.8"
-                    />
-                    <circle cx="48" cy="10" r="3" fill="#ffffff" />
-                  </svg>
-                  <div className="flex justify-between text-[8px] font-mono text-[#64748b] mt-1">
-                    <span>0&apos;</span>
-                    <span>HT</span>
-                    <span>67&apos;</span>
-                    <span>FT</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Last 5 Min Possession Donut */}
-              <div className="text-center">
-                <span className="text-[10px] font-semibold text-neutral-300 block mb-1.5">
-                  {t.last5MinPos}
-                </span>
-                <div className="flex items-center justify-center gap-2 font-mono text-xs">
-                  <span className="font-bold text-white">{last5PosHome}%</span>
-                  <svg className="w-11 h-11 -rotate-90" viewBox="0 0 44 44">
-                    <circle cx="22" cy="22" r={rDonut} fill="none" stroke="#334155" strokeWidth="5" />
-                    <circle
-                      cx="22"
-                      cy="22"
-                      r={rDonut}
-                      fill="none"
-                      stroke="#22c55e"
-                      strokeWidth="5"
-                      strokeDasharray={`${stroke62} ${cDonut}`}
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <span className="font-bold text-neutral-300">{last5PosAway}%</span>
-                </div>
-              </div>
+            <div className="flex-1 overflow-y-auto max-h-[310px] pr-1">
+              {renderStandingsTable(true)}
             </div>
           </div>
-        </div>
+        )}
 
         {/* PANEL 2: Timeline (4 cols) */}
         <div className="lg:col-span-4 rounded-2xl border border-[#182434] bg-[#0b111a] p-5 flex flex-col justify-between shadow-xl space-y-4">
@@ -1514,121 +2003,136 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
       </div>
 
       {/* =================================================================== */}
-      {/* ROW 4: LINEUPS (4) | FORM & H2H (4) | TOP MARKETS & RELATED (4) */}
+      {/* ROW 4: LINEUPS (ONLY IF AVAILABLE) | FORM & H2H | TOP MARKETS & RELATED */}
       {/* =================================================================== */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-        {/* PANEL 4: Lineups 2D Tactical Pitch (4 cols) */}
-        <div className="lg:col-span-4 rounded-2xl border border-[#182434] bg-[#0b111a] p-5 flex flex-col justify-between shadow-xl space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-extrabold text-white">{t.lineups}</h3>
-          </div>
+        {/* PANEL 4: Lineups 2D Tactical Pitch — HIDDEN when API-Football does not provide lineups */}
+        {showLineupsPanel && (
+          <div className="lg:col-span-4 rounded-2xl border border-[#182434] bg-[#0b111a] p-5 flex flex-col justify-between shadow-xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-extrabold text-white">{t.lineups}</h3>
+            </div>
 
-          {/* Teams & Formations Header */}
-          <div className="flex items-center justify-between text-xs px-1">
-            <div className="flex items-center gap-2">
-              <TeamBadge name={match.homeTeam} size="sm" />
-              <div>
-                <div className="font-bold text-white leading-tight">{match.homeTeam}</div>
-                <div className="text-[10px] font-mono text-[#8f9cae]">{meta.homeFormation}</div>
+            {/* Teams & Formations Header */}
+            <div className="flex items-center justify-between text-xs px-1">
+              <div className="flex items-center gap-2">
+                <TeamBadge name={match.homeTeam} size="sm" />
+                <div>
+                  <div className="font-bold text-white leading-tight">{match.homeTeam}</div>
+                  <div className="text-[10px] font-mono text-[#8f9cae]">{meta.homeFormation}</div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 text-right">
+                <div>
+                  <div className="font-bold text-white leading-tight">{match.awayTeam}</div>
+                  <div className="text-[10px] font-mono text-[#8f9cae]">{meta.awayFormation}</div>
+                </div>
+                <TeamBadge name={match.awayTeam} size="sm" />
               </div>
             </div>
 
-            <div className="flex items-center gap-2 text-right">
-              <div>
-                <div className="font-bold text-white leading-tight">{match.awayTeam}</div>
-                <div className="text-[10px] font-mono text-[#8f9cae]">{meta.awayFormation}</div>
-              </div>
-              <TeamBadge name={match.awayTeam} size="sm" />
+            {/* 2D Tactical Football Pitch */}
+            <div className="relative w-full h-64 rounded-xl border border-[#1f3347] bg-gradient-to-r from-[#0a1921] via-[#0c2228] to-[#0a1921] overflow-hidden select-none">
+              <svg className="absolute inset-0 w-full h-full" viewBox="0 0 400 240" preserveAspectRatio="none">
+                <rect x="10" y="10" width="380" height="220" fill="none" stroke="#1e3a4c" strokeWidth="1.5" />
+                <line x1="200" y1="10" x2="200" y2="230" stroke="#1e3a4c" strokeWidth="1.5" />
+                <circle cx="200" cy="120" r="32" fill="none" stroke="#1e3a4c" strokeWidth="1.5" />
+                <circle cx="200" cy="120" r="2" fill="#1e3a4c" />
+                <rect x="10" y="55" width="55" height="130" fill="none" stroke="#1e3a4c" strokeWidth="1.5" />
+                <rect x="10" y="85" width="22" height="70" fill="none" stroke="#1e3a4c" strokeWidth="1.5" />
+                <rect x="335" y="55" width="55" height="130" fill="none" stroke="#1e3a4c" strokeWidth="1.5" />
+                <rect x="368" y="85" width="22" height="70" fill="none" stroke="#1e3a4c" strokeWidth="1.5" />
+              </svg>
+
+              {/* Home Team Nodes */}
+              {meta.homePlayers.map((p) => (
+                <div
+                  key={`home-${p.num}`}
+                  style={{ left: `${p.x}%`, top: `${p.y}%` }}
+                  className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
+                >
+                  <div className="w-6 h-6 rounded-full bg-[#0f172a] border-2 border-[#43f08a] text-white font-mono font-bold text-[9px] flex items-center justify-center shadow-md">
+                    {p.num}
+                  </div>
+                  <span className="text-[8px] font-medium text-neutral-200 bg-black/50 px-1 rounded mt-0.5 whitespace-nowrap">
+                    {p.name}
+                  </span>
+                </div>
+              ))}
+
+              {/* Away Team Nodes */}
+              {meta.awayPlayers.map((p) => (
+                <div
+                  key={`away-${p.num}`}
+                  style={{ left: `${p.x}%`, top: `${p.y}%` }}
+                  className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
+                >
+                  <div className="w-6 h-6 rounded-full bg-[#450a0a] border-2 border-[#ef4444] text-white font-mono font-bold text-[9px] flex items-center justify-center shadow-md">
+                    {p.num}
+                  </div>
+                  <span className="text-[8px] font-medium text-neutral-200 bg-black/50 px-1 rounded mt-0.5 whitespace-nowrap">
+                    {p.name}
+                  </span>
+                </div>
+              ))}
             </div>
+
+            <button
+              type="button"
+              onClick={() => setSubTab('lineups')}
+              className="w-full py-2 rounded-xl border border-[#1c2a3b] bg-[#0e1622] hover:border-[#43f08a]/50 text-xs text-neutral-300 hover:text-white transition-colors cursor-pointer"
+            >
+              {t.viewFullLineups}
+            </button>
           </div>
+        )}
 
-          {/* 2D Tactical Football Pitch */}
-          <div className="relative w-full h-64 rounded-xl border border-[#1f3347] bg-gradient-to-r from-[#0a1921] via-[#0c2228] to-[#0a1921] overflow-hidden select-none">
-            {/* Pitch markings SVG */}
-            <svg className="absolute inset-0 w-full h-full" viewBox="0 0 400 240" preserveAspectRatio="none">
-              {/* Outer border */}
-              <rect x="10" y="10" width="380" height="220" fill="none" stroke="#1e3a4c" strokeWidth="1.5" />
-              {/* Halfway line */}
-              <line x1="200" y1="10" x2="200" y2="230" stroke="#1e3a4c" strokeWidth="1.5" />
-              {/* Center circle */}
-              <circle cx="200" cy="120" r="32" fill="none" stroke="#1e3a4c" strokeWidth="1.5" />
-              <circle cx="200" cy="120" r="2" fill="#1e3a4c" />
-              {/* Left penalty box */}
-              <rect x="10" y="55" width="55" height="130" fill="none" stroke="#1e3a4c" strokeWidth="1.5" />
-              <rect x="10" y="85" width="22" height="70" fill="none" stroke="#1e3a4c" strokeWidth="1.5" />
-              {/* Right penalty box */}
-              <rect x="335" y="55" width="55" height="130" fill="none" stroke="#1e3a4c" strokeWidth="1.5" />
-              <rect x="368" y="85" width="22" height="70" fill="none" stroke="#1e3a4c" strokeWidth="1.5" />
-            </svg>
-
-            {/* Home Team Nodes */}
-            {meta.homePlayers.map((p) => (
-              <div
-                key={`home-${p.num}`}
-                style={{ left: `${p.x}%`, top: `${p.y}%` }}
-                className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
-              >
-                <div className="w-6 h-6 rounded-full bg-[#0f172a] border-2 border-[#43f08a] text-white font-mono font-bold text-[9px] flex items-center justify-center shadow-md">
-                  {p.num}
-                </div>
-                <span className="text-[8px] font-medium text-neutral-200 bg-black/50 px-1 rounded mt-0.5 whitespace-nowrap">
-                  {p.name}
-                </span>
-              </div>
-            ))}
-
-            {/* Away Team Nodes */}
-            {meta.awayPlayers.map((p) => (
-              <div
-                key={`away-${p.num}`}
-                style={{ left: `${p.x}%`, top: `${p.y}%` }}
-                className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
-              >
-                <div className="w-6 h-6 rounded-full bg-[#450a0a] border-2 border-[#ef4444] text-white font-mono font-bold text-[9px] flex items-center justify-center shadow-md">
-                  {p.num}
-                </div>
-                <span className="text-[8px] font-medium text-neutral-200 bg-black/50 px-1 rounded mt-0.5 whitespace-nowrap">
-                  {p.name}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setSubTab('lineups')}
-            className="w-full py-2 rounded-xl border border-[#1c2a3b] bg-[#0e1622] hover:border-[#43f08a]/50 text-xs text-neutral-300 hover:text-white transition-colors cursor-pointer"
-          >
-            {t.viewFullLineups}
-          </button>
-        </div>
-
-        {/* PANEL 5: Form & Head to Head (4 cols) */}
-        <div className="lg:col-span-4 flex flex-col justify-between gap-5">
+        {/* PANEL 5: Form & Head to Head (expands to 6 cols when Lineups is hidden) */}
+        <div
+          className={`${
+            showLineupsPanel ? 'lg:col-span-4' : 'lg:col-span-6'
+          } flex flex-col justify-between gap-5`}
+        >
           {/* Form Card */}
           <div className="rounded-2xl border border-[#182434] bg-[#0b111a] p-5 space-y-3.5 shadow-xl flex-1">
             <div className="flex items-center justify-between border-b border-[#162232] pb-2.5">
               <h3 className="text-sm font-extrabold text-white">{t.formTitle}</h3>
+              <span className="text-[10px] text-[#8f9cae]">
+                {language === 'bg'
+                  ? 'Задръж или кликни на мач за детайли'
+                  : 'Hover or click match for details'}
+              </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Home Form Column */}
               <div className="space-y-2">
                 <div className="flex items-center gap-2 pb-1">
                   <TeamBadge name={match.homeTeam} size="sm" />
                   <div>
-                    <div className="text-xs font-bold text-white truncate max-w-[110px]">
+                    <div className="text-xs font-bold text-white truncate max-w-[130px]">
                       {match.homeTeam}
                     </div>
-                    <div className="mt-0.5">{renderFormPills(['W', 'W', 'D', 'W', 'L'])}</div>
+                    <div className="mt-1">{renderInteractiveFormPills(meta.homeFormMatches)}</div>
                   </div>
                 </div>
 
                 <div className="space-y-1.5 text-[11px]">
                   {meta.homeFormMatches.map((m, i) => (
-                    <div key={i} className="flex items-center justify-between text-neutral-300">
-                      <span className="text-[#8f9cae] truncate">{m.opp}</span>
-                      <div className="flex items-center gap-1.5 font-mono">
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setSelectedPastMatch(m)}
+                      className="w-full flex items-center justify-between text-neutral-300 hover:bg-[#0e1622] px-2 py-1 rounded-lg border border-transparent hover:border-[#1e2d40] transition-colors cursor-pointer text-left"
+                      title={
+                        m.date
+                          ? `${m.date} · ${m.homeTeam} ${m.score} ${m.awayTeam}`
+                          : `${m.homeTeam} ${m.score} ${m.awayTeam}`
+                      }
+                    >
+                      <span className="text-[#8f9cae] truncate pr-2">{m.opp}</span>
+                      <div className="flex items-center gap-1.5 font-mono shrink-0">
                         <span
                           className={`px-1.5 py-0.2 rounded text-[9px] font-black ${
                             m.res === 'W'
@@ -1642,28 +2146,38 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                         </span>
                         <span className="text-white font-bold">{m.score}</span>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
 
               {/* Away Form Column */}
-              <div className="space-y-2 border-l border-[#162232] pl-3">
+              <div className="space-y-2 sm:border-l border-[#162232] sm:pl-3">
                 <div className="flex items-center gap-2 pb-1">
                   <TeamBadge name={match.awayTeam} size="sm" />
                   <div>
-                    <div className="text-xs font-bold text-white truncate max-w-[110px]">
+                    <div className="text-xs font-bold text-white truncate max-w-[130px]">
                       {match.awayTeam}
                     </div>
-                    <div className="mt-0.5">{renderFormPills(['W', 'D', 'L', 'W', 'D'])}</div>
+                    <div className="mt-1">{renderInteractiveFormPills(meta.awayFormMatches)}</div>
                   </div>
                 </div>
 
                 <div className="space-y-1.5 text-[11px]">
                   {meta.awayFormMatches.map((m, i) => (
-                    <div key={i} className="flex items-center justify-between text-neutral-300">
-                      <span className="text-[#8f9cae] truncate">{m.opp}</span>
-                      <div className="flex items-center gap-1.5 font-mono">
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setSelectedPastMatch(m)}
+                      className="w-full flex items-center justify-between text-neutral-300 hover:bg-[#0e1622] px-2 py-1 rounded-lg border border-transparent hover:border-[#1e2d40] transition-colors cursor-pointer text-left"
+                      title={
+                        m.date
+                          ? `${m.date} · ${m.homeTeam} ${m.score} ${m.awayTeam}`
+                          : `${m.homeTeam} ${m.score} ${m.awayTeam}`
+                      }
+                    >
+                      <span className="text-[#8f9cae] truncate pr-2">{m.opp}</span>
+                      <div className="flex items-center gap-1.5 font-mono shrink-0">
                         <span
                           className={`px-1.5 py-0.2 rounded text-[9px] font-black ${
                             m.res === 'W'
@@ -1677,7 +2191,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                         </span>
                         <span className="text-white font-bold">{m.score}</span>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -1685,59 +2199,65 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
           </div>
 
           {/* Head to Head Card */}
-          <div className="rounded-2xl border border-[#182434] bg-[#0b111a] p-5 space-y-3 shadow-xl">
-            <h3 className="text-sm font-extrabold text-white">{t.h2hTitle}</h3>
+          {(meta.h2h.homeWins + meta.h2h.draws + meta.h2h.awayWins > 0 || !isApiMatch) && (
+            <div className="rounded-2xl border border-[#182434] bg-[#0b111a] p-5 space-y-3 shadow-xl">
+              <h3 className="text-sm font-extrabold text-white">{t.h2hTitle}</h3>
 
-            <div className="flex items-center justify-between text-xs">
-              <div>
-                <span className="text-[#8f9cae] block text-[10px]">
-                  {match.homeTeam} {t.wins}
-                </span>
-                <span className="text-base font-mono font-black text-white">
-                  {meta.h2h.homeWins}
-                </span>
+              <div className="flex items-center justify-between text-xs">
+                <div>
+                  <span className="text-[#8f9cae] block text-[10px]">
+                    {match.homeTeam} {t.wins}
+                  </span>
+                  <span className="text-base font-mono font-black text-white">
+                    {meta.h2h.homeWins}
+                  </span>
+                </div>
+                <div className="text-center">
+                  <span className="text-[#8f9cae] block text-[10px]">{t.draws}</span>
+                  <span className="text-base font-mono font-black text-white">
+                    {meta.h2h.draws}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[#8f9cae] block text-[10px]">
+                    {match.awayTeam} {t.wins}
+                  </span>
+                  <span className="text-base font-mono font-black text-white">
+                    {meta.h2h.awayWins}
+                  </span>
+                </div>
               </div>
-              <div className="text-center">
-                <span className="text-[#8f9cae] block text-[10px]">{t.draws}</span>
-                <span className="text-base font-mono font-black text-white">
-                  {meta.h2h.draws}
-                </span>
+
+              {/* 3-Color Bar */}
+              <div className="h-2 rounded-full overflow-hidden flex gap-0.5 bg-[#162230]">
+                <div
+                  className="bg-[#22c55e] h-full"
+                  style={{ width: `${(meta.h2h.homeWins / h2hTotal) * 100}%` }}
+                />
+                <div
+                  className="bg-[#64748b] h-full"
+                  style={{ width: `${(meta.h2h.draws / h2hTotal) * 100}%` }}
+                />
+                <div
+                  className="bg-[#ef4444] h-full"
+                  style={{ width: `${(meta.h2h.awayWins / h2hTotal) * 100}%` }}
+                />
               </div>
-              <div className="text-right">
-                <span className="text-[#8f9cae] block text-[10px]">
-                  {match.awayTeam} {t.wins}
-                </span>
-                <span className="text-base font-mono font-black text-white">
-                  {meta.h2h.awayWins}
-                </span>
+
+              <div className="flex items-center justify-center gap-2 pt-1 text-[11px] text-[#8f9cae]">
+                <span>{t.last5Meetings}:</span>
+                {renderInteractiveFormPills(meta.h2h.matches, meta.h2h.last5)}
               </div>
             </div>
-
-            {/* 3-Color Bar */}
-            <div className="h-2 rounded-full overflow-hidden flex gap-0.5 bg-[#162230]">
-              <div
-                className="bg-[#22c55e] h-full"
-                style={{ width: `${(meta.h2h.homeWins / h2hTotal) * 100}%` }}
-              />
-              <div
-                className="bg-[#64748b] h-full"
-                style={{ width: `${(meta.h2h.draws / h2hTotal) * 100}%` }}
-              />
-              <div
-                className="bg-[#ef4444] h-full"
-                style={{ width: `${(meta.h2h.awayWins / h2hTotal) * 100}%` }}
-              />
-            </div>
-
-            <div className="flex items-center justify-center gap-2 pt-1 text-[11px] text-[#8f9cae]">
-              <span>{t.last5Meetings}:</span>
-              {renderFormPills(meta.h2h.last5)}
-            </div>
-          </div>
+          )}
         </div>
 
-        {/* PANEL 6: Top Markets Table & Related Fixtures (4 cols) */}
-        <div className="lg:col-span-4 flex flex-col justify-between gap-5">
+        {/* PANEL 6: Top Markets Table & Related Fixtures (expands to 6 cols when Lineups is hidden) */}
+        <div
+          className={`${
+            showLineupsPanel ? 'lg:col-span-4' : 'lg:col-span-6'
+          } flex flex-col justify-between gap-5`}
+        >
           {/* Top Markets Extended Card */}
           <div className="rounded-2xl border border-[#182434] bg-[#0b111a] p-5 space-y-3 shadow-xl">
             <div className="flex items-center justify-between border-b border-[#162232] pb-2.5">
@@ -1762,7 +2282,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                       onLogBet(
                         match,
                         match.homeTeam,
-                        match.bookmakerOdds.home,
+                        activeBookmakerOdds.home,
                         edgePercent,
                         'Full Time Result'
                       )
@@ -1770,7 +2290,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                     className="flex justify-between px-2 py-1.5 rounded-lg border border-[#1c2a3b] bg-[#0e1622] hover:border-[#43f08a] text-white cursor-pointer"
                   >
                     <span className="text-[#64748b]">1</span>
-                    <span className="font-bold">{match.bookmakerOdds.home.toFixed(2)}</span>
+                    <span className="font-bold">{activeBookmakerOdds.home.toFixed(2)}</span>
                   </button>
                   <button
                     type="button"
@@ -1778,7 +2298,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                       onLogBet(
                         match,
                         'Draw (X)',
-                        match.bookmakerOdds.draw,
+                        activeBookmakerOdds.draw,
                         edgePercent,
                         'Full Time Result'
                       )
@@ -1786,7 +2306,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                     className="flex justify-between px-2 py-1.5 rounded-lg border border-[#1c2a3b] bg-[#0e1622] hover:border-[#43f08a] text-white cursor-pointer"
                   >
                     <span className="text-[#64748b]">X</span>
-                    <span className="font-bold">{match.bookmakerOdds.draw.toFixed(2)}</span>
+                    <span className="font-bold">{activeBookmakerOdds.draw.toFixed(2)}</span>
                   </button>
                   <button
                     type="button"
@@ -1794,7 +2314,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                       onLogBet(
                         match,
                         match.awayTeam,
-                        match.bookmakerOdds.away,
+                        activeBookmakerOdds.away,
                         edgePercent,
                         'Full Time Result'
                       )
@@ -1802,7 +2322,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                     className="flex justify-between px-2 py-1.5 rounded-lg border border-[#1c2a3b] bg-[#0e1622] hover:border-[#43f08a] text-white cursor-pointer"
                   >
                     <span className="text-[#64748b]">2</span>
-                    <span className="font-bold">{match.bookmakerOdds.away.toFixed(2)}</span>
+                    <span className="font-bold">{activeBookmakerOdds.away.toFixed(2)}</span>
                   </button>
                 </div>
               </div>
@@ -1844,19 +2364,23 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                 <div className="col-span-7 grid grid-cols-2 gap-1.5 font-mono text-[11px]">
                   <button
                     type="button"
-                    onClick={() => onLogBet(match, 'BTTS — Yes', 1.65, 6.4, 'Both Teams to Score')}
+                    onClick={() =>
+                      onLogBet(match, 'BTTS — Yes', bttsYesOdds, 6.4, 'Both Teams to Score')
+                    }
                     className="flex justify-between px-2.5 py-1.5 rounded-lg border border-[#1c2a3b] bg-[#0e1622] hover:border-[#43f08a] text-white cursor-pointer"
                   >
                     <span className="text-[#64748b]">Yes</span>
-                    <span className="font-bold">1.65</span>
+                    <span className="font-bold">{bttsYesOdds.toFixed(2)}</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => onLogBet(match, 'BTTS — No', 2.25, 3.5, 'Both Teams to Score')}
+                    onClick={() =>
+                      onLogBet(match, 'BTTS — No', bttsNoOdds, 3.5, 'Both Teams to Score')
+                    }
                     className="flex justify-between px-2.5 py-1.5 rounded-lg border border-[#1c2a3b] bg-[#0e1622] hover:border-[#43f08a] text-white cursor-pointer"
                   >
                     <span className="text-[#64748b]">No</span>
-                    <span className="font-bold">2.25</span>
+                    <span className="font-bold">{bttsNoOdds.toFixed(2)}</span>
                   </button>
                 </div>
               </div>
@@ -1868,22 +2392,22 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                   <button
                     type="button"
                     onClick={() =>
-                      onLogBet(match, 'Over 2.5 Goals', 1.78, edgePercent, 'Over/Under 2.5')
+                      onLogBet(match, 'Over 2.5 Goals', over25Odds, edgePercent, 'Over/Under 2.5')
                     }
                     className="flex justify-between px-2.5 py-1.5 rounded-lg border border-[#1c2a3b] bg-[#0e1622] hover:border-[#43f08a] text-white cursor-pointer"
                   >
                     <span className="text-[#64748b]">Over</span>
-                    <span className="font-bold">1.78</span>
+                    <span className="font-bold">{over25Odds.toFixed(2)}</span>
                   </button>
                   <button
                     type="button"
                     onClick={() =>
-                      onLogBet(match, 'Under 2.5 Goals', 2.05, 4.0, 'Over/Under 2.5')
+                      onLogBet(match, 'Under 2.5 Goals', under25Odds, 4.0, 'Over/Under 2.5')
                     }
                     className="flex justify-between px-2.5 py-1.5 rounded-lg border border-[#1c2a3b] bg-[#0e1622] hover:border-[#43f08a] text-white cursor-pointer"
                   >
                     <span className="text-[#64748b]">Under</span>
-                    <span className="font-bold">2.05</span>
+                    <span className="font-bold">{under25Odds.toFixed(2)}</span>
                   </button>
                 </div>
               </div>
@@ -2008,6 +2532,185 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
           </div>
         ))}
       </div>
+
+      {/* =================================================================== */}
+      {/* MODAL WINDOW: PAST MATCH DETAILS WHEN CLICKING A W/D/L FORM DOT */}
+      {/* =================================================================== */}
+      {selectedPastMatch && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fade-in"
+          onClick={() => setSelectedPastMatch(null)}
+        >
+          <div
+            className="w-full max-w-2xl rounded-2xl border border-[#1f3347] bg-[#081018] shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#162232] bg-[#0b1520]">
+              <div className="flex items-center gap-2 text-xs text-neutral-200 font-semibold">
+                <span>⚽</span>
+                <span>{pastMatchIntel?.league || selectedPastMatch.league || match.league}</span>
+                {(pastMatchIntel?.date || selectedPastMatch.date) && (
+                  <>
+                    <span className="text-neutral-500">·</span>
+                    <span className="font-mono text-[#43f08a]">
+                      {pastMatchIntel?.date || selectedPastMatch.date}
+                    </span>
+                  </>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedPastMatch(null)}
+                className="w-7 h-7 rounded-lg border border-[#1e2d40] bg-[#0e1622] hover:border-[#43f08a] text-neutral-300 hover:text-white flex items-center justify-center text-sm cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Scoreboard */}
+            <div className="p-6 bg-gradient-to-r from-[#07111a] via-[#0b1b20] to-[#08111a] border-b border-[#162232]">
+              <div className="grid grid-cols-11 gap-3 items-center">
+                <div className="col-span-4 flex items-center gap-3">
+                  <TeamBadge name={selectedPastMatch.homeTeam} size="md" />
+                  <span className="text-sm sm:text-base font-extrabold text-white leading-tight">
+                    {selectedPastMatch.homeTeam}
+                  </span>
+                </div>
+
+                <div className="col-span-3 text-center">
+                  <div className="inline-block rounded-xl border border-[#1f3144] bg-[#060b12]/90 px-4 py-2">
+                    <div className="text-[10px] font-mono font-bold text-[#43f08a] uppercase">
+                      {pastMatchIntel?.halftimeScore ||
+                        (language === 'bg' ? 'КРАЕН РЕЗУЛТАТ' : 'FINAL SCORE')}
+                    </div>
+                    <div className="text-2xl sm:text-3xl font-black text-white font-mono">
+                      {pastMatchIntel?.homeScore ?? selectedPastMatch.homeScore} -{' '}
+                      {pastMatchIntel?.awayScore ?? selectedPastMatch.awayScore}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-span-4 flex items-center justify-end gap-3 text-right">
+                  <span className="text-sm sm:text-base font-extrabold text-white leading-tight">
+                    {selectedPastMatch.awayTeam}
+                  </span>
+                  <TeamBadge name={selectedPastMatch.awayTeam} size="md" />
+                </div>
+              </div>
+
+              {(pastMatchIntel?.venue || pastMatchIntel?.referee) && (
+                <div className="mt-3 pt-2.5 border-t border-[#162434] flex items-center justify-center gap-3 text-[11px] text-[#8f9cae]">
+                  {pastMatchIntel?.venue && <span>📍 {pastMatchIntel.venue}</span>}
+                  {pastMatchIntel?.referee && (
+                    <span>
+                      {t.referee}: <strong className="text-neutral-300">{pastMatchIntel.referee}</strong>
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Body: Real Timeline Events & Stats (if available) */}
+            <div className="p-5 max-h-[60vh] overflow-y-auto space-y-4">
+              {pastMatchLoading ? (
+                <div className="py-8 text-center text-xs text-[#8f9cae] font-mono">
+                  {language === 'bg'
+                    ? 'Извличане на официална хронология на мача от API-Football...'
+                    : 'Fetching official match events from API-Football...'}
+                </div>
+              ) : (
+                <>
+                  {/* Timeline Events */}
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#8f9cae]">
+                      {language === 'bg' ? 'Хронология на срещата' : 'Match Timeline'}
+                    </h4>
+                    {pastMatchIntel?.events && pastMatchIntel.events.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {pastMatchIntel.events.map((ev, idx) => (
+                          <div
+                            key={idx}
+                            className={`flex items-center gap-3 p-2 rounded-xl border text-xs ${
+                              ev.highlight
+                                ? 'border-[#1e553b] bg-[#0d2119]'
+                                : 'border-[#15202e] bg-[#0b121c]'
+                            }`}
+                          >
+                            <span className="w-10 font-mono text-[11px] text-[#43f08a] font-bold">
+                              {ev.min}
+                            </span>
+                            <span className="text-sm">{ev.icon}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-bold text-white truncate">{ev.title}</div>
+                              <div className="text-[11px] text-[#8f9cae] truncate">{ev.sub}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-3 rounded-xl border border-[#15202e] bg-[#0b121c] text-xs text-[#8f9cae]">
+                        {selectedPastMatch.homeTeam} {selectedPastMatch.score}{' '}
+                        {selectedPastMatch.awayTeam}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Optical Statistics if API-Football has them for this historical match */}
+                  {pastMatchIntel?.hasRealStats && pastMatchIntel.stats && (
+                    <div className="space-y-2 pt-2 border-t border-[#162232]">
+                      <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#8f9cae]">
+                        {language === 'bg' ? 'Статистика от мача' : 'Match Statistics'}
+                      </h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center font-mono text-xs">
+                        <div className="p-2.5 rounded-xl bg-[#0b121c] border border-[#15202e]">
+                          <span className="text-[10px] text-[#8f9cae] block">{t.possession}</span>
+                          <span className="font-bold text-white">
+                            {pastMatchIntel.stats.possessionHome}% -{' '}
+                            {pastMatchIntel.stats.possessionAway}%
+                          </span>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-[#0b121c] border border-[#15202e]">
+                          <span className="text-[10px] text-[#8f9cae] block">{t.shots}</span>
+                          <span className="font-bold text-white">
+                            {pastMatchIntel.stats.shotsHome} ({pastMatchIntel.stats.shotsOnTargetHome}) -{' '}
+                            {pastMatchIntel.stats.shotsAway} ({pastMatchIntel.stats.shotsOnTargetAway})
+                          </span>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-[#0b121c] border border-[#15202e]">
+                          <span className="text-[10px] text-[#8f9cae] block">{t.corners}</span>
+                          <span className="font-bold text-white">
+                            {pastMatchIntel.stats.cornersHome} - {pastMatchIntel.stats.cornersAway}
+                          </span>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-[#0b121c] border border-[#15202e]">
+                          <span className="text-[10px] text-[#8f9cae] block">🟨 {t.yellowCards}</span>
+                          <span className="font-bold text-white">
+                            {pastMatchIntel.stats.yellowCardsHome} -{' '}
+                            {pastMatchIntel.stats.yellowCardsAway}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-5 py-3 border-t border-[#162232] bg-[#0b1520] flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedPastMatch(null)}
+                className="px-4 py-1.5 rounded-xl bg-[#22c55e] hover:bg-[#43f08a] text-[#04130b] font-extrabold text-xs cursor-pointer transition-colors"
+              >
+                {language === 'bg' ? 'Затвори прозореца' : 'Close'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+

@@ -1260,7 +1260,7 @@ async function startServer() {
     }
   });
 
-  // Single-Fixture Deep Telemetry (Real Statistics, Live Odds, Events, Starting Lineups, Referee, Venue)
+  // Single-Fixture Deep Telemetry (Real Statistics, Live Odds, Events, Starting Lineups, Standings, Form, H2H)
   app.get('/api/football/match-intel/:fixtureId', async (req: Request, res: Response) => {
     const rawId = String(req.params.fixtureId || '').replace(/^api-/, '').trim();
     const apiKey = (process.env.FOOTBALL_API_KEY || '').trim();
@@ -1270,8 +1270,39 @@ async function startServer() {
       return;
     }
 
-    const cacheKey = `football:match_intel_v2:${rawId}`;
-    const ttlMs = 90 * 1000; // 90-second cache for live match telemetry
+    const cacheKey = `football:match_intel_v3:${rawId}`;
+    const ttlMs = 45 * 1000; // 45-second cache for live match telemetry
+
+    const getCachedHelper = async (subKey: string, subTtlMs: number, url: string) => {
+      try {
+        const row = db
+          .prepare('SELECT payload, updated_at FROM api_cache WHERE cache_key = ?')
+          .get(subKey) as { payload: string; updated_at: number } | undefined;
+        if (row && Date.now() - row.updated_at < subTtlMs) {
+          return JSON.parse(row.payload);
+        }
+        const r = await fetch(url, { headers: { 'x-apisports-key': apiKey } });
+        let j = (await r.json()) as { response?: unknown[] };
+        if (
+          (!Array.isArray(j?.response) || j.response.length === 0) &&
+          url.includes('season=') &&
+          !url.includes('season=2024')
+        ) {
+          const fallbackUrl = url.replace(/season=\d+/, 'season=2024');
+          const r2 = await fetch(fallbackUrl, { headers: { 'x-apisports-key': apiKey } });
+          const j2 = (await r2.json()) as { response?: unknown[] };
+          if (Array.isArray(j2?.response) && j2.response.length > 0) {
+            j = j2;
+          }
+        }
+        db.prepare(
+          'INSERT OR REPLACE INTO api_cache (cache_key, payload, updated_at) VALUES (?, ?, ?)'
+        ).run(subKey, JSON.stringify(j), Date.now());
+        return j;
+      } catch {
+        return null;
+      }
+    };
 
     try {
       const cached = db
@@ -1306,7 +1337,229 @@ async function startServer() {
       }
 
       const homeTeamId = item?.teams?.home?.id;
+      const awayTeamId = item?.teams?.away?.id;
       const homeTeamName = String(item?.teams?.home?.name || '');
+      const awayTeamName = String(item?.teams?.away?.name || '');
+      const homeLogo = String(item?.teams?.home?.logo || '');
+      const awayLogo = String(item?.teams?.away?.logo || '');
+      const leagueId = item?.league?.id;
+      const season = item?.league?.season || 2024;
+      const leagueName = String(item?.league?.name || '');
+      const leagueCountry = String(item?.league?.country || '');
+
+      const homeScore = Number(item?.goals?.home ?? 0);
+      const awayScore = Number(item?.goals?.away ?? 0);
+      const shortStatus = String(item?.fixture?.status?.short || 'NS');
+      const elapsed = Number(item?.fixture?.status?.elapsed || 0);
+      const isLive = ['1H', '2H', 'HT', 'ET', 'LIVE'].includes(shortStatus);
+      const isFinished = ['FT', 'AET', 'PEN'].includes(shortStatus);
+
+      const htHome = item?.score?.halftime?.home;
+      const htAway = item?.score?.halftime?.away;
+      let halftimeScore = 'PRE-MATCH';
+      if (shortStatus === '1H' || (isLive && elapsed <= 45 && shortStatus !== 'HT')) {
+        halftimeScore = '1-ВО ПОЛУВРЕМЕ';
+      } else if (shortStatus === 'HT') {
+        halftimeScore = `ПОЛУВРЕМЕ (${homeScore} - ${awayScore})`;
+      } else if (htHome !== null && htHome !== undefined && htAway !== null && htAway !== undefined) {
+        halftimeScore = `HT ${htHome} - ${htAway}`;
+      } else if (isLive) {
+        halftimeScore = '2-РО ПОЛУВРЕМЕ';
+      } else if (isFinished) {
+        halftimeScore = 'КРАЕН РЕЗУЛТАТ';
+      }
+
+      const fixtureDateFormatted = item?.fixture?.date
+        ? new Date(item.fixture.date).toLocaleDateString('bg-BG', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : '';
+
+      // Fetch real League Standings, Last 5 Form Matches for Home & Away, and H2H (cached 6h in SQLite)
+      const sixHoursMs = 6 * 60 * 60 * 1000;
+      const [standingsJson, homeLastJson, awayLastJson, h2hJson] = await Promise.all([
+        leagueId
+          ? getCachedHelper(
+              `football:standings_v1:${leagueId}:${season}`,
+              sixHoursMs,
+              `https://v3.football.api-sports.io/standings?league=${leagueId}&season=${season}`
+            )
+          : Promise.resolve(null),
+        homeTeamId
+          ? getCachedHelper(
+              `football:team_last5_v1:${homeTeamId}:${season}`,
+              sixHoursMs,
+              `https://v3.football.api-sports.io/fixtures?team=${homeTeamId}&season=${season}`
+            )
+          : Promise.resolve(null),
+        awayTeamId
+          ? getCachedHelper(
+              `football:team_last5_v1:${awayTeamId}:${season}`,
+              sixHoursMs,
+              `https://v3.football.api-sports.io/fixtures?team=${awayTeamId}&season=${season}`
+            )
+          : Promise.resolve(null),
+        homeTeamId && awayTeamId
+          ? getCachedHelper(
+              `football:h2h_v1:${homeTeamId}-${awayTeamId}`,
+              sixHoursMs,
+              `https://v3.football.api-sports.io/fixtures/headtohead?h2h=${homeTeamId}-${awayTeamId}`
+            )
+          : Promise.resolve(null),
+      ]);
+
+      // Parse League Standings (picking the group that contains homeTeamId or awayTeamId)
+      const allStandingGroups: Array<Array<Record<string, any>>> =
+        standingsJson?.response?.[0]?.league?.standings || [];
+      let chosenStandingGroup: Array<Record<string, any>> = allStandingGroups[0] || [];
+      for (const grp of allStandingGroups) {
+        if (
+          Array.isArray(grp) &&
+          grp.some((r) => r?.team?.id === homeTeamId || r?.team?.id === awayTeamId)
+        ) {
+          chosenStandingGroup = grp;
+          break;
+        }
+      }
+
+      const standings = (chosenStandingGroup || []).map((row) => {
+        const gdNum = Number(row?.goalsDiff || 0);
+        const formStr = String(row?.form || '').slice(-5);
+        return {
+          rank: Number(row?.rank || 1),
+          teamId: row?.team?.id,
+          club: String(row?.team?.name || 'Club'),
+          clubLogo: String(row?.team?.logo || ''),
+          p: Number(row?.all?.played || 0),
+          w: Number(row?.all?.win || 0),
+          d: Number(row?.all?.draw || 0),
+          l: Number(row?.all?.lose || 0),
+          gf: Number(row?.all?.goals?.for || 0),
+          ga: Number(row?.all?.goals?.against || 0),
+          gd: gdNum > 0 ? `+${gdNum}` : String(gdNum),
+          pts: Number(row?.points || 0),
+          form: formStr.split('').filter((c) => c === 'W' || c === 'D' || c === 'L'),
+        };
+      });
+
+      // Helper to map last 5 finished fixtures for a team
+      const mapTeamFormFixtures = (rawList: any, teamId: number, teamName: string) => {
+        const arr: Array<Record<string, any>> = Array.isArray(rawList?.response)
+          ? rawList.response
+          : [];
+        const finished = arr
+          .filter(
+            (f) =>
+              ['FT', 'AET', 'PEN'].includes(f?.fixture?.status?.short) &&
+              String(f?.fixture?.id) !== rawId
+          )
+          .sort(
+            (a, b) =>
+              new Date(b?.fixture?.date || 0).getTime() -
+              new Date(a?.fixture?.date || 0).getTime()
+          )
+          .slice(0, 5);
+
+        return finished.map((f) => {
+          const isTeamHome =
+            f?.teams?.home?.id === teamId ||
+            String(f?.teams?.home?.name || '').toLowerCase() === teamName.toLowerCase();
+          const hName = String(f?.teams?.home?.name || 'Home');
+          const aName = String(f?.teams?.away?.name || 'Away');
+          const hGoals = Number(f?.goals?.home ?? 0);
+          const aGoals = Number(f?.goals?.away ?? 0);
+          const teamGoals = isTeamHome ? hGoals : aGoals;
+          const oppGoals = isTeamHome ? aGoals : hGoals;
+          const resChar: 'W' | 'D' | 'L' =
+            teamGoals > oppGoals ? 'W' : teamGoals === oppGoals ? 'D' : 'L';
+          const dateStr = f?.fixture?.date
+            ? new Date(f.fixture.date).toLocaleDateString('bg-BG', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+              })
+            : '';
+
+          return {
+            fixtureId: `api-${f?.fixture?.id}`,
+            date: dateStr,
+            league: String(f?.league?.name || leagueName),
+            homeTeam: hName,
+            awayTeam: aName,
+            homeLogo: String(f?.teams?.home?.logo || ''),
+            awayLogo: String(f?.teams?.away?.logo || ''),
+            homeScore: hGoals,
+            awayScore: aGoals,
+            opp: isTeamHome ? `vs ${aName}` : `@ ${hName}`,
+            res: resChar,
+            score: `${hGoals}-${aGoals}`,
+          };
+        });
+      };
+
+      const homeFormMatches = mapTeamFormFixtures(homeLastJson, homeTeamId, homeTeamName);
+      const awayFormMatches = mapTeamFormFixtures(awayLastJson, awayTeamId, awayTeamName);
+
+      // Parse real Head-to-Head (H2H)
+      const h2hRaw: Array<Record<string, any>> = Array.isArray(h2hJson?.response)
+        ? h2hJson.response
+        : [];
+      const h2hFinished = h2hRaw
+        .filter((f) => ['FT', 'AET', 'PEN'].includes(f?.fixture?.status?.short))
+        .sort(
+          (a, b) =>
+            new Date(b?.fixture?.date || 0).getTime() -
+            new Date(a?.fixture?.date || 0).getTime()
+        );
+
+      let h2hHomeWins = 0;
+      let h2hDraws = 0;
+      let h2hAwayWins = 0;
+      const h2hMatches = h2hFinished.slice(0, 5).map((f) => {
+        const hName = String(f?.teams?.home?.name || 'Home');
+        const aName = String(f?.teams?.away?.name || 'Away');
+        const hGoals = Number(f?.goals?.home ?? 0);
+        const aGoals = Number(f?.goals?.away ?? 0);
+        const isCurrentHome =
+          f?.teams?.home?.id === homeTeamId ||
+          hName.toLowerCase() === homeTeamName.toLowerCase();
+        let resForHome: 'W' | 'D' | 'L' = 'D';
+        if (hGoals === aGoals) {
+          h2hDraws++;
+          resForHome = 'D';
+        } else if ((hGoals > aGoals && isCurrentHome) || (aGoals > hGoals && !isCurrentHome)) {
+          h2hHomeWins++;
+          resForHome = 'W';
+        } else {
+          h2hAwayWins++;
+          resForHome = 'L';
+        }
+        const dateStr = f?.fixture?.date
+          ? new Date(f.fixture.date).toLocaleDateString('bg-BG', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+            })
+          : '';
+        return {
+          fixtureId: `api-${f?.fixture?.id}`,
+          date: dateStr,
+          league: String(f?.league?.name || leagueName),
+          homeTeam: hName,
+          awayTeam: aName,
+          homeLogo: String(f?.teams?.home?.logo || ''),
+          awayLogo: String(f?.teams?.away?.logo || ''),
+          homeScore: hGoals,
+          awayScore: aGoals,
+          opp: `${hName} vs ${aName}`,
+          res: resForHome,
+          score: `${hGoals}-${aGoals}`,
+        };
+      });
 
       // Count cards from events as a reliable floor even if statistics array omits cards
       const rawEvents: Array<Record<string, any>> = Array.isArray(item?.events) ? item.events : [];
@@ -1446,19 +1699,21 @@ async function startServer() {
         }));
       };
 
-      const lineups =
+      const hasRealLineups =
         lineupsArr.length >= 2 &&
         Array.isArray(lineupsArr[0]?.startXI) &&
-        lineupsArr[0].startXI.length > 0
-          ? {
-              homeFormation: String(lineupsArr[0]?.formation || '4-3-3'),
-              awayFormation: String(lineupsArr[1]?.formation || '4-2-3-1'),
-              homeCoach: String(lineupsArr[0]?.coach?.name || ''),
-              awayCoach: String(lineupsArr[1]?.coach?.name || ''),
-              homePlayers: mapLineupNodes(lineupsArr[0]?.startXI || [], true),
-              awayPlayers: mapLineupNodes(lineupsArr[1]?.startXI || [], false),
-            }
-          : null;
+        lineupsArr[0].startXI.length > 0;
+
+      const lineups = hasRealLineups
+        ? {
+            homeFormation: String(lineupsArr[0]?.formation || '4-3-3'),
+            awayFormation: String(lineupsArr[1]?.formation || '4-2-3-1'),
+            homeCoach: String(lineupsArr[0]?.coach?.name || ''),
+            awayCoach: String(lineupsArr[1]?.coach?.name || ''),
+            homePlayers: mapLineupNodes(lineupsArr[0]?.startXI || [], true),
+            awayPlayers: mapLineupNodes(lineupsArr[1]?.startXI || [], false),
+          }
+        : null;
 
       // Parse real timeline events
       const events = rawEvents.map((ev) => {
@@ -1470,10 +1725,10 @@ async function startServer() {
         const player = String(ev?.player?.name || '').trim();
         const teamTitle = String(ev?.team?.name || (isHome ? homeTeamName : '')).trim();
         const assist = ev?.assist?.name ? ` (${ev.assist.name})` : '';
-        const elapsed = Number(ev?.time?.elapsed || 1);
+        const evElapsed = Number(ev?.time?.elapsed || 1);
 
         return {
-          min: `${elapsed}'`,
+          min: `${evElapsed}'`,
           team: isHome ? 'home' : 'away',
           icon:
             evType === 'goal'
@@ -1512,8 +1767,22 @@ async function startServer() {
       const payload = {
         configured: true,
         found: true,
-        hasRealStats,
+        fixtureId: `api-${rawId}`,
+        date: fixtureDateFormatted,
+        league: leagueName,
+        leagueCountry,
         leagueRound,
+        homeTeam: homeTeamName,
+        awayTeam: awayTeamName,
+        homeLogo,
+        awayLogo,
+        homeScore,
+        awayScore,
+        minute: isLive ? Math.max(1, elapsed) : undefined,
+        status: isLive ? 'LIVE' : isFinished ? 'FINISHED' : 'SCHEDULED',
+        halftimeScore,
+        hasRealStats,
+        hasRealLineups,
         venue: item?.fixture?.venue?.name
           ? `${item.fixture.venue.name}${item?.fixture?.venue?.city ? `, ${item.fixture.venue.city}` : ''}`
           : null,
@@ -1522,6 +1791,18 @@ async function startServer() {
         stats,
         lineups,
         events,
+        standings,
+        homeFormMatches,
+        awayFormMatches,
+        h2h:
+          h2hMatches.length > 0
+            ? {
+                homeWins: h2hHomeWins,
+                draws: h2hDraws,
+                awayWins: h2hAwayWins,
+                matches: h2hMatches,
+              }
+            : null,
       };
 
       db.prepare(
