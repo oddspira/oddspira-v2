@@ -896,7 +896,7 @@ async function startServer() {
       return;
     }
 
-    const cacheKey = 'football:normalized_live_feed_v2';
+    const cacheKey = 'football:normalized_live_feed_v3';
     const ttlMs = 3 * 60 * 1000; // 3 minutes SQLite cache to protect API quota
 
     try {
@@ -971,6 +971,7 @@ async function startServer() {
 
       const mappedMatches = rawFixtures.slice(0, 24).map((item, idx) => {
         const fixId = String(item?.fixture?.id || `live-${idx}`);
+        const homeTeamId = item?.teams?.home?.id;
         const homeTeam = String(item?.teams?.home?.name || 'Home Team');
         const awayTeam = String(item?.teams?.away?.name || 'Away Team');
         const homeLogo = String(item?.teams?.home?.logo || '');
@@ -986,10 +987,67 @@ async function startServer() {
         const isLive = ['1H', '2H', 'HT', 'ET', 'LIVE'].includes(shortStatus);
         const isFinished = ['FT', 'AET', 'PEN'].includes(shortStatus);
 
+        const venueName = item?.fixture?.venue?.name
+          ? `${item.fixture.venue.name}${item?.fixture?.venue?.city ? `, ${item.fixture.venue.city}` : ''}`
+          : `${homeTeam} Stadium, ${leagueCountry}`;
+        const refereeName = String(item?.fixture?.referee || '').trim();
+
         const dateObj = item?.fixture?.date ? new Date(item.fixture.date) : new Date();
         const startTime = dateObj.toLocaleTimeString('bg-BG', {
           hour: '2-digit',
           minute: '2-digit',
+        });
+
+        // Parse real events (goals, yellow/red cards, VAR) returned by API-Football
+        const rawEvents: Array<Record<string, any>> = Array.isArray(item?.events) ? item.events : [];
+        let realYellowHome = 0;
+        let realYellowAway = 0;
+        let realRedHome = 0;
+        let realRedAway = 0;
+
+        const mappedEvents = rawEvents.map((ev) => {
+          const isHomeEvent =
+            (homeTeamId && ev?.team?.id === homeTeamId) ||
+            String(ev?.team?.name || '').toLowerCase() === homeTeam.toLowerCase();
+          const teamSide: 'home' | 'away' = isHomeEvent ? 'home' : 'away';
+          const evTypeRaw = String(ev?.type || '').toLowerCase();
+          const evDetailRaw = String(ev?.detail || '').toLowerCase();
+          const playerName = String(ev?.player?.name || teamSide.toUpperCase());
+          const assistName = ev?.assist?.name ? ` (асист: ${ev.assist.name})` : '';
+          const minuteNum = Number(ev?.time?.elapsed || 1);
+
+          let mappedType: 'goal' | 'yellow_card' | 'red_card' | 'var' | 'corner' | 'shot' = 'shot';
+          let description = `${playerName} — ${ev?.detail || ''}`;
+
+          if (evTypeRaw === 'goal') {
+            mappedType = 'goal';
+            description = `${playerName}${assistName} — Гол (${ev?.detail || 'Normal Goal'})`;
+          } else if (evTypeRaw === 'card') {
+            if (evDetailRaw.includes('red')) {
+              mappedType = 'red_card';
+              if (isHomeEvent) realRedHome++;
+              else realRedAway++;
+              description = `${playerName} — Червен картон`;
+            } else {
+              mappedType = 'yellow_card';
+              if (isHomeEvent) realYellowHome++;
+              else realYellowAway++;
+              description = `${playerName} — Жълт картон`;
+            }
+          } else if (evTypeRaw === 'subst') {
+            mappedType = 'var';
+            description = `Смяна: ${playerName} ↔ ${ev?.assist?.name || ''}`;
+          } else if (evTypeRaw === 'var') {
+            mappedType = 'var';
+            description = `VAR: ${playerName} (${ev?.detail || ''})`;
+          }
+
+          return {
+            minute: minuteNum,
+            type: mappedType,
+            team: teamSide,
+            description,
+          };
         });
 
         // Deterministic stochastic xG & Poisson probabilities seeded by fixture ID
@@ -1031,6 +1089,9 @@ async function startServer() {
         const selection: 'home' | 'draw' | 'away' | 'over25' =
           idx % 3 === 0 ? 'home' : idx % 3 === 1 ? 'away' : 'over25';
 
+        const posHome = 44 + (seedNum % 21);
+        const posAway = 100 - posHome;
+
         return {
           id: `api-${fixId}`,
           league,
@@ -1046,6 +1107,8 @@ async function startServer() {
           status: isLive ? 'LIVE' : isFinished ? 'FINISHED' : 'SCHEDULED',
           minute: isLive ? Math.max(1, elapsed) : undefined,
           startTime,
+          venue: venueName,
+          referee: refereeName || undefined,
           bookmakerOdds: {
             home: bookieHome,
             draw: bookieDraw,
@@ -1070,18 +1133,30 @@ async function startServer() {
             evPercent,
             recommendedStakeKelly: Number(Math.min(4.5, Math.max(1.2, evPercent * 0.35)).toFixed(1)),
           },
-          events: [],
+          events: mappedEvents,
           stats: {
-            possessionHome: 50 + (seedNum % 16) - 6,
-            possessionAway: 50 - ((seedNum % 16) - 6),
-            shotsHome: Math.max(homeScore + 3, 7 + (seedNum % 10)),
-            shotsAway: Math.max(awayScore + 2, 5 + ((seedNum * 3) % 9)),
-            shotsOnTargetHome: Math.max(homeScore + 1, 3 + (seedNum % 5)),
-            shotsOnTargetAway: Math.max(awayScore + 1, 2 + ((seedNum * 2) % 5)),
-            cornersHome: 3 + (seedNum % 6),
-            cornersAway: 2 + ((seedNum * 5) % 6),
-            dangerousAttacksHome: 36 + (seedNum % 28),
-            dangerousAttacksAway: 28 + ((seedNum * 3) % 24),
+            possessionHome: posHome,
+            possessionAway: posAway,
+            shotsHome: Math.max(homeScore + 2, 5 + (seedNum % 12)),
+            shotsAway: Math.max(awayScore + 2, 4 + ((seedNum * 3) % 11)),
+            shotsOnTargetHome: Math.max(homeScore + 1, 2 + (seedNum % 6)),
+            shotsOnTargetAway: Math.max(awayScore + 1, 1 + ((seedNum * 2) % 6)),
+            cornersHome: 2 + (seedNum % 8),
+            cornersAway: 1 + ((seedNum * 5) % 7),
+            dangerousAttacksHome: 28 + (seedNum % 36),
+            dangerousAttacksAway: 24 + ((seedNum * 3) % 32),
+            foulsHome: 6 + (seedNum % 9),
+            foulsAway: 7 + ((seedNum * 2) % 9),
+            yellowCardsHome: rawEvents.length > 0 ? realYellowHome : seedNum % 4,
+            yellowCardsAway: rawEvents.length > 0 ? realYellowAway : (seedNum * 3) % 4,
+            redCardsHome: realRedHome,
+            redCardsAway: realRedAway,
+            offsidesHome: seedNum % 4,
+            offsidesAway: (seedNum * 2) % 4,
+            savesHome: 1 + (seedNum % 5),
+            savesAway: 2 + ((seedNum * 3) % 5),
+            passesHome: 290 + (seedNum % 220),
+            passesAway: 260 + ((seedNum * 5) % 210),
           },
         };
       });
@@ -1103,6 +1178,309 @@ async function startServer() {
     } catch (err) {
       console.error('Live feed error:', err);
       res.json({ configured: true, error: 'Failed to fetch live feed', matches: [] });
+    }
+  });
+
+  // Single-Fixture Deep Telemetry (Real Statistics, Events, Starting Lineups, Referee, Venue)
+  app.get('/api/football/match-intel/:fixtureId', async (req: Request, res: Response) => {
+    const rawId = String(req.params.fixtureId || '').replace(/^api-/, '').trim();
+    const apiKey = (process.env.FOOTBALL_API_KEY || '').trim();
+
+    if (!apiKey || !/^\d+$/.test(rawId)) {
+      res.json({ configured: Boolean(apiKey), found: false });
+      return;
+    }
+
+    const cacheKey = `football:match_intel_v1:${rawId}`;
+    const ttlMs = 5 * 60 * 1000; // 5-minute SQLite cache
+
+    try {
+      const cached = db
+        .prepare('SELECT payload, updated_at FROM api_cache WHERE cache_key = ?')
+        .get(cacheKey) as { payload: string; updated_at: number } | undefined;
+
+      if (cached && Date.now() - cached.updated_at < ttlMs) {
+        res.json(JSON.parse(cached.payload));
+        return;
+      }
+
+      // Calling /fixtures?id={rawId} returns fixture + events + lineups + statistics in ONE single API call!
+      const upstream = await fetch(`https://v3.football.api-sports.io/fixtures?id=${rawId}`, {
+        headers: { 'x-apisports-key': apiKey },
+      });
+      const json = (await upstream.json()) as { response?: Array<Record<string, any>> };
+      const item = json?.response?.[0];
+
+      if (!item) {
+        res.json({ configured: true, found: false });
+        return;
+      }
+
+      const homeTeamId = item?.teams?.home?.id;
+      const homeTeamName = String(item?.teams?.home?.name || '');
+
+      // Parse statistics array for Home [0] and Away [1]
+      const statsArr: Array<Record<string, any>> = Array.isArray(item?.statistics)
+        ? item.statistics
+        : [];
+      const getStat = (teamIndex: number, typeName: string): number => {
+        const teamStats: Array<{ type: string; value: any }> =
+          statsArr[teamIndex]?.statistics || [];
+        const entry = teamStats.find(
+          (s) => String(s?.type || '').toLowerCase() === typeName.toLowerCase()
+        );
+        if (!entry || entry.value === null || entry.value === undefined) return 0;
+        const parsed = parseFloat(String(entry.value).replace('%', ''));
+        return Number.isNaN(parsed) ? 0 : parsed;
+      };
+
+      const hasRealStats = statsArr.length >= 2;
+      const stats = hasRealStats
+        ? {
+            possessionHome: getStat(0, 'Ball Possession') || 50,
+            possessionAway: getStat(1, 'Ball Possession') || 50,
+            shotsHome: getStat(0, 'Total Shots'),
+            shotsAway: getStat(1, 'Total Shots'),
+            shotsOnTargetHome: getStat(0, 'Shots on Goal'),
+            shotsOnTargetAway: getStat(1, 'Shots on Goal'),
+            cornersHome: getStat(0, 'Corner Kicks'),
+            cornersAway: getStat(1, 'Corner Kicks'),
+            foulsHome: getStat(0, 'Fouls'),
+            foulsAway: getStat(1, 'Fouls'),
+            yellowCardsHome: getStat(0, 'Yellow Cards'),
+            yellowCardsAway: getStat(1, 'Yellow Cards'),
+            redCardsHome: getStat(0, 'Red Cards'),
+            redCardsAway: getStat(1, 'Red Cards'),
+            offsidesHome: getStat(0, 'Offsides'),
+            offsidesAway: getStat(1, 'Offsides'),
+            savesHome: getStat(0, 'Goalkeeper Saves'),
+            savesAway: getStat(1, 'Goalkeeper Saves'),
+            passesHome: getStat(0, 'Total passes'),
+            passesAway: getStat(1, 'Total passes'),
+            xgHome: getStat(0, 'expected_goals'),
+            xgAway: getStat(1, 'expected_goals'),
+          }
+        : null;
+
+      // Parse real Starting XI Lineups
+      const lineupsArr: Array<Record<string, any>> = Array.isArray(item?.lineups)
+        ? item.lineups
+        : [];
+      const mapLineupNodes = (xiList: Array<Record<string, any>>, isHome: boolean) => {
+        const homeCoords = [
+          { x: 7, y: 50 },
+          { x: 20, y: 18 },
+          { x: 18, y: 38 },
+          { x: 18, y: 62 },
+          { x: 20, y: 82 },
+          { x: 33, y: 26 },
+          { x: 31, y: 50 },
+          { x: 33, y: 74 },
+          { x: 45, y: 22 },
+          { x: 46, y: 50 },
+          { x: 45, y: 78 },
+        ];
+        const awayCoords = [
+          { x: 93, y: 50 },
+          { x: 80, y: 18 },
+          { x: 82, y: 38 },
+          { x: 82, y: 62 },
+          { x: 80, y: 82 },
+          { x: 67, y: 28 },
+          { x: 69, y: 50 },
+          { x: 67, y: 72 },
+          { x: 56, y: 22 },
+          { x: 54, y: 50 },
+          { x: 56, y: 78 },
+        ];
+        const coords = isHome ? homeCoords : awayCoords;
+        return xiList.slice(0, 11).map((entry, idx) => ({
+          num: Number(entry?.player?.number || idx + 1),
+          name: String(entry?.player?.name || `Player ${idx + 1}`),
+          x: coords[idx]?.x ?? 50,
+          y: coords[idx]?.y ?? 50,
+        }));
+      };
+
+      const lineups =
+        lineupsArr.length >= 2
+          ? {
+              homeFormation: String(lineupsArr[0]?.formation || '4-3-3'),
+              awayFormation: String(lineupsArr[1]?.formation || '4-2-3-1'),
+              homeCoach: String(lineupsArr[0]?.coach?.name || ''),
+              awayCoach: String(lineupsArr[1]?.coach?.name || ''),
+              homePlayers: mapLineupNodes(lineupsArr[0]?.startXI || [], true),
+              awayPlayers: mapLineupNodes(lineupsArr[1]?.startXI || [], false),
+            }
+          : null;
+
+      // Parse real timeline events
+      const rawEvents: Array<Record<string, any>> = Array.isArray(item?.events) ? item.events : [];
+      const events = rawEvents.map((ev) => {
+        const isHome =
+          (homeTeamId && ev?.team?.id === homeTeamId) ||
+          String(ev?.team?.name || '').toLowerCase() === homeTeamName.toLowerCase();
+        const evType = String(ev?.type || '').toLowerCase();
+        const evDetail = String(ev?.detail || '').toLowerCase();
+        const player = String(ev?.player?.name || '');
+        const assist = ev?.assist?.name ? ` (${ev.assist.name})` : '';
+        const elapsed = Number(ev?.time?.elapsed || 1);
+
+        return {
+          min: `${elapsed}'`,
+          team: isHome ? 'home' : 'away',
+          icon:
+            evType === 'goal'
+              ? '⚽'
+              : evType === 'card' && evDetail.includes('red')
+              ? '🟥'
+              : evType === 'card'
+              ? '🟨'
+              : evType === 'subst'
+              ? '🔄'
+              : '🚩',
+          title:
+            evType === 'goal'
+              ? `GOAL! ${player}`
+              : evType === 'subst'
+              ? `Смяна (${ev?.team?.name || ''})`
+              : player || ev?.type || 'Event',
+          sub:
+            evType === 'goal'
+              ? `${player}${assist} — ${ev?.detail || 'Goal'}`
+              : evType === 'subst'
+              ? `${player} ↔ ${ev?.assist?.name || ''}`
+              : `${ev?.detail || ''} (${ev?.team?.name || ''})`,
+          highlight: evType === 'goal',
+        };
+      });
+
+      const payload = {
+        configured: true,
+        found: true,
+        venue: item?.fixture?.venue?.name
+          ? `${item.fixture.venue.name}${item?.fixture?.venue?.city ? `, ${item.fixture.venue.city}` : ''}`
+          : null,
+        referee: item?.fixture?.referee || null,
+        stats,
+        lineups,
+        events,
+      };
+
+      db.prepare(
+        'INSERT OR REPLACE INTO api_cache (cache_key, payload, updated_at) VALUES (?, ?, ?)'
+      ).run(cacheKey, JSON.stringify(payload), Date.now());
+
+      res.json(payload);
+    } catch (err) {
+      console.error('Match intel error:', err);
+      res.json({ configured: true, found: false });
+    }
+  });
+
+  // Real League Standings & Top Scorers (Goals, Assists, Yellow Cards) via API-Football v3 (12h SQLite Cache)
+  app.get('/api/football/league-intel/:leagueId', async (req: Request, res: Response) => {
+    const leagueId = Number(req.params.leagueId || 39);
+    const apiKey = (process.env.FOOTBALL_API_KEY || '').trim();
+
+    if (!apiKey || !leagueId) {
+      res.json({ configured: false });
+      return;
+    }
+
+    const cacheKey = `football:league_intel_v1:${leagueId}`;
+    const ttlMs = 12 * 60 * 60 * 1000; // 12 hours SQLite cache
+
+    try {
+      const cached = db
+        .prepare('SELECT payload, updated_at FROM api_cache WHERE cache_key = ?')
+        .get(cacheKey) as { payload: string; updated_at: number } | undefined;
+
+      if (cached && Date.now() - cached.updated_at < ttlMs) {
+        res.json(JSON.parse(cached.payload));
+        return;
+      }
+
+      // Free tier supports seasons 2022-2024; Pro tier supports 2024/2025+
+      const [standingsRes, scorersRes] = await Promise.all([
+        fetch(`https://v3.football.api-sports.io/standings?league=${leagueId}&season=2024`, {
+          headers: { 'x-apisports-key': apiKey },
+        }),
+        fetch(
+          `https://v3.football.api-sports.io/players/topscorers?league=${leagueId}&season=2024`,
+          { headers: { 'x-apisports-key': apiKey } }
+        ),
+      ]);
+
+      const standingsJson = (await standingsRes.json()) as { response?: Array<Record<string, any>> };
+      const scorersJson = (await scorersRes.json()) as { response?: Array<Record<string, any>> };
+
+      const rawStandings: Array<Record<string, any>> =
+        standingsJson?.response?.[0]?.league?.standings?.[0] || [];
+      const standings = rawStandings.slice(0, 12).map((row) => {
+        const gdNum = Number(row?.goalsDiff || 0);
+        const formStr = String(row?.form || 'WDWLW').slice(-5);
+        return {
+          rank: Number(row?.rank || 1),
+          club: String(row?.team?.name || 'Club'),
+          clubLogo: String(row?.team?.logo || ''),
+          p: Number(row?.all?.played || 0),
+          w: Number(row?.all?.win || 0),
+          d: Number(row?.all?.draw || 0),
+          l: Number(row?.all?.lose || 0),
+          gf: Number(row?.all?.goals?.for || 0),
+          ga: Number(row?.all?.goals?.against || 0),
+          gd: gdNum > 0 ? `+${gdNum}` : String(gdNum),
+          pts: Number(row?.points || 0),
+          form: formStr.split('').filter((c) => c === 'W' || c === 'D' || c === 'L'),
+        };
+      });
+
+      const rawScorers: Array<Record<string, any>> = Array.isArray(scorersJson?.response)
+        ? scorersJson.response
+        : [];
+      const topScorers = rawScorers.slice(0, 8).map((item, idx) => {
+        const player = item?.player || {};
+        const stat = item?.statistics?.[0] || {};
+        const name = String(player?.name || 'Player');
+        const parts = name.split(' ');
+        const initials =
+          parts.length >= 2
+            ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
+            : name.slice(0, 2).toUpperCase();
+
+        return {
+          rank: idx + 1,
+          name,
+          photo: String(player?.photo || ''),
+          club: String(stat?.team?.name || 'Club'),
+          clubLogo: String(stat?.team?.logo || ''),
+          goals: Number(stat?.goals?.total || 0),
+          assists: Number(stat?.goals?.assists || 0),
+          yellowCards: Number(stat?.cards?.yellow || 0),
+          shotsOnTarget: Number(stat?.shots?.on || 0),
+          initials,
+          avatarGradient: 'from-emerald-600 to-slate-900',
+        };
+      });
+
+      const payload = {
+        configured: true,
+        leagueId,
+        standings,
+        topScorers,
+      };
+
+      if (standings.length > 0 || topScorers.length > 0) {
+        db.prepare(
+          'INSERT OR REPLACE INTO api_cache (cache_key, payload, updated_at) VALUES (?, ?, ?)'
+        ).run(cacheKey, JSON.stringify(payload), Date.now());
+      }
+
+      res.json(payload);
+    } catch (err) {
+      console.error('League intel error:', err);
+      res.json({ configured: true, standings: [], topScorers: [] });
     }
   });
 

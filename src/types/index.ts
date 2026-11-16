@@ -65,6 +65,8 @@ export interface Match {
     evPercent: number;
     recommendedStakeKelly: number;
   };
+  venue?: string;
+  referee?: string;
   events: MatchEvent[];
   stats: {
     possessionHome: number;
@@ -77,6 +79,18 @@ export interface Match {
     cornersAway: number;
     dangerousAttacksHome: number;
     dangerousAttacksAway: number;
+    foulsHome?: number;
+    foulsAway?: number;
+    yellowCardsHome?: number;
+    yellowCardsAway?: number;
+    redCardsHome?: number;
+    redCardsAway?: number;
+    offsidesHome?: number;
+    offsidesAway?: number;
+    savesHome?: number;
+    savesAway?: number;
+    passesHome?: number;
+    passesAway?: number;
   };
 }
 

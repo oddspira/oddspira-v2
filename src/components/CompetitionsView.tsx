@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActiveTab, Language, Match } from '../types';
-import { TeamBadge } from './TeamBadge';
+import { registerMatchLogos, TeamBadge } from './TeamBadge';
 
 interface CompetitionsViewProps {
   language?: Language;
@@ -13,6 +13,7 @@ interface CompetitionsViewProps {
 interface StandingRow {
   rank: number;
   club: string;
+  clubLogo?: string;
   p: number;
   w: number;
   d: number;
@@ -27,8 +28,12 @@ interface StandingRow {
 interface TopScorerRow {
   rank: number;
   name: string;
+  photo?: string;
   club: string;
+  clubLogo?: string;
   goals: number;
+  assists?: number;
+  yellowCards?: number;
   initials: string;
   avatarGradient: string;
 }
@@ -535,7 +540,74 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
     'europe' | 'south_america' | 'north_america' | 'asia' | 'africa'
   >('europe');
 
-  const activeLeague = LEAGUES_DATABASE[selectedLeagueKey] || LEAGUES_DATABASE['premier-league'];
+  const baseLeague = LEAGUES_DATABASE[selectedLeagueKey] || LEAGUES_DATABASE['premier-league'];
+  const [liveLeagueIntel, setLiveLeagueIntel] = useState<{
+    leagueId: number;
+    standings: StandingRow[];
+    topScorers: TopScorerRow[];
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/football/league-intel/${baseLeague.apiLeagueId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled && data?.configured) {
+          const logoRegistrations: {
+            homeTeam: string;
+            awayTeam: string;
+            homeLogo?: string;
+            awayLogo?: string;
+          }[] = [];
+          for (const row of data.standings || []) {
+            if (row.club && row.clubLogo) {
+              logoRegistrations.push({
+                homeTeam: row.club,
+                awayTeam: row.club,
+                homeLogo: row.clubLogo,
+                awayLogo: row.clubLogo,
+              });
+            }
+          }
+          for (const sc of data.topScorers || []) {
+            if (sc.club && sc.clubLogo) {
+              logoRegistrations.push({
+                homeTeam: sc.club,
+                awayTeam: sc.club,
+                homeLogo: sc.clubLogo,
+                awayLogo: sc.clubLogo,
+              });
+            }
+          }
+          if (logoRegistrations.length > 0) {
+            registerMatchLogos(logoRegistrations);
+          }
+          setLiveLeagueIntel({
+            leagueId: baseLeague.apiLeagueId,
+            standings: Array.isArray(data.standings) ? data.standings : [],
+            topScorers: Array.isArray(data.topScorers) ? data.topScorers : [],
+          });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [baseLeague.apiLeagueId]);
+
+  const activeLeague: LeagueHubData = {
+    ...baseLeague,
+    standings:
+      liveLeagueIntel?.leagueId === baseLeague.apiLeagueId &&
+      liveLeagueIntel.standings.length > 0
+        ? liveLeagueIntel.standings
+        : baseLeague.standings,
+    topScorers:
+      liveLeagueIntel?.leagueId === baseLeague.apiLeagueId &&
+      liveLeagueIntel.topScorers.length > 0
+        ? liveLeagueIntel.topScorers
+        : baseLeague.topScorers,
+  };
 
   // Featured Leagues Carousel Items matching the screenshot 1:1
   const featuredLeaguesList = [
@@ -1094,18 +1166,35 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
           </div>
 
           <div className="divide-y divide-[#141f2e] flex-1 flex flex-col justify-around">
-            {activeLeague.topScorers.map((sc) => (
+            {activeLeague.topScorers.slice(0, 5).map((sc) => (
               <div key={sc.rank} className="py-2 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-xs font-mono text-[#8f9cae] w-3">{sc.rank}</span>
-                  <div
-                    className={`w-8 h-8 rounded-full bg-gradient-to-br ${sc.avatarGradient} border border-white/20 flex items-center justify-center text-[10px] font-black text-white shrink-0`}
-                  >
-                    {sc.initials}
-                  </div>
+                  {sc.photo ? (
+                    <img
+                      src={sc.photo}
+                      alt={sc.name}
+                      className="w-8 h-8 rounded-full object-cover border border-white/20 shrink-0 bg-[#0d1520]"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div
+                      className={`w-8 h-8 rounded-full bg-gradient-to-br ${sc.avatarGradient} border border-white/20 flex items-center justify-center text-[10px] font-black text-white shrink-0`}
+                    >
+                      {sc.initials}
+                    </div>
+                  )}
                   <div className="min-w-0">
                     <div className="text-xs font-bold text-white truncate">{sc.name}</div>
-                    <div className="text-[10px] text-[#8f9cae] truncate">{sc.club}</div>
+                    <div className="text-[10px] text-[#8f9cae] truncate">
+                      {sc.club}
+                      {typeof sc.assists === 'number' && sc.assists > 0
+                        ? ` · ${sc.assists} асист.`
+                        : ''}
+                      {typeof sc.yellowCards === 'number' && sc.yellowCards > 0
+                        ? ` · 🟨 ${sc.yellowCards}`
+                        : ''}
+                    </div>
                   </div>
                 </div>
 

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Match } from '../types';
 
 // Official API-Sports CDN Club Crests + Dynamic Runtime Registry
 const TEAM_LOGO_REGISTRY: Record<string, string> = {
@@ -68,7 +67,16 @@ const LEAGUE_LOGO_REGISTRY: Record<string, string> = {
   'first league': 'https://media.api-sports.io/football/leagues/172.png',
 };
 
-export function registerMatchLogos(matches: Match[]): void {
+export function registerMatchLogos(
+  matches: Array<{
+    homeTeam?: string;
+    awayTeam?: string;
+    homeLogo?: string;
+    awayLogo?: string;
+    league?: string;
+    leagueLogo?: string;
+  }>
+): void {
   for (const m of matches) {
     if (m.homeTeam && m.homeLogo) {
       TEAM_LOGO_REGISTRY[m.homeTeam.trim().toLowerCase()] = m.homeLogo;

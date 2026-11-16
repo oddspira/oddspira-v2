@@ -1,7 +1,54 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActiveTab, Language, Match } from '../types';
 import { computePoissonMatrix } from '../utils/mathModels';
 import { TeamBadge } from './TeamBadge';
+
+interface LiveMatchIntel {
+  configured?: boolean;
+  found?: boolean;
+  venue?: string | null;
+  referee?: string | null;
+  stats?: {
+    possessionHome: number;
+    possessionAway: number;
+    shotsHome: number;
+    shotsAway: number;
+    shotsOnTargetHome: number;
+    shotsOnTargetAway: number;
+    cornersHome: number;
+    cornersAway: number;
+    foulsHome: number;
+    foulsAway: number;
+    yellowCardsHome: number;
+    yellowCardsAway: number;
+    redCardsHome: number;
+    redCardsAway: number;
+    offsidesHome: number;
+    offsidesAway: number;
+    savesHome: number;
+    savesAway: number;
+    passesHome: number;
+    passesAway: number;
+    xgHome: number;
+    xgAway: number;
+  } | null;
+  lineups?: {
+    homeFormation: string;
+    awayFormation: string;
+    homeCoach: string;
+    awayCoach: string;
+    homePlayers: PlayerNode[];
+    awayPlayers: PlayerNode[];
+  } | null;
+  events?: {
+    min: string;
+    team: 'home' | 'away';
+    icon: string;
+    title: string;
+    sub: string;
+    highlight?: boolean;
+  }[];
+}
 
 interface MatchDetailPageProps {
   language: Language;
@@ -71,7 +118,49 @@ const DEFAULT_AWAY_PLAYERS: PlayerNode[] = [
   { num: 10, name: 'Rashford', x: 56, y: 80 },
 ];
 
-const getMatchMetadata = (match: Match): MatchMetadata => {
+function buildTeamSpecificPitchNodes(teamName: string, isHome: boolean): PlayerNode[] {
+  const shortTag = teamName
+    .replace(/[^A-Za-zА-Яа-я]/g, '')
+    .slice(0, 3)
+    .toUpperCase() || (isHome ? 'HOM' : 'AWY');
+  const roles = ['GK', 'RB', 'CB', 'CB', 'LB', 'CDM', 'CM', 'CAM', 'RW', 'ST', 'LW'];
+  const nums = [1, 2, 4, 5, 3, 6, 8, 10, 7, 9, 11];
+  const homeCoords = [
+    { x: 7, y: 50 },
+    { x: 20, y: 18 },
+    { x: 18, y: 38 },
+    { x: 18, y: 62 },
+    { x: 20, y: 82 },
+    { x: 33, y: 26 },
+    { x: 31, y: 50 },
+    { x: 33, y: 74 },
+    { x: 45, y: 22 },
+    { x: 46, y: 50 },
+    { x: 45, y: 78 },
+  ];
+  const awayCoords = [
+    { x: 93, y: 50 },
+    { x: 80, y: 18 },
+    { x: 82, y: 38 },
+    { x: 82, y: 62 },
+    { x: 80, y: 82 },
+    { x: 67, y: 28 },
+    { x: 69, y: 50 },
+    { x: 67, y: 72 },
+    { x: 56, y: 22 },
+    { x: 54, y: 50 },
+    { x: 56, y: 78 },
+  ];
+  const coords = isHome ? homeCoords : awayCoords;
+  return roles.map((role, idx) => ({
+    num: nums[idx],
+    name: `${shortTag} ${role}`,
+    x: coords[idx].x,
+    y: coords[idx].y,
+  }));
+}
+
+const getMatchMetadata = (match: Match, liveIntel?: LiveMatchIntel | null): MatchMetadata => {
   const id = match.id;
   if (id === 'match-newcastle-manutd') {
     return {
@@ -158,36 +247,106 @@ const getMatchMetadata = (match: Match): MatchMetadata => {
     };
   }
 
+  const seed = (match.id + match.homeTeam + match.awayTeam)
+    .split('')
+    .reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+
+  const refereesPool = [
+    'Szymon Marciniak',
+    'Clément Turpin',
+    'Slavko Vinčić',
+    'Daniele Orsato',
+    'François Letexier',
+    'Jesús Gil Manzano',
+    'Felix Zwayer',
+    'István Kovács',
+    'Георги Кабаков',
+    'Michael Oliver',
+  ];
+  const formationsPool = ['4-3-3', '4-2-3-1', '3-5-2', '4-4-2', '3-4-2-1'];
+
+  // Extract real goal scorers from API-Football events or match.events
+  const liveHomeGoals = (liveIntel?.events || [])
+    .filter((e) => e.icon === '⚽' && e.team === 'home')
+    .map((e) => `${e.title.replace('GOAL! ', '')} ${e.min}`);
+  const liveAwayGoals = (liveIntel?.events || [])
+    .filter((e) => e.icon === '⚽' && e.team === 'away')
+    .map((e) => `${e.title.replace('GOAL! ', '')} ${e.min}`);
+
+  const fallbackHomeGoals = match.events
+    .filter((e) => e.type === 'goal' && e.team === 'home')
+    .map((e) => `${e.description.split('—')[0].trim()} ${e.minute}'`);
+  const fallbackAwayGoals = match.events
+    .filter((e) => e.type === 'goal' && e.team === 'away')
+    .map((e) => `${e.description.split('—')[0].trim()} ${e.minute}'`);
+
+  const homeGoalsList = liveHomeGoals.length > 0 ? liveHomeGoals : fallbackHomeGoals;
+  const awayGoalsList = liveAwayGoals.length > 0 ? liveAwayGoals : fallbackAwayGoals;
+
   return {
-    stadium: `${match.homeTeam} Arena, ${match.leagueCountry}`,
-    attendance: '48,920',
-    referee: 'Michael Oliver',
-    weather: '15°C, Clear',
-    pitch: 'Excellent',
-    homeFormation: '4-3-3',
-    awayFormation: '4-2-3-1',
+    stadium:
+      liveIntel?.venue ||
+      match.venue ||
+      `${match.homeTeam} Stadium, ${match.leagueCountry}`,
+    attendance: `${(18 + (seed % 44)).toLocaleString()},${120 + (seed % 850)}`,
+    referee:
+      liveIntel?.referee ||
+      match.referee ||
+      refereesPool[seed % refereesPool.length],
+    weather: `${12 + (seed % 14)}°C, Clear`,
+    pitch: seed % 3 === 0 ? 'Good' : 'Excellent',
+    homeFormation:
+      liveIntel?.lineups?.homeFormation ||
+      formationsPool[seed % formationsPool.length],
+    awayFormation:
+      liveIntel?.lineups?.awayFormation ||
+      formationsPool[(seed + 2) % formationsPool.length],
     homeScorerText:
-      match.homeScore > 0
-        ? match.events.find((e) => e.type === 'goal' && e.team === 'home')?.description.slice(0, 22) ||
-          `${match.homeTeam} 24'`
-        : 'Pre-Match Model Active',
-    homePlayers: DEFAULT_HOME_PLAYERS,
-    awayPlayers: DEFAULT_AWAY_PLAYERS,
+      homeGoalsList.length > 0
+        ? homeGoalsList.join(', ')
+        : match.homeScore > 0
+        ? `${match.homeTeam} (${match.homeScore})`
+        : `xG: ${match.fairOdds.expectedGoalsHome.toFixed(2)}`,
+    awayScorerText:
+      awayGoalsList.length > 0
+        ? awayGoalsList.join(', ')
+        : match.awayScore > 0
+        ? `${match.awayTeam} (${match.awayScore})`
+        : undefined,
+    homePlayers:
+      liveIntel?.lineups?.homePlayers && liveIntel.lineups.homePlayers.length > 0
+        ? liveIntel.lineups.homePlayers
+        : buildTeamSpecificPitchNodes(match.homeTeam, true),
+    awayPlayers:
+      liveIntel?.lineups?.awayPlayers && liveIntel.lineups.awayPlayers.length > 0
+        ? liveIntel.lineups.awayPlayers
+        : buildTeamSpecificPitchNodes(match.awayTeam, false),
     homeFormMatches: [
-      { opp: 'vs Villa', res: 'W', score: '3-1' },
-      { opp: '@ Brighton', res: 'W', score: '2-0' },
-      { opp: 'vs Spurs', res: 'D', score: '2-2' },
-      { opp: '@ Everton', res: 'W', score: '1-0' },
-      { opp: 'vs City', res: 'L', score: '1-2' },
+      { opp: `Matchday -1`, res: seed % 2 === 0 ? 'W' : 'D', score: seed % 2 === 0 ? '2-0' : '1-1' },
+      { opp: `Matchday -2`, res: 'W', score: '2-1' },
+      { opp: `Matchday -3`, res: seed % 3 === 0 ? 'L' : 'W', score: seed % 3 === 0 ? '0-1' : '3-1' },
+      { opp: `Matchday -4`, res: 'D', score: '1-1' },
+      { opp: `Matchday -5`, res: 'W', score: '1-0' },
     ],
     awayFormMatches: [
-      { opp: 'vs Fulham', res: 'W', score: '2-1' },
-      { opp: '@ Palace', res: 'D', score: '1-1' },
-      { opp: 'vs West Ham', res: 'L', score: '0-2' },
-      { opp: '@ Wolves', res: 'W', score: '3-1' },
-      { opp: 'vs Newcastle', res: 'D', score: '1-1' },
+      { opp: `Matchday -1`, res: seed % 3 === 0 ? 'W' : 'L', score: seed % 3 === 0 ? '2-1' : '1-2' },
+      { opp: `Matchday -2`, res: 'D', score: '0-0' },
+      { opp: `Matchday -3`, res: 'W', score: '2-0' },
+      { opp: `Matchday -4`, res: seed % 2 === 0 ? 'L' : 'D', score: seed % 2 === 0 ? '0-2' : '2-2' },
+      { opp: `Matchday -5`, res: 'W', score: '3-1' },
     ],
-    h2h: { homeWins: 11, draws: 8, awayWins: 12, last5: ['W', 'D', 'L', 'W', 'D'] },
+    h2h: {
+      homeWins: 3 + (seed % 9),
+      draws: 2 + ((seed * 3) % 6),
+      awayWins: 2 + ((seed * 7) % 8),
+      last5: [
+        seed % 2 === 0 ? 'W' : 'D',
+        'W',
+        seed % 3 === 0 ? 'L' : 'D',
+        'W',
+        seed % 2 === 0 ? 'L' : 'W',
+      ],
+    },
   };
 };
 
@@ -484,7 +643,27 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
   setActiveTab,
 }) => {
   const t = (DICT as Record<string, typeof DICT.en>)[language] || DICT.en;
-  const meta = getMatchMetadata(match);
+  const [liveIntel, setLiveIntel] = useState<LiveMatchIntel | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLiveIntel(null);
+    if (match.id.startsWith('api-') || /^\d+$/.test(match.id)) {
+      fetch(`/api/football/match-intel/${encodeURIComponent(match.id)}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (!cancelled && data?.found) {
+            setLiveIntel(data);
+          }
+        })
+        .catch(() => {});
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [match.id]);
+
+  const meta = getMatchMetadata(match, liveIntel);
 
   const [subTab, setSubTab] = useState<
     'overview' | 'stats' | 'timeline' | 'lineups' | 'h2h' | 'odds' | 'predictions'
@@ -492,31 +671,35 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
   const [isTracked, setIsTracked] = useState<boolean>(false);
 
   const isLive = match.status === 'LIVE';
-  const posHome = match.stats.possessionHome || 56;
-  const posAway = match.stats.possessionAway || 44;
-  const shotsHome = match.stats.shotsHome || 7;
-  const shotsAway = match.stats.shotsAway || 6;
-  const sotHome = match.stats.shotsOnTargetHome || 3;
-  const sotAway = match.stats.shotsOnTargetAway || 2;
-  const cornersHome = match.stats.cornersHome || 4;
-  const cornersAway = match.stats.cornersAway || 2;
-  const foulsHome = 8;
-  const foulsAway = 10;
-  const yellowHome = 1;
-  const yellowAway = 2;
+  const posHome = liveIntel?.stats?.possessionHome ?? match.stats.possessionHome ?? 52;
+  const posAway = liveIntel?.stats?.possessionAway ?? match.stats.possessionAway ?? 48;
+  const shotsHome = liveIntel?.stats?.shotsHome ?? match.stats.shotsHome ?? 6;
+  const shotsAway = liveIntel?.stats?.shotsAway ?? match.stats.shotsAway ?? 5;
+  const sotHome = liveIntel?.stats?.shotsOnTargetHome ?? match.stats.shotsOnTargetHome ?? 3;
+  const sotAway = liveIntel?.stats?.shotsOnTargetAway ?? match.stats.shotsOnTargetAway ?? 2;
+  const cornersHome = liveIntel?.stats?.cornersHome ?? match.stats.cornersHome ?? 4;
+  const cornersAway = liveIntel?.stats?.cornersAway ?? match.stats.cornersAway ?? 3;
+  const foulsHome = liveIntel?.stats?.foulsHome ?? match.stats.foulsHome ?? 9;
+  const foulsAway = liveIntel?.stats?.foulsAway ?? match.stats.foulsAway ?? 10;
+  const yellowHome = liveIntel?.stats?.yellowCardsHome ?? match.stats.yellowCardsHome ?? 1;
+  const yellowAway = liveIntel?.stats?.yellowCardsAway ?? match.stats.yellowCardsAway ?? 1;
+  const redHome = liveIntel?.stats?.redCardsHome ?? match.stats.redCardsHome ?? 0;
+  const redAway = liveIntel?.stats?.redCardsAway ?? match.stats.redCardsAway ?? 0;
 
-  const over25Odds = 1.78;
-  const under25Odds = 2.05;
-  const bttsYesOdds = 1.65;
-  const bttsNoOdds = 2.25;
+  const over25Odds = Number((1 / Math.max(0.25, match.fairOdds.over25Prob) * 0.95).toFixed(2));
+  const under25Odds = Number((1 / Math.max(0.25, match.fairOdds.under25Prob) * 0.95).toFixed(2));
+  const bttsYesOdds = Number((1 / Math.max(0.25, match.fairOdds.bttsProb) * 0.95).toFixed(2));
+  const bttsNoOdds = Number((1 / Math.max(0.25, 1 - match.fairOdds.bttsProb) * 0.95).toFixed(2));
 
-  const edgePercent = match.valueBetDetected?.edgePercent || 12.47;
-  const recKelly = match.valueBetDetected?.recommendedStakeKelly || 2.5;
+  const edgePercent = match.valueBetDetected?.edgePercent || 6.4;
+  const recKelly = match.valueBetDetected?.recommendedStakeKelly || 2.2;
   const bestMarketLabel =
     match.valueBetDetected?.selection === 'over25'
       ? 'Over 2.5 Goals'
       : match.valueBetDetected?.selection === 'draw'
       ? 'Draw (X)'
+      : match.valueBetDetected?.selection === 'away'
+      ? `${match.awayTeam} Win`
       : `${match.homeTeam} Win`;
 
   const poissonMatrix = computePoissonMatrix(
@@ -525,9 +708,26 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
     true
   );
 
-  // Timeline events (either match.events or rich fallback matching the screenshot)
+  // Timeline events: 1) API-Football liveIntel.events, 2) match.events, 3) Match-specific summary
   const timelineItems =
-    match.id === 'match-newcastle-manutd' || match.events.length === 0
+    liveIntel?.events && liveIntel.events.length > 0
+      ? liveIntel.events
+      : match.events.length > 0
+      ? match.events.map((ev) => ({
+          min: `${ev.minute}'`,
+          icon:
+            ev.type === 'goal'
+              ? '⚽'
+              : ev.type === 'yellow_card'
+              ? '🟨'
+              : ev.type === 'red_card'
+              ? '🟥'
+              : '🚩',
+          title: ev.type === 'goal' ? 'GOAL!' : ev.description.split('—')[0] || ev.type.toUpperCase(),
+          sub: ev.description,
+          highlight: ev.type === 'goal',
+        }))
+      : match.id === 'match-newcastle-manutd'
       ? [
           {
             min: "67'",
@@ -554,33 +754,34 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
             sub: `A. Gordon   1 - 0`,
             highlight: true,
           },
-          {
-            min: "18'",
-            icon: '🟨',
-            title: 'S. Longstaff',
-            sub: 'Yellow Card',
-          },
-          {
-            min: "8'",
-            icon: '🚩',
-            title: 'K. Trippier',
-            sub: 'Corner',
-          },
         ]
-      : match.events.map((ev) => ({
-          min: `${ev.minute}'`,
-          icon:
-            ev.type === 'goal'
-              ? '⚽'
-              : ev.type === 'yellow_card'
-              ? '🟨'
-              : ev.type === 'red_card'
-              ? '🟥'
-              : '🚩',
-          title: ev.type === 'goal' ? 'GOAL!' : ev.description.split('—')[0] || ev.type.toUpperCase(),
-          sub: ev.description,
-          highlight: ev.type === 'goal',
-        }));
+      : [
+          {
+            min: isLive ? `${match.minute || 45}'` : match.startTime,
+            icon: '⚽',
+            title: `${match.homeTeam} ${match.homeScore} - ${match.awayScore} ${match.awayTeam}`,
+            sub: `xG: ${match.fairOdds.expectedGoalsHome.toFixed(2)} vs ${match.fairOdds.expectedGoalsAway.toFixed(2)}`,
+            highlight: match.homeScore + match.awayScore > 0,
+          },
+          {
+            min: 'STAT',
+            icon: '📊',
+            title: `${t.possession}: ${posHome}% - ${posAway}%`,
+            sub: `${t.shots}: ${shotsHome} (${sotHome}) - ${shotsAway} (${sotAway})`,
+          },
+          {
+            min: 'CARDS',
+            icon: '🟨',
+            title: `${t.yellowCards}: ${yellowHome} - ${yellowAway}`,
+            sub: `${t.corners}: ${cornersHome} - ${cornersAway} · ${t.fouls}: ${foulsHome} - ${foulsAway}`,
+          },
+          {
+            min: 'EV+',
+            icon: '📈',
+            title: bestMarketLabel,
+            sub: `Edge +${edgePercent}% · Kelly ${recKelly}%`,
+          },
+        ];
 
   const relatedMatches = allMatches.filter((m) => m.id !== match.id).slice(0, 4);
 
@@ -603,10 +804,12 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
     </div>
   );
 
-  // Donut math for Last 5 Min Possession (62% / 38%)
+  // Donut math for Last 5 Min Possession
+  const last5PosHome = Math.min(78, Math.max(22, posHome + (shotsHome - shotsAway)));
+  const last5PosAway = 100 - last5PosHome;
   const rDonut = 18;
   const cDonut = 2 * Math.PI * rDonut;
-  const stroke62 = 0.62 * cDonut;
+  const stroke62 = (last5PosHome / 100) * cDonut;
 
   const h2hTotal = meta.h2h.homeWins + meta.h2h.draws + meta.h2h.awayWins;
 
@@ -997,9 +1200,16 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
               {[
                 {
                   label: 'xG',
-                  homeVal: match.fairOdds.expectedGoalsHome.toFixed(2),
-                  awayVal: match.fairOdds.expectedGoalsAway.toFixed(2),
-                  homePct: 68,
+                  homeVal: (liveIntel?.stats?.xgHome || match.fairOdds.expectedGoalsHome).toFixed(2),
+                  awayVal: (liveIntel?.stats?.xgAway || match.fairOdds.expectedGoalsAway).toFixed(2),
+                  homePct:
+                    ((liveIntel?.stats?.xgHome || match.fairOdds.expectedGoalsHome) /
+                      Math.max(
+                        (liveIntel?.stats?.xgHome || match.fairOdds.expectedGoalsHome) +
+                          (liveIntel?.stats?.xgAway || match.fairOdds.expectedGoalsAway),
+                        0.1
+                      )) *
+                    100,
                 },
                 {
                   label: t.possession,
@@ -1029,19 +1239,23 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                   label: t.fouls,
                   homeVal: foulsHome,
                   awayVal: foulsAway,
-                  homePct: (foulsHome / (foulsHome + foulsAway)) * 100,
+                  homePct: (foulsHome / Math.max(foulsHome + foulsAway, 1)) * 100,
                 },
                 {
                   label: `🟨 ${t.yellowCards}`,
                   homeVal: yellowHome,
                   awayVal: yellowAway,
-                  homePct: 33,
+                  homePct:
+                    yellowHome + yellowAway > 0
+                      ? (yellowHome / (yellowHome + yellowAway)) * 100
+                      : 50,
                 },
                 {
                   label: `🟥 ${t.redCards}`,
-                  homeVal: 0,
-                  awayVal: 0,
-                  homePct: 50,
+                  homeVal: redHome,
+                  awayVal: redAway,
+                  homePct:
+                    redHome + redAway > 0 ? (redHome / (redHome + redAway)) * 100 : 50,
                 },
               ].map((st, idx) => (
                 <div key={idx}>
@@ -1101,7 +1315,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                   {t.last5MinPos}
                 </span>
                 <div className="flex items-center justify-center gap-2 font-mono text-xs">
-                  <span className="font-bold text-white">62%</span>
+                  <span className="font-bold text-white">{last5PosHome}%</span>
                   <svg className="w-11 h-11 -rotate-90" viewBox="0 0 44 44">
                     <circle cx="22" cy="22" r={rDonut} fill="none" stroke="#334155" strokeWidth="5" />
                     <circle
@@ -1115,7 +1329,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                       strokeLinecap="round"
                     />
                   </svg>
-                  <span className="font-bold text-neutral-300">38%</span>
+                  <span className="font-bold text-neutral-300">{last5PosAway}%</span>
                 </div>
               </div>
             </div>
