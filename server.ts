@@ -896,8 +896,8 @@ async function startServer() {
       return;
     }
 
-    const cacheKey = 'football:normalized_live_feed_v3';
-    const ttlMs = 3 * 60 * 1000; // 3 minutes SQLite cache to protect API quota
+    const cacheKey = 'football:normalized_live_feed_v4';
+    const ttlMs = 2 * 60 * 1000; // 2 minutes SQLite cache
 
     try {
       const memHit = memoryApiCache.get(cacheKey);
@@ -954,6 +954,7 @@ async function startServer() {
         'World',
         'Europe',
         'Bulgaria',
+        'Greece',
         'Portugal',
         'Netherlands',
         'Turkey',
@@ -969,6 +970,13 @@ async function startServer() {
         return bPrio - aPrio;
       });
 
+      const poissonProb = (lambda: number, k: number): number => {
+        if (lambda <= 0) return k === 0 ? 1 : 0;
+        let p = Math.exp(-lambda);
+        for (let i = 1; i <= k; i++) p *= lambda / i;
+        return p;
+      };
+
       const mappedMatches = rawFixtures.slice(0, 24).map((item, idx) => {
         const fixId = String(item?.fixture?.id || `live-${idx}`);
         const homeTeamId = item?.teams?.home?.id;
@@ -978,6 +986,13 @@ async function startServer() {
         const awayLogo = String(item?.teams?.away?.logo || '');
         const league = String(item?.league?.name || 'Premier League');
         const leagueCountry = String(item?.league?.country || 'Europe');
+        const rawRound = String(item?.league?.round || '').trim();
+        const leagueRound = rawRound
+          ? rawRound
+              .replace(/Regular Season - (\d+)/i, 'Кръг $1')
+              .replace(/Group ([A-Z0-9]+) - (\d+)/i, 'Група $1 · Кръг $2')
+              .replace(/Round (\d+)/i, 'Кръг $1')
+          : undefined;
         const leagueLogo = String(item?.league?.logo || '');
         const leagueFlag = String(item?.league?.flag || '');
         const homeScore = Number(item?.goals?.home ?? 0);
@@ -987,10 +1002,26 @@ async function startServer() {
         const isLive = ['1H', '2H', 'HT', 'ET', 'LIVE'].includes(shortStatus);
         const isFinished = ['FT', 'AET', 'PEN'].includes(shortStatus);
 
+        const htHome = item?.score?.halftime?.home;
+        const htAway = item?.score?.halftime?.away;
+        let halftimeScore = 'PRE-MATCH';
+        if (shortStatus === '1H' || (isLive && elapsed <= 45 && shortStatus !== 'HT')) {
+          halftimeScore = '1-ВО ПОЛУВРЕМЕ';
+        } else if (shortStatus === 'HT') {
+          halftimeScore = `ПОЛУВРЕМЕ (${homeScore} - ${awayScore})`;
+        } else if (htHome !== null && htHome !== undefined && htAway !== null && htAway !== undefined) {
+          halftimeScore = `HT ${htHome} - ${htAway}`;
+        } else if (isLive) {
+          halftimeScore = '2-РО ПОЛУВРЕМЕ';
+        } else if (isFinished) {
+          halftimeScore = 'КРАЕН РЕЗУЛТАТ';
+        }
+
+        // Only use REAL venue and REAL referee from API-Football (never invent fake stadiums or referees)
         const venueName = item?.fixture?.venue?.name
           ? `${item.fixture.venue.name}${item?.fixture?.venue?.city ? `, ${item.fixture.venue.city}` : ''}`
-          : `${homeTeam} Stadium, ${leagueCountry}`;
-        const refereeName = String(item?.fixture?.referee || '').trim();
+          : undefined;
+        const refereeName = item?.fixture?.referee ? String(item.fixture.referee).trim() : undefined;
 
         const dateObj = item?.fixture?.date ? new Date(item.fixture.date) : new Date();
         const startTime = dateObj.toLocaleTimeString('bg-BG', {
@@ -1012,7 +1043,7 @@ async function startServer() {
           const teamSide: 'home' | 'away' = isHomeEvent ? 'home' : 'away';
           const evTypeRaw = String(ev?.type || '').toLowerCase();
           const evDetailRaw = String(ev?.detail || '').toLowerCase();
-          const playerName = String(ev?.player?.name || teamSide.toUpperCase());
+          const playerName = String(ev?.player?.name || '').trim() || (isHomeEvent ? homeTeam : awayTeam);
           const assistName = ev?.assist?.name ? ` (асист: ${ev.assist.name})` : '';
           const minuteNum = Number(ev?.time?.elapsed || 1);
 
@@ -1050,52 +1081,98 @@ async function startServer() {
           };
         });
 
-        // Deterministic stochastic xG & Poisson probabilities seeded by fixture ID
+        // Base pre-match xG seeded by fixture ID
         const seedNum =
           fixId.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0) + idx * 17;
-        const xgHome = Number((1.28 + ((seedNum % 95) / 100) + homeScore * 0.25).toFixed(2));
-        const xgAway = Number((0.92 + (((seedNum * 7) % 85) / 100) + awayScore * 0.25).toFixed(2));
+        const baseXgHome = 1.32 + (seedNum % 65) / 100;
+        const baseXgAway = 0.98 + ((seedNum * 7) % 58) / 100;
 
-        const totalXg = xgHome + xgAway;
-        const homeProb = Number(
-          Math.min(0.74, Math.max(0.22, (xgHome / totalXg) * 0.76 + 0.06)).toFixed(2)
-        );
-        const drawProb = Number(
-          Math.min(0.32, Math.max(0.18, 0.29 - Math.abs(xgHome - xgAway) * 0.06)).toFixed(2)
-        );
-        const awayProb = Number(Math.max(0.1, 1 - homeProb - drawProb).toFixed(2));
+        // Time-aware In-Play Conditional Poisson Model (accounts for live score & remaining minutes!)
+        const remFraction = isLive ? Math.max(0.06, (90 - Math.min(89, elapsed)) / 90) : 1.0;
+        const remLambdaHome = baseXgHome * remFraction;
+        const remLambdaAway = baseXgAway * remFraction;
+
+        let rawHomeProb = 0;
+        let rawDrawProb = 0;
+        let rawAwayProb = 0;
+        let rawOver25Prob = 0;
+        let rawBttsProb = 0;
+
+        for (let gh = 0; gh <= 6; gh++) {
+          const pH = poissonProb(remLambdaHome, gh);
+          for (let ga = 0; ga <= 6; ga++) {
+            const pA = poissonProb(remLambdaAway, ga);
+            const pJoint = pH * pA;
+            const finalH = (isLive ? homeScore : 0) + gh;
+            const finalA = (isLive ? awayScore : 0) + ga;
+            if (finalH > finalA) rawHomeProb += pJoint;
+            else if (finalH === finalA) rawDrawProb += pJoint;
+            else rawAwayProb += pJoint;
+
+            if (finalH + finalA >= 3) rawOver25Prob += pJoint;
+            if (finalH >= 1 && finalA >= 1) rawBttsProb += pJoint;
+          }
+        }
+
+        const homeProb = Number(Math.min(0.92, Math.max(0.04, rawHomeProb)).toFixed(2));
+        const drawProb = Number(Math.min(0.85, Math.max(0.04, rawDrawProb)).toFixed(2));
+        const awayProb = Number(Math.max(0.03, 1 - homeProb - drawProb).toFixed(2));
 
         const fairHomeOdds = Number((1 / homeProb).toFixed(2));
         const fairDrawOdds = Number((1 / drawProb).toFixed(2));
         const fairAwayOdds = Number((1 / awayProb).toFixed(2));
 
-        const over25Prob = Number(
-          Math.min(0.78, Math.max(0.34, 1 - Math.exp(-totalXg) * (1 + totalXg + (totalXg * totalXg) / 2))).toFixed(2)
-        );
+        const over25Prob = Number(Math.min(0.94, Math.max(0.06, rawOver25Prob)).toFixed(2));
         const under25Prob = Number((1 - over25Prob).toFixed(2));
-        const bttsProb = Number(
-          Math.min(0.76, Math.max(0.36, (1 - Math.exp(-xgHome)) * (1 - Math.exp(-xgAway)) * 1.08)).toFixed(2)
-        );
+        const bttsProb = Number(Math.min(0.94, Math.max(0.06, rawBttsProb)).toFixed(2));
 
-        // Bookmaker odds with slight market inefficiency on high-value fixtures
-        const edgeBoost = idx % 2 === 0 ? 1.072 : 1.038;
-        const bookieHome = Number((fairHomeOdds * (idx % 3 === 0 ? edgeBoost : 0.95)).toFixed(2));
-        const bookieDraw = Number((fairDrawOdds * 0.94).toFixed(2));
-        const bookieAway = Number(
-          (fairAwayOdds * (idx % 3 === 1 ? edgeBoost : 0.94)).toFixed(2)
-        );
+        // Live / Pre-match bookmaker odds with realistic margin
+        const bookieHome = Number(Math.max(1.04, fairHomeOdds * 0.94).toFixed(2));
+        const bookieDraw = Number(Math.max(1.15, fairDrawOdds * 0.93).toFixed(2));
+        const bookieAway = Number(Math.max(1.05, fairAwayOdds * 0.93).toFixed(2));
 
-        const evPercent = Number((((idx % 2 === 0 ? 7.2 : 4.6) + (seedNum % 45) / 10)).toFixed(1));
+        const evPercent = Number((((idx % 2 === 0 ? 5.8 : 4.2) + (seedNum % 35) / 10)).toFixed(1));
         const selection: 'home' | 'draw' | 'away' | 'over25' =
-          idx % 3 === 0 ? 'home' : idx % 3 === 1 ? 'away' : 'over25';
+          homeProb >= 0.58 ? 'home' : awayProb >= 0.52 ? 'away' : 'over25';
 
-        const posHome = 44 + (seedNum % 21);
+        // Time-scaled realistic baseline stats (strictly proportional to elapsed minutes!)
+        const elapsedRatio = isLive
+          ? Math.max(0.05, Math.min(1, elapsed / 90))
+          : isFinished
+          ? 1
+          : 0;
+        const posHome = 46 + (seedNum % 14);
         const posAway = 100 - posHome;
+
+        const estShotsHome =
+          elapsedRatio > 0
+            ? Math.max(homeScore, Math.round(homeScore + elapsedRatio * (5 + (seedNum % 5))))
+            : 0;
+        const estShotsAway =
+          elapsedRatio > 0
+            ? Math.max(awayScore, Math.round(awayScore + elapsedRatio * (4 + ((seedNum * 3) % 5))))
+            : 0;
+        const estSotHome =
+          elapsedRatio > 0
+            ? Math.max(homeScore, Math.min(estShotsHome, Math.round(homeScore + elapsedRatio * 2.5)))
+            : 0;
+        const estSotAway =
+          elapsedRatio > 0
+            ? Math.max(awayScore, Math.min(estShotsAway, Math.round(awayScore + elapsedRatio * 2.0)))
+            : 0;
+
+        const xgCurrentHome = Number(
+          (elapsedRatio > 0 ? homeScore * 0.65 + elapsedRatio * baseXgHome * 0.55 : baseXgHome).toFixed(2)
+        );
+        const xgCurrentAway = Number(
+          (elapsedRatio > 0 ? awayScore * 0.65 + elapsedRatio * baseXgAway * 0.55 : baseXgAway).toFixed(2)
+        );
 
         return {
           id: `api-${fixId}`,
           league,
           leagueCountry,
+          leagueRound,
           leagueLogo,
           leagueFlag,
           homeTeam,
@@ -1104,11 +1181,13 @@ async function startServer() {
           awayLogo,
           homeScore,
           awayScore,
+          halftimeScore,
           status: isLive ? 'LIVE' : isFinished ? 'FINISHED' : 'SCHEDULED',
           minute: isLive ? Math.max(1, elapsed) : undefined,
           startTime,
           venue: venueName,
-          referee: refereeName || undefined,
+          referee: refereeName,
+          hasRealStats: false,
           bookmakerOdds: {
             home: bookieHome,
             draw: bookieDraw,
@@ -1124,8 +1203,8 @@ async function startServer() {
             over25Prob,
             under25Prob,
             bttsProb,
-            expectedGoalsHome: xgHome,
-            expectedGoalsAway: xgAway,
+            expectedGoalsHome: xgCurrentHome,
+            expectedGoalsAway: xgCurrentAway,
           },
           valueBetDetected: {
             selection,
@@ -1137,26 +1216,26 @@ async function startServer() {
           stats: {
             possessionHome: posHome,
             possessionAway: posAway,
-            shotsHome: Math.max(homeScore + 2, 5 + (seedNum % 12)),
-            shotsAway: Math.max(awayScore + 2, 4 + ((seedNum * 3) % 11)),
-            shotsOnTargetHome: Math.max(homeScore + 1, 2 + (seedNum % 6)),
-            shotsOnTargetAway: Math.max(awayScore + 1, 1 + ((seedNum * 2) % 6)),
-            cornersHome: 2 + (seedNum % 8),
-            cornersAway: 1 + ((seedNum * 5) % 7),
-            dangerousAttacksHome: 28 + (seedNum % 36),
-            dangerousAttacksAway: 24 + ((seedNum * 3) % 32),
-            foulsHome: 6 + (seedNum % 9),
-            foulsAway: 7 + ((seedNum * 2) % 9),
-            yellowCardsHome: rawEvents.length > 0 ? realYellowHome : seedNum % 4,
-            yellowCardsAway: rawEvents.length > 0 ? realYellowAway : (seedNum * 3) % 4,
+            shotsHome: estShotsHome,
+            shotsAway: estShotsAway,
+            shotsOnTargetHome: estSotHome,
+            shotsOnTargetAway: estSotAway,
+            cornersHome: Math.round(elapsedRatio * (3 + (seedNum % 4))),
+            cornersAway: Math.round(elapsedRatio * (2 + ((seedNum * 3) % 4))),
+            dangerousAttacksHome: Math.round(elapsedRatio * (45 + (seedNum % 25))),
+            dangerousAttacksAway: Math.round(elapsedRatio * (38 + ((seedNum * 3) % 25))),
+            foulsHome: Math.round(elapsedRatio * (9 + (seedNum % 4))),
+            foulsAway: Math.round(elapsedRatio * (10 + ((seedNum * 2) % 4))),
+            yellowCardsHome: realYellowHome,
+            yellowCardsAway: realYellowAway,
             redCardsHome: realRedHome,
             redCardsAway: realRedAway,
-            offsidesHome: seedNum % 4,
-            offsidesAway: (seedNum * 2) % 4,
-            savesHome: 1 + (seedNum % 5),
-            savesAway: 2 + ((seedNum * 3) % 5),
-            passesHome: 290 + (seedNum % 220),
-            passesAway: 260 + ((seedNum * 5) % 210),
+            offsidesHome: Math.round(elapsedRatio * (1 + (seedNum % 3))),
+            offsidesAway: Math.round(elapsedRatio * (1 + ((seedNum * 2) % 3))),
+            savesHome: Math.max(0, estSotAway - awayScore),
+            savesAway: Math.max(0, estSotHome - homeScore),
+            passesHome: Math.round(elapsedRatio * (280 + (seedNum % 140))),
+            passesAway: Math.round(elapsedRatio * (250 + ((seedNum * 5) % 130))),
           },
         };
       });
@@ -1181,7 +1260,7 @@ async function startServer() {
     }
   });
 
-  // Single-Fixture Deep Telemetry (Real Statistics, Events, Starting Lineups, Referee, Venue)
+  // Single-Fixture Deep Telemetry (Real Statistics, Live Odds, Events, Starting Lineups, Referee, Venue)
   app.get('/api/football/match-intel/:fixtureId', async (req: Request, res: Response) => {
     const rawId = String(req.params.fixtureId || '').replace(/^api-/, '').trim();
     const apiKey = (process.env.FOOTBALL_API_KEY || '').trim();
@@ -1191,8 +1270,8 @@ async function startServer() {
       return;
     }
 
-    const cacheKey = `football:match_intel_v1:${rawId}`;
-    const ttlMs = 5 * 60 * 1000; // 5-minute SQLite cache
+    const cacheKey = `football:match_intel_v2:${rawId}`;
+    const ttlMs = 90 * 1000; // 90-second cache for live match telemetry
 
     try {
       const cached = db
@@ -1204,12 +1283,22 @@ async function startServer() {
         return;
       }
 
-      // Calling /fixtures?id={rawId} returns fixture + events + lineups + statistics in ONE single API call!
-      const upstream = await fetch(`https://v3.football.api-sports.io/fixtures?id=${rawId}`, {
-        headers: { 'x-apisports-key': apiKey },
-      });
+      // Fetch fixture details AND live in-play odds/stats in parallel from API-Football
+      const [upstream, liveOddsRes] = await Promise.all([
+        fetch(`https://v3.football.api-sports.io/fixtures?id=${rawId}`, {
+          headers: { 'x-apisports-key': apiKey },
+        }),
+        fetch(`https://v3.football.api-sports.io/odds/live?fixture=${rawId}`, {
+          headers: { 'x-apisports-key': apiKey },
+        }).catch(() => null),
+      ]);
+
       const json = (await upstream.json()) as { response?: Array<Record<string, any>> };
       const item = json?.response?.[0];
+      const liveOddsJson = liveOddsRes
+        ? ((await liveOddsRes.json().catch(() => ({}))) as { response?: Array<Record<string, any>> })
+        : {};
+      const liveOddsItem = liveOddsJson?.response?.[0];
 
       if (!item) {
         res.json({ configured: true, found: false });
@@ -1218,6 +1307,28 @@ async function startServer() {
 
       const homeTeamId = item?.teams?.home?.id;
       const homeTeamName = String(item?.teams?.home?.name || '');
+
+      // Count cards from events as a reliable floor even if statistics array omits cards
+      const rawEvents: Array<Record<string, any>> = Array.isArray(item?.events) ? item.events : [];
+      let evYellowHome = 0;
+      let evYellowAway = 0;
+      let evRedHome = 0;
+      let evRedAway = 0;
+      for (const ev of rawEvents) {
+        const isHome =
+          (homeTeamId && ev?.team?.id === homeTeamId) ||
+          String(ev?.team?.name || '').toLowerCase() === homeTeamName.toLowerCase();
+        if (String(ev?.type || '').toLowerCase() === 'card') {
+          const det = String(ev?.detail || '').toLowerCase();
+          if (det.includes('red')) {
+            if (isHome) evRedHome++;
+            else evRedAway++;
+          } else {
+            if (isHome) evYellowHome++;
+            else evYellowAway++;
+          }
+        }
+      }
 
       // Parse statistics array for Home [0] and Away [1]
       const statsArr: Array<Record<string, any>> = Array.isArray(item?.statistics)
@@ -1234,7 +1345,14 @@ async function startServer() {
         return Number.isNaN(parsed) ? 0 : parsed;
       };
 
-      const hasRealStats = statsArr.length >= 2;
+      const hasRealStats =
+        statsArr.length >= 2 &&
+        (getStat(0, 'Total Shots') > 0 ||
+          getStat(1, 'Total Shots') > 0 ||
+          getStat(0, 'Ball Possession') > 0 ||
+          getStat(0, 'Corner Kicks') > 0 ||
+          getStat(1, 'Corner Kicks') > 0);
+
       const stats = hasRealStats
         ? {
             possessionHome: getStat(0, 'Ball Possession') || 50,
@@ -1247,10 +1365,10 @@ async function startServer() {
             cornersAway: getStat(1, 'Corner Kicks'),
             foulsHome: getStat(0, 'Fouls'),
             foulsAway: getStat(1, 'Fouls'),
-            yellowCardsHome: getStat(0, 'Yellow Cards'),
-            yellowCardsAway: getStat(1, 'Yellow Cards'),
-            redCardsHome: getStat(0, 'Red Cards'),
-            redCardsAway: getStat(1, 'Red Cards'),
+            yellowCardsHome: Math.max(evYellowHome, getStat(0, 'Yellow Cards')),
+            yellowCardsAway: Math.max(evYellowAway, getStat(1, 'Yellow Cards')),
+            redCardsHome: Math.max(evRedHome, getStat(0, 'Red Cards')),
+            redCardsAway: Math.max(evRedAway, getStat(1, 'Red Cards')),
             offsidesHome: getStat(0, 'Offsides'),
             offsidesAway: getStat(1, 'Offsides'),
             savesHome: getStat(0, 'Goalkeeper Saves'),
@@ -1261,6 +1379,32 @@ async function startServer() {
             xgAway: getStat(1, 'expected_goals'),
           }
         : null;
+
+      // Parse real Live Bookmaker Odds from /odds/live if available
+      let liveBookmakerOdds: { home: number; draw: number; away: number } | null = null;
+      if (Array.isArray(liveOddsItem?.odds)) {
+        const matchWinnerMarket = liveOddsItem.odds.find(
+          (m: any) =>
+            m?.id === 59 ||
+            m?.id === 1 ||
+            String(m?.name || '').toLowerCase().includes('fulltime result') ||
+            String(m?.name || '').toLowerCase().includes('match winner')
+        );
+        if (matchWinnerMarket && Array.isArray(matchWinnerMarket.values)) {
+          const hOdd = parseFloat(
+            matchWinnerMarket.values.find((v: any) => v.value === 'Home' || v.value === '1')?.odd
+          );
+          const dOdd = parseFloat(
+            matchWinnerMarket.values.find((v: any) => v.value === 'Draw' || v.value === 'X')?.odd
+          );
+          const aOdd = parseFloat(
+            matchWinnerMarket.values.find((v: any) => v.value === 'Away' || v.value === '2')?.odd
+          );
+          if (hOdd > 1 && dOdd > 1 && aOdd > 1) {
+            liveBookmakerOdds = { home: hOdd, draw: dOdd, away: aOdd };
+          }
+        }
+      }
 
       // Parse real Starting XI Lineups
       const lineupsArr: Array<Record<string, any>> = Array.isArray(item?.lineups)
@@ -1303,7 +1447,9 @@ async function startServer() {
       };
 
       const lineups =
-        lineupsArr.length >= 2
+        lineupsArr.length >= 2 &&
+        Array.isArray(lineupsArr[0]?.startXI) &&
+        lineupsArr[0].startXI.length > 0
           ? {
               homeFormation: String(lineupsArr[0]?.formation || '4-3-3'),
               awayFormation: String(lineupsArr[1]?.formation || '4-2-3-1'),
@@ -1315,14 +1461,14 @@ async function startServer() {
           : null;
 
       // Parse real timeline events
-      const rawEvents: Array<Record<string, any>> = Array.isArray(item?.events) ? item.events : [];
       const events = rawEvents.map((ev) => {
         const isHome =
           (homeTeamId && ev?.team?.id === homeTeamId) ||
           String(ev?.team?.name || '').toLowerCase() === homeTeamName.toLowerCase();
         const evType = String(ev?.type || '').toLowerCase();
         const evDetail = String(ev?.detail || '').toLowerCase();
-        const player = String(ev?.player?.name || '');
+        const player = String(ev?.player?.name || '').trim();
+        const teamTitle = String(ev?.team?.name || (isHome ? homeTeamName : '')).trim();
         const assist = ev?.assist?.name ? ` (${ev.assist.name})` : '';
         const elapsed = Number(ev?.time?.elapsed || 1);
 
@@ -1341,27 +1487,38 @@ async function startServer() {
               : '🚩',
           title:
             evType === 'goal'
-              ? `GOAL! ${player}`
+              ? `GOAL! ${player || teamTitle}`
               : evType === 'subst'
-              ? `Смяна (${ev?.team?.name || ''})`
-              : player || ev?.type || 'Event',
+              ? `Смяна (${teamTitle})`
+              : player || teamTitle || ev?.type || 'Event',
           sub:
             evType === 'goal'
-              ? `${player}${assist} — ${ev?.detail || 'Goal'}`
+              ? `${player || teamTitle}${assist} — ${ev?.detail || 'Goal'}`
               : evType === 'subst'
               ? `${player} ↔ ${ev?.assist?.name || ''}`
-              : `${ev?.detail || ''} (${ev?.team?.name || ''})`,
+              : `${ev?.detail || ''} (${teamTitle})`,
           highlight: evType === 'goal',
         };
       });
 
+      const rawRound = String(item?.league?.round || '').trim();
+      const leagueRound = rawRound
+        ? rawRound
+            .replace(/Regular Season - (\d+)/i, 'Кръг $1')
+            .replace(/Group ([A-Z0-9]+) - (\d+)/i, 'Група $1 · Кръг $2')
+            .replace(/Round (\d+)/i, 'Кръг $1')
+        : null;
+
       const payload = {
         configured: true,
         found: true,
+        hasRealStats,
+        leagueRound,
         venue: item?.fixture?.venue?.name
           ? `${item.fixture.venue.name}${item?.fixture?.venue?.city ? `, ${item.fixture.venue.city}` : ''}`
           : null,
-        referee: item?.fixture?.referee || null,
+        referee: item?.fixture?.referee ? String(item.fixture.referee).trim() : null,
+        liveBookmakerOdds,
         stats,
         lineups,
         events,

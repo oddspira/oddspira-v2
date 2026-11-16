@@ -46,6 +46,7 @@ export interface Match {
   id: string;
   league: string;
   leagueCountry: string;
+  leagueRound?: string;
   leagueLogo?: string;
   leagueFlag?: string;
   homeTeam: string;
@@ -54,6 +55,7 @@ export interface Match {
   awayLogo?: string;
   homeScore: number;
   awayScore: number;
+  halftimeScore?: string;
   status: 'LIVE' | 'SCHEDULED' | 'FINISHED';
   minute?: number;
   startTime: string;
@@ -67,6 +69,7 @@ export interface Match {
   };
   venue?: string;
   referee?: string;
+  hasRealStats?: boolean;
   events: MatchEvent[];
   stats: {
     possessionHome: number;

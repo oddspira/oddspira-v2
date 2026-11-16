@@ -6,8 +6,15 @@ import { TeamBadge } from './TeamBadge';
 interface LiveMatchIntel {
   configured?: boolean;
   found?: boolean;
+  hasRealStats?: boolean;
+  leagueRound?: string | null;
   venue?: string | null;
   referee?: string | null;
+  liveBookmakerOdds?: {
+    home: number;
+    draw: number;
+    away: number;
+  } | null;
   stats?: {
     possessionHome: number;
     possessionAway: number;
@@ -265,6 +272,8 @@ const getMatchMetadata = (match: Match, liveIntel?: LiveMatchIntel | null): Matc
   ];
   const formationsPool = ['4-3-3', '4-2-3-1', '3-5-2', '4-4-2', '3-4-2-1'];
 
+  const isApiMatch = match.id.startsWith('api-') || /^\d+$/.test(match.id);
+
   // Extract real goal scorers from API-Football events or match.events
   const liveHomeGoals = (liveIntel?.events || [])
     .filter((e) => e.icon === '⚽' && e.team === 'home')
@@ -287,12 +296,16 @@ const getMatchMetadata = (match: Match, liveIntel?: LiveMatchIntel | null): Matc
     stadium:
       liveIntel?.venue ||
       match.venue ||
-      `${match.homeTeam} Stadium, ${match.leagueCountry}`,
-    attendance: `${(18 + (seed % 44)).toLocaleString()},${120 + (seed % 850)}`,
+      (isApiMatch
+        ? `${match.league} · ${match.leagueCountry}`
+        : `${match.homeTeam} Stadium, ${match.leagueCountry}`),
+    attendance: isApiMatch
+      ? ''
+      : `${(18 + (seed % 44)).toLocaleString()},${120 + (seed % 850)}`,
     referee:
       liveIntel?.referee ||
       match.referee ||
-      refereesPool[seed % refereesPool.length],
+      (isApiMatch ? 'Не е обявен в API' : refereesPool[seed % refereesPool.length]),
     weather: `${12 + (seed % 14)}°C, Clear`,
     pitch: seed % 3 === 0 ? 'Good' : 'Excellent',
     homeFormation:
@@ -686,6 +699,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
   const redHome = liveIntel?.stats?.redCardsHome ?? match.stats.redCardsHome ?? 0;
   const redAway = liveIntel?.stats?.redCardsAway ?? match.stats.redCardsAway ?? 0;
 
+  const activeBookmakerOdds = liveIntel?.liveBookmakerOdds || match.bookmakerOdds;
   const over25Odds = Number((1 / Math.max(0.25, match.fairOdds.over25Prob) * 0.95).toFixed(2));
   const under25Odds = Number((1 / Math.max(0.25, match.fairOdds.under25Prob) * 0.95).toFixed(2));
   const bttsYesOdds = Number((1 / Math.max(0.25, match.fairOdds.bttsProb) * 0.95).toFixed(2));
@@ -878,12 +892,18 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
               <span>⚽</span>
               <span>{match.league}</span>
               <span className="text-neutral-500">·</span>
-              <span className="text-[#94a3b8] font-normal">{t.matchweek}</span>
+              <span className="text-[#94a3b8] font-normal">
+                {liveIntel?.leagueRound || match.leagueRound || t.matchweek}
+              </span>
             </div>
             <div className="text-[11px] text-[#8f9cae] flex items-center justify-center gap-3">
               <span>📍 {meta.stadium}</span>
-              <span>·</span>
-              <span>👥 {meta.attendance}</span>
+              {meta.attendance && (
+                <>
+                  <span>·</span>
+                  <span>👥 {meta.attendance}</span>
+                </>
+              )}
             </div>
           </div>
 
@@ -921,7 +941,12 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                   {match.homeScore} - {match.awayScore}
                 </div>
                 <div className="text-[11px] font-mono text-[#8f9cae] mt-1">
-                  {isLive ? `HT ${Math.min(match.homeScore, 1)} - 0` : 'PRE-MATCH'}
+                  {match.halftimeScore ||
+                    (isLive && (match.minute || 0) <= 45
+                      ? '1-ВО ПОЛУВРЕМЕ'
+                      : isLive
+                      ? '2-РО ПОЛУВРЕМЕ'
+                      : 'PRE-MATCH')}
                 </div>
               </div>
             </div>
@@ -985,7 +1010,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                     onLogBet(
                       match,
                       match.homeTeam,
-                      match.bookmakerOdds.home,
+                      activeBookmakerOdds.home,
                       edgePercent,
                       'Full Time Result'
                     )
@@ -993,7 +1018,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                   className="py-2 px-1 rounded-lg border border-[#1d2b3c] bg-[#0e1622] hover:border-[#43f08a] text-center cursor-pointer transition-colors"
                 >
                   <span className="text-[#64748b] block text-[9px]">1</span>
-                  <span className="font-bold text-white">{match.bookmakerOdds.home.toFixed(2)}</span>
+                  <span className="font-bold text-white">{activeBookmakerOdds.home.toFixed(2)}</span>
                 </button>
                 <button
                   type="button"
@@ -1001,7 +1026,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                     onLogBet(
                       match,
                       'Draw (X)',
-                      match.bookmakerOdds.draw,
+                      activeBookmakerOdds.draw,
                       edgePercent,
                       'Full Time Result'
                     )
@@ -1009,7 +1034,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                   className="py-2 px-1 rounded-lg border border-[#1d2b3c] bg-[#0e1622] hover:border-[#43f08a] text-center cursor-pointer transition-colors"
                 >
                   <span className="text-[#64748b] block text-[9px]">X</span>
-                  <span className="font-bold text-white">{match.bookmakerOdds.draw.toFixed(2)}</span>
+                  <span className="font-bold text-white">{activeBookmakerOdds.draw.toFixed(2)}</span>
                 </button>
                 <button
                   type="button"
@@ -1017,7 +1042,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                     onLogBet(
                       match,
                       match.awayTeam,
-                      match.bookmakerOdds.away,
+                      activeBookmakerOdds.away,
                       edgePercent,
                       'Full Time Result'
                     )
@@ -1025,7 +1050,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                   className="py-2 px-1 rounded-lg border border-[#1d2b3c] bg-[#0e1622] hover:border-[#43f08a] text-center cursor-pointer transition-colors"
                 >
                   <span className="text-[#64748b] block text-[9px]">2</span>
-                  <span className="font-bold text-white">{match.bookmakerOdds.away.toFixed(2)}</span>
+                  <span className="font-bold text-white">{activeBookmakerOdds.away.toFixed(2)}</span>
                 </button>
               </div>
             </div>
@@ -1173,13 +1198,20 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
         {/* PANEL 1: Match Overview (4 cols) */}
         <div className="lg:col-span-4 rounded-2xl border border-[#182434] bg-[#0b111a] p-5 flex flex-col justify-between shadow-xl space-y-4">
-          <div className="flex items-center justify-between border-b border-[#162232] pb-3">
+          <div className="flex items-center justify-between border-b border-[#162232] pb-3 gap-2 flex-wrap">
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-extrabold text-white">{t.matchOverview}</h3>
               <span className="px-2 py-0.5 rounded bg-[#0f291e] border border-[#22c55e]/50 text-[10px] font-mono font-bold text-[#43f08a]">
                 {isLive ? t.liveBadge : t.scheduledBadge}
               </span>
             </div>
+            <span className="text-[10px] font-mono text-[#8f9cae]">
+              {liveIntel?.hasRealStats
+                ? '🟢 Оптични данни API-Sports'
+                : match.id.startsWith('api-')
+                ? '⚡ Оценка по време (2-ра дивизия без оптичен тракер)'
+                : '🟢 Quant Engine'}
+            </span>
           </div>
 
           <div className="grid grid-cols-12 gap-3 items-center flex-1">
