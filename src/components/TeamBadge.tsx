@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 // Official API-Sports CDN Club Crests + Dynamic Runtime Registry
 const TEAM_LOGO_REGISTRY: Record<string, string> = {
@@ -93,10 +93,13 @@ export function registerMatchLogos(
 export function getTeamLogoUrl(teamName: string, explicitLogo?: string): string | null {
   if (explicitLogo) return explicitLogo;
   const key = (teamName || '').trim().toLowerCase();
+  if (!key) return null;
   if (TEAM_LOGO_REGISTRY[key]) return TEAM_LOGO_REGISTRY[key];
   for (const [knownName, url] of Object.entries(TEAM_LOGO_REGISTRY)) {
-    if (key.includes(knownName) || knownName.includes(key)) {
-      return url;
+    if (knownName.length >= 4 && key.length >= 4) {
+      if (key.includes(knownName) || knownName.includes(key)) {
+        return url;
+      }
     }
   }
   return null;
@@ -105,6 +108,7 @@ export function getTeamLogoUrl(teamName: string, explicitLogo?: string): string 
 export function getLeagueLogoUrl(leagueName: string, explicitLogo?: string): string | null {
   if (explicitLogo) return explicitLogo;
   const key = (leagueName || '').trim().toLowerCase();
+  if (!key) return null;
   if (LEAGUE_LOGO_REGISTRY[key]) return LEAGUE_LOGO_REGISTRY[key];
   for (const [knownName, url] of Object.entries(LEAGUE_LOGO_REGISTRY)) {
     if (key === knownName || key.includes(knownName)) {
@@ -129,6 +133,10 @@ export const TeamBadge: React.FC<TeamBadgeProps> = ({
 }) => {
   const [imgError, setImgError] = useState(false);
   const resolvedLogo = getTeamLogoUrl(name, logoUrl);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [resolvedLogo]);
 
   const sizeMap = {
     sm: 'w-6 h-6 text-[10px]',

@@ -896,7 +896,7 @@ async function startServer() {
       return;
     }
 
-    const cacheKey = 'football:normalized_live_feed_v4';
+    const cacheKey = 'football:normalized_live_feed_v6';
     const ttlMs = 2 * 60 * 1000; // 2 minutes SQLite cache
 
     try {
@@ -917,41 +917,78 @@ async function startServer() {
         return;
       }
 
-      // Fetch currently live fixtures first
-      const liveRes = await fetch('https://v3.football.api-sports.io/fixtures?live=all', {
-        headers: { 'x-apisports-key': apiKey },
-      });
-      const liveJson = (await liveRes.json()) as { response?: Array<Record<string, any>> };
-      let rawFixtures: Array<Record<string, any>> = Array.isArray(liveJson?.response)
-        ? liveJson.response
-        : [];
+      const nowMs = Date.now();
+      const todayIso = new Date(nowMs).toISOString().slice(0, 10);
 
-      // If fewer than 8 live matches right now, also fetch today's scheduled matches
-      if (rawFixtures.length < 8) {
-        const todayIso = new Date().toISOString().slice(0, 10);
-        const dateRes = await fetch(
-          `https://v3.football.api-sports.io/fixtures?date=${todayIso}`,
-          { headers: { 'x-apisports-key': apiKey } }
-        );
-        const dateJson = (await dateRes.json()) as { response?: Array<Record<string, any>> };
-        if (Array.isArray(dateJson?.response)) {
-          const existingIds = new Set(rawFixtures.map((f) => f?.fixture?.id));
-          for (const item of dateJson.response) {
-            if (!existingIds.has(item?.fixture?.id)) {
-              rawFixtures.push(item);
-            }
-          }
-        }
+      // Fetch both live fixtures and today's calendar fixtures in parallel
+      const [liveRes, dateRes] = await Promise.all([
+        fetch('https://v3.football.api-sports.io/fixtures?live=all', {
+          headers: { 'x-apisports-key': apiKey },
+        }).catch(() => null),
+        fetch(`https://v3.football.api-sports.io/fixtures?date=${todayIso}`, {
+          headers: { 'x-apisports-key': apiKey },
+        }).catch(() => null),
+      ]);
+
+      const liveJson = liveRes
+        ? ((await liveRes.json()) as { response?: Array<Record<string, any>> })
+        : null;
+      const dateJson = dateRes
+        ? ((await dateRes.json()) as { response?: Array<Record<string, any>> })
+        : null;
+
+      const combinedMap = new Map<number, Record<string, any>>();
+      for (const item of Array.isArray(liveJson?.response) ? liveJson.response : []) {
+        const id = Number(item?.fixture?.id);
+        if (id) combinedMap.set(id, item);
+      }
+      for (const item of Array.isArray(dateJson?.response) ? dateJson.response : []) {
+        const id = Number(item?.fixture?.id);
+        if (id && !combinedMap.has(id)) combinedMap.set(id, item);
       }
 
-      // Prioritize major European & global leagues
+      // Filter out stuck/phantom "live" fixtures from past dates (e.g. U17 World Cup or old friendlies stuck at 1')
+      // and filter out cancelled/postponed/abandoned matches
+      const invalidStatuses = new Set(['PST', 'CANC', 'ABD', 'AWD', 'WO', 'TBD']);
+      const liveStatuses = new Set(['1H', '2H', 'HT', 'ET', 'BT', 'P', 'LIVE']);
+
+      let rawFixtures = Array.from(combinedMap.values()).filter((item) => {
+        const st = String(item?.fixture?.status?.short || 'NS');
+        if (invalidStatuses.has(st)) return false;
+
+        const dateStr = String(item?.fixture?.date || '');
+        const kickoffMs = dateStr ? new Date(dateStr).getTime() : 0;
+        if (!kickoffMs || Number.isNaN(kickoffMs)) return false;
+
+        const diffHours = (nowMs - kickoffMs) / (1000 * 3600);
+        const itemDateIso = dateStr.slice(0, 10);
+
+        if (liveStatuses.has(st)) {
+          // A real football match cannot still be "LIVE" more than 3.5 hours after kickoff
+          // or before kickoff, nor can it be stuck at elapsed=null/0 for >25 mins
+          if (diffHours < -0.25 || diffHours > 3.5) return false;
+          const elapsed = Number(item?.fixture?.status?.elapsed || 0);
+          if (elapsed <= 1 && diffHours > 0.4) return false;
+          return true;
+        }
+
+        // Non-live matches (NS or FT) must be from TODAY
+        return itemDateIso === todayIso;
+      });
+
+      // Top league IDs in API-Football (UEFA, Top 5 European, Balkan & Major National/Club competitions)
+      const topLeagueIds = new Set([
+        2, 3, 848, 5, 4, 1, 32, 39, 140, 135, 78, 61, 172, 197, 94, 88, 203, 71, 128, 13, 144, 179,
+        207, 218, 119, 106, 283, 286,
+      ]);
+
+      // Senior major countries (excluding 'World' so U17/Friendlies don't hijack the top spots)
       const priorityCountries = new Set([
         'England',
         'Spain',
         'Italy',
         'Germany',
         'France',
-        'World',
         'Europe',
         'Bulgaria',
         'Greece',
@@ -959,12 +996,47 @@ async function startServer() {
         'Netherlands',
         'Turkey',
         'Brazil',
+        'Argentina',
+        'Belgium',
+        'Scotland',
       ]);
 
+      const isYouthOrFriendly = (item: Record<string, any>): boolean => {
+        const text = `${item?.league?.name || ''} ${item?.teams?.home?.name || ''} ${
+          item?.teams?.away?.name || ''
+        }`.toLowerCase();
+        return /\bu1[5-9]\b|\bu2[0-3]\b|youth|reserve|friendl|women|amateur/i.test(text);
+      };
+
       rawFixtures.sort((a, b) => {
-        const aLive = ['1H', '2H', 'HT', 'ET'].includes(a?.fixture?.status?.short) ? 1 : 0;
-        const bLive = ['1H', '2H', 'HT', 'ET'].includes(b?.fixture?.status?.short) ? 1 : 0;
+        const aYouth = isYouthOrFriendly(a) ? 1 : 0;
+        const bYouth = isYouthOrFriendly(b) ? 1 : 0;
+        const aTopLeague = topLeagueIds.has(Number(a?.league?.id)) ? 1 : 0;
+        const bTopLeague = topLeagueIds.has(Number(b?.league?.id)) ? 1 : 0;
+        const aLive = liveStatuses.has(String(a?.fixture?.status?.short)) ? 1 : 0;
+        const bLive = liveStatuses.has(String(b?.fixture?.status?.short)) ? 1 : 0;
+        const aUpcomingOrLive = ['NS', ...Array.from(liveStatuses)].includes(
+          String(a?.fixture?.status?.short)
+        )
+          ? 1
+          : 0;
+        const bUpcomingOrLive = ['NS', ...Array.from(liveStatuses)].includes(
+          String(b?.fixture?.status?.short)
+        )
+          ? 1
+          : 0;
+
+        // 1. Senior professional matches before Youth/Friendlies
+        if (aYouth !== bYouth) return aYouth - bYouth;
+        // 2. Top League Live matches first
+        if (aLive && bLive && aTopLeague !== bTopLeague) return bTopLeague - aTopLeague;
+        // 3. Live senior matches
         if (aLive !== bLive) return bLive - aLive;
+        // 4. Top leagues (Premier League, La Liga, Champions League, Nations League, Parva Liga, etc.)
+        if (aTopLeague !== bTopLeague) return bTopLeague - aTopLeague;
+        // 5. Upcoming today before already finished today
+        if (aUpcomingOrLive !== bUpcomingOrLive) return bUpcomingOrLive - aUpcomingOrLive;
+        // 6. Priority football countries
         const aPrio = priorityCountries.has(a?.league?.country) ? 1 : 0;
         const bPrio = priorityCountries.has(b?.league?.country) ? 1 : 0;
         return bPrio - aPrio;
@@ -3537,9 +3609,24 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(import.meta.dirname, 'dist');
-    app.use(express.static(distPath, { maxAge: '7d' }));
-    app.get('*all', (_req: Request, res: Response) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+    app.use(
+      express.static(distPath, {
+        maxAge: '7d',
+        setHeaders: (res, filePath) => {
+          if (filePath.endsWith('index.html')) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          }
+        },
+      })
+    );
+    // Universal SPA fallback compatible with both Express 4 and Express 5 (/leagues, /live-odds, /ev-scanner, etc.)
+    app.use((req: Request, res: Response, next) => {
+      if (req.method === 'GET' && !req.path.startsWith('/api/')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.sendFile(path.join(distPath, 'index.html'));
+        return;
+      }
+      next();
     });
   }
 

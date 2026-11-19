@@ -609,7 +609,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
         : baseLeague.topScorers,
   };
 
-  // Featured Leagues Carousel Items matching the screenshot 1:1
+  // Featured Leagues Carousel Items with Official API-Sports League Emblems
   const featuredLeaguesList = [
     {
       key: 'premier-league',
@@ -617,7 +617,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       country: 'England',
       badgeBg: 'from-[#3d0c52] to-[#20032c]',
       badgeBorder: 'border-purple-400/40',
-      icon: '🦁',
+      logoUrl: 'https://media.api-sports.io/football/leagues/39.png',
     },
     {
       key: 'la-liga',
@@ -625,7 +625,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       country: 'Spain',
       badgeBg: 'from-[#7f1d1d] to-[#310a0a]',
       badgeBorder: 'border-red-500/40',
-      icon: '⚡',
+      logoUrl: 'https://media.api-sports.io/football/leagues/140.png',
     },
     {
       key: 'serie-a',
@@ -633,7 +633,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       country: 'Italy',
       badgeBg: 'from-[#0369a1] to-[#082f49]',
       badgeBorder: 'border-sky-400/40',
-      icon: 'A',
+      logoUrl: 'https://media.api-sports.io/football/leagues/135.png',
     },
     {
       key: 'bundesliga',
@@ -641,7 +641,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       country: 'Germany',
       badgeBg: 'from-[#b91c1c] to-[#450a0a]',
       badgeBorder: 'border-red-500/40',
-      icon: '⚽',
+      logoUrl: 'https://media.api-sports.io/football/leagues/78.png',
     },
     {
       key: 'ucl',
@@ -649,7 +649,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       country: 'Europe',
       badgeBg: 'from-[#1e3a8a] to-[#0f172a]',
       badgeBorder: 'border-blue-400/40',
-      icon: '★',
+      logoUrl: 'https://media.api-sports.io/football/leagues/2.png',
     },
     {
       key: 'premier-league',
@@ -657,7 +657,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       country: 'South America',
       badgeBg: 'from-[#78350f] to-[#271003]',
       badgeBorder: 'border-amber-400/40',
-      icon: '🏆',
+      logoUrl: 'https://media.api-sports.io/football/leagues/13.png',
     },
     {
       key: 'la-liga',
@@ -665,7 +665,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       country: 'France',
       badgeBg: 'from-[#1e293b] to-[#090d16]',
       badgeBorder: 'border-emerald-400/40',
-      icon: 'L1',
+      logoUrl: 'https://media.api-sports.io/football/leagues/61.png',
     },
     {
       key: 'serie-a',
@@ -673,11 +673,11 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       country: 'Netherlands',
       badgeBg: 'from-[#1e1b4b] to-[#090a1a]',
       badgeBorder: 'border-indigo-400/40',
-      icon: 'e',
+      logoUrl: 'https://media.api-sports.io/football/leagues/88.png',
     },
   ];
 
-  // Popular Leagues by Region cards matching the screenshot 1:1
+  // Popular Leagues by Region cards with Official API-Sports League Emblems
   const regionalLeagues = [
     {
       key: 'premier-league',
@@ -686,7 +686,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       season: '2024/25',
       region: 'europe',
       crestBg: 'from-emerald-800 to-red-900',
-      crestText: 'LP',
+      logoUrl: 'https://media.api-sports.io/football/leagues/94.png',
     },
     {
       key: 'la-liga',
@@ -695,7 +695,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       season: '2024/25',
       region: 'europe',
       crestBg: 'from-slate-800 to-slate-950',
-      crestText: 'L1',
+      logoUrl: 'https://media.api-sports.io/football/leagues/61.png',
     },
     {
       key: 'serie-a',
@@ -704,7 +704,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       season: '2024/25',
       region: 'europe',
       crestBg: 'from-blue-900 to-indigo-950',
-      crestText: 'E',
+      logoUrl: 'https://media.api-sports.io/football/leagues/88.png',
     },
     {
       key: 'bundesliga',
@@ -713,7 +713,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       season: '2024',
       region: 'south_america',
       crestBg: 'from-sky-600 to-amber-700',
-      crestText: 'AFA',
+      logoUrl: 'https://media.api-sports.io/football/leagues/128.png',
     },
     {
       key: 'ucl',
@@ -722,7 +722,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       season: '2024',
       region: 'south_america',
       crestBg: 'from-yellow-500 to-emerald-900',
-      crestText: 'CBF',
+      logoUrl: 'https://media.api-sports.io/football/leagues/71.png',
     },
     {
       key: 'premier-league',
@@ -731,7 +731,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       season: '2024',
       region: 'north_america',
       crestBg: 'from-red-700 to-blue-950',
-      crestText: 'MLS',
+      logoUrl: 'https://media.api-sports.io/football/leagues/253.png',
     },
   ];
 
@@ -980,9 +980,14 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                   }`}
                 >
                   <div
-                    className={`w-9 h-9 rounded-xl bg-gradient-to-br ${lg.badgeBg} border ${lg.badgeBorder} flex items-center justify-center text-sm font-black text-white shrink-0`}
+                    className={`w-9 h-9 rounded-xl bg-white/95 border ${lg.badgeBorder} flex items-center justify-center p-1.5 shadow-sm shrink-0`}
                   >
-                    {lg.icon}
+                    <img
+                      src={lg.logoUrl}
+                      alt={lg.name}
+                      className="w-full h-full object-contain"
+                      loading="lazy"
+                    />
                   </div>
                   <div className="min-w-0">
                     <div className="text-xs font-extrabold text-white truncate">{lg.name}</div>
@@ -1018,8 +1023,13 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
             {/* League Header + Change League Dropdown */}
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#3d0c52] to-[#20032c] border border-purple-400/40 flex items-center justify-center text-sm">
-                  🦁
+                <div className="w-8 h-8 rounded-xl bg-white/95 border border-white/20 flex items-center justify-center p-1 shadow-sm shrink-0">
+                  <img
+                    src={`https://media.api-sports.io/football/leagues/${activeLeague.apiLeagueId}.png`}
+                    alt={activeLeague.name}
+                    className="w-full h-full object-contain"
+                    loading="lazy"
+                  />
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h2 className="text-base font-extrabold text-white">{activeLeague.name}</h2>
@@ -1103,7 +1113,12 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                       </td>
                       <td className="py-2.5 pr-3 font-sans">
                         <div className="flex items-center gap-2">
-                          <TeamBadge name={row.club} size="sm" className="w-5 h-5 text-[8px]" />
+                          <TeamBadge
+                            name={row.club}
+                            logoUrl={row.clubLogo}
+                            size="sm"
+                            className="w-5 h-5 text-[8px]"
+                          />
                           <span className="font-bold text-white truncate max-w-[125px]">
                             {row.club}
                           </span>
@@ -1340,10 +1355,13 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
               className="rounded-xl border border-[#1a2636] bg-[#0d1520] hover:border-[#43f08a]/50 p-3 flex flex-col justify-between gap-3 transition-all"
             >
               <div className="flex items-start gap-2.5">
-                <div
-                  className={`w-9 h-9 rounded-xl bg-gradient-to-br ${rl.crestBg} border border-white/20 flex items-center justify-center text-[10px] font-black text-white shrink-0`}
-                >
-                  {rl.crestText}
+                <div className="w-9 h-9 rounded-xl bg-white/95 border border-white/20 flex items-center justify-center p-1.5 shadow-sm shrink-0">
+                  <img
+                    src={rl.logoUrl}
+                    alt={rl.name}
+                    className="w-full h-full object-contain"
+                    loading="lazy"
+                  />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-extrabold text-white truncate">{rl.name}</div>

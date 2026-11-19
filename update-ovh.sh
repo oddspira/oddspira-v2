@@ -14,7 +14,8 @@ if [ -f "data/oddspira.db" ]; then
 fi
 
 echo "⬇️ [2/4] Изтегляне на най-новите промени от GitHub (без да се пипат .env и data/)..."
-git pull origin main
+git fetch origin main
+git reset --hard origin/main
 
 echo "⚙️ [3/4] Обновяване на пакетите и компилиране на новия дизайн (vite build)..."
 npm install --legacy-peer-deps
