@@ -1888,9 +1888,10 @@ async function startServer() {
     }
   });
 
-  // Real League Standings & Top Scorers (Goals, Assists, Yellow Cards) via API-Football v3 (12h SQLite Cache)
+  // Real League Standings, Top Scorers, Upcoming Fixtures & Real League Stats via API-Football v3
   app.get('/api/football/league-intel/:leagueId', async (req: Request, res: Response) => {
     const leagueId = Number(req.params.leagueId || 39);
+    const requestedSeasonParam = String(req.query.season || 'auto').trim();
     const apiKey = (process.env.FOOTBALL_API_KEY || '').trim();
 
     if (!apiKey || !leagueId) {
@@ -1898,8 +1899,8 @@ async function startServer() {
       return;
     }
 
-    const cacheKey = `football:league_intel_v1:${leagueId}`;
-    const ttlMs = 12 * 60 * 60 * 1000; // 12 hours SQLite cache
+    const cacheKey = `football:league_intel_v3:${leagueId}:${requestedSeasonParam}`;
+    const ttlMs = 30 * 60 * 1000; // 30 minutes SQLite cache for fresh standings & fixtures
 
     try {
       const cached = db
@@ -1911,25 +1912,83 @@ async function startServer() {
         return;
       }
 
-      // Free tier supports seasons 2022-2024; Pro tier supports 2024/2025+
-      const [standingsRes, scorersRes] = await Promise.all([
-        fetch(`https://v3.football.api-sports.io/standings?league=${leagueId}&season=2024`, {
-          headers: { 'x-apisports-key': apiKey },
-        }),
-        fetch(
-          `https://v3.football.api-sports.io/players/topscorers?league=${leagueId}&season=2024`,
-          { headers: { 'x-apisports-key': apiKey } }
-        ),
-      ]);
+      // 1. Determine current active season from API-Football (/leagues?id={leagueId})
+      let activeSeason = 2025;
+      let seasonLabel = '2025/26';
 
-      const standingsJson = (await standingsRes.json()) as { response?: Array<Record<string, any>> };
-      const scorersJson = (await scorersRes.json()) as { response?: Array<Record<string, any>> };
+      if (/^\d{4}$/.test(requestedSeasonParam)) {
+        activeSeason = Number(requestedSeasonParam);
+        seasonLabel = `${activeSeason}/${String(activeSeason + 1).slice(-2)}`;
+      } else {
+        try {
+          const leagueInfoRes = await fetch(
+            `https://v3.football.api-sports.io/leagues?id=${leagueId}`,
+            { headers: { 'x-apisports-key': apiKey } }
+          );
+          const leagueInfoJson = (await leagueInfoRes.json()) as {
+            response?: Array<Record<string, any>>;
+          };
+          const seasonsList: Array<Record<string, any>> =
+            leagueInfoJson?.response?.[0]?.seasons || [];
+          const currentSeasonObj =
+            seasonsList.find((s) => s?.current === true) ||
+            seasonsList[seasonsList.length - 1];
+          if (currentSeasonObj?.year) {
+            activeSeason = Number(currentSeasonObj.year);
+            const startYear = String(currentSeasonObj.start || '').slice(0, 4);
+            const endYear = String(currentSeasonObj.end || '').slice(0, 4);
+            if (startYear && endYear && startYear !== endYear) {
+              seasonLabel = `${startYear}/${endYear.slice(-2)}`;
+            } else {
+              seasonLabel = String(activeSeason);
+            }
+          }
+        } catch {
+          // Keep default activeSeason = 2025
+        }
+      }
 
-      const rawStandings: Array<Record<string, any>> =
-        standingsJson?.response?.[0]?.league?.standings?.[0] || [];
-      const standings = rawStandings.slice(0, 12).map((row) => {
+      // Helper to fetch standings + top scorers for a given season year
+      const fetchSeasonStandingsAndScorers = async (seasonYear: number) => {
+        const [stRes, scRes] = await Promise.all([
+          fetch(
+            `https://v3.football.api-sports.io/standings?league=${leagueId}&season=${seasonYear}`,
+            { headers: { 'x-apisports-key': apiKey } }
+          ),
+          fetch(
+            `https://v3.football.api-sports.io/players/topscorers?league=${leagueId}&season=${seasonYear}`,
+            { headers: { 'x-apisports-key': apiKey } }
+          ),
+        ]);
+        const stJson = (await stRes.json()) as { response?: Array<Record<string, any>> };
+        const scJson = (await scRes.json()) as { response?: Array<Record<string, any>> };
+        return {
+          rawStandings: (stJson?.response?.[0]?.league?.standings?.[0] || []) as Array<
+            Record<string, any>
+          >,
+          rawScorers: (Array.isArray(scJson?.response) ? scJson.response : []) as Array<
+            Record<string, any>
+          >,
+        };
+      };
+
+      let { rawStandings, rawScorers } = await fetchSeasonStandingsAndScorers(activeSeason);
+
+      // If current season has not started standings yet (or plan fallback), try activeSeason - 1
+      if (rawStandings.length === 0 && requestedSeasonParam === 'auto') {
+        const fallbackYear = activeSeason - 1;
+        const fallbackData = await fetchSeasonStandingsAndScorers(fallbackYear);
+        if (fallbackData.rawStandings.length > 0) {
+          rawStandings = fallbackData.rawStandings;
+          rawScorers = fallbackData.rawScorers;
+          activeSeason = fallbackYear;
+          seasonLabel = `${fallbackYear}/${String(fallbackYear + 1).slice(-2)}`;
+        }
+      }
+
+      const standings = rawStandings.map((row) => {
         const gdNum = Number(row?.goalsDiff || 0);
-        const formStr = String(row?.form || 'WDWLW').slice(-5);
+        const formStr = String(row?.form || '').slice(-5);
         return {
           rank: Number(row?.rank || 1),
           club: String(row?.team?.name || 'Club'),
@@ -1946,10 +2005,7 @@ async function startServer() {
         };
       });
 
-      const rawScorers: Array<Record<string, any>> = Array.isArray(scorersJson?.response)
-        ? scorersJson.response
-        : [];
-      const topScorers = rawScorers.slice(0, 8).map((item, idx) => {
+      const topScorers = rawScorers.slice(0, 10).map((item, idx) => {
         const player = item?.player || {};
         const stat = item?.statistics?.[0] || {};
         const name = String(player?.name || 'Player');
@@ -1974,11 +2030,116 @@ async function startServer() {
         };
       });
 
+      // 2. Fetch real upcoming fixtures for this league (or recent matches if season ended / break)
+      let rawFixtures: Array<Record<string, any>> = [];
+      try {
+        const nextRes = await fetch(
+          `https://v3.football.api-sports.io/fixtures?league=${leagueId}&season=${activeSeason}&next=6`,
+          { headers: { 'x-apisports-key': apiKey } }
+        );
+        const nextJson = (await nextRes.json()) as { response?: Array<Record<string, any>> };
+        if (Array.isArray(nextJson?.response) && nextJson.response.length > 0) {
+          rawFixtures = nextJson.response;
+        } else {
+          const todayIso = new Date().toISOString().slice(0, 10);
+          const futureIso = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .slice(0, 10);
+          const rangeRes = await fetch(
+            `https://v3.football.api-sports.io/fixtures?league=${leagueId}&season=${activeSeason}&from=${todayIso}&to=${futureIso}`,
+            { headers: { 'x-apisports-key': apiKey } }
+          );
+          const rangeJson = (await rangeRes.json()) as { response?: Array<Record<string, any>> };
+          if (Array.isArray(rangeJson?.response) && rangeJson.response.length > 0) {
+            rawFixtures = rangeJson.response.slice(0, 6);
+          } else {
+            const lastRes = await fetch(
+              `https://v3.football.api-sports.io/fixtures?league=${leagueId}&season=${activeSeason}&last=6`,
+              { headers: { 'x-apisports-key': apiKey } }
+            );
+            const lastJson = (await lastRes.json()) as { response?: Array<Record<string, any>> };
+            if (Array.isArray(lastJson?.response) && lastJson.response.length > 0) {
+              rawFixtures = lastJson.response.slice(0, 6);
+            }
+          }
+        }
+      } catch {
+        rawFixtures = [];
+      }
+
+      const upcomingFixtures = rawFixtures.slice(0, 6).map((fx) => {
+        const fxId = String(fx?.fixture?.id || '');
+        const fxDate = fx?.fixture?.date ? new Date(fx.fixture.date) : null;
+        const shortStatus = String(fx?.fixture?.status?.short || 'NS');
+        const isFinished = ['FT', 'AET', 'PEN'].includes(shortStatus);
+        const isLive = ['1H', '2H', 'HT', 'ET', 'LIVE'].includes(shortStatus);
+
+        const dateStr = fxDate
+          ? fxDate.toLocaleDateString('bg-BG', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+            })
+          : '';
+        const timeStr = fxDate
+          ? fxDate.toLocaleTimeString('bg-BG', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          : '20:00';
+        const rawRound = String(fx?.league?.round || '').replace(/Regular Season - (\d+)/i, 'Кръг $1');
+
+        return {
+          id: `api-${fxId}`,
+          dayLabel: rawRound ? `${dateStr} · ${rawRound}` : dateStr,
+          homeTeam: String(fx?.teams?.home?.name || 'Home'),
+          homeLogo: String(fx?.teams?.home?.logo || ''),
+          awayTeam: String(fx?.teams?.away?.name || 'Away'),
+          awayLogo: String(fx?.teams?.away?.logo || ''),
+          time: isFinished
+            ? `${fx?.goals?.home ?? 0} - ${fx?.goals?.away ?? 0} (КР)`
+            : isLive
+            ? `${fx?.goals?.home ?? 0} - ${fx?.goals?.away ?? 0} LIVE`
+            : timeStr,
+        };
+      });
+
+      // 3. Calculate 100% real League Statistics from the official standings (Zero fabricated stats)
+      let glance = null;
+      if (standings.length > 0) {
+        const totalTeamPlayed = standings.reduce((acc, r) => acc + r.p, 0);
+        const matchesPlayed = Math.round(totalTeamPlayed / 2);
+        const goalsScored = standings.reduce((acc, r) => acc + r.gf, 0);
+        const goalsPerMatch =
+          matchesPlayed > 0 ? (goalsScored / matchesPlayed).toFixed(2) : '0.00';
+        const totalWins = standings.reduce((acc, r) => acc + r.w, 0);
+        const totalDraws = Math.round(standings.reduce((acc, r) => acc + r.d, 0) / 2);
+
+        const bestAttackRow = [...standings].sort((a, b) => b.gf - a.gf)[0];
+        const bestDefenseRow = [...standings]
+          .filter((r) => r.p > 0)
+          .sort((a, b) => a.ga - b.ga)[0];
+
+        glance = {
+          matchesPlayed: matchesPlayed.toLocaleString('en-US'),
+          goalsScored: goalsScored.toLocaleString('en-US'),
+          goalsPerMatch,
+          winsDraws: `${totalWins} / ${totalDraws}`,
+          bestAttack: bestAttackRow ? `${bestAttackRow.club} (${bestAttackRow.gf})` : '—',
+          bestDefense: bestDefenseRow ? `${bestDefenseRow.club} (${bestDefenseRow.ga})` : '—',
+          teamsCount: String(standings.length),
+        };
+      }
+
       const payload = {
         configured: true,
         leagueId,
+        season: activeSeason,
+        seasonLabel,
         standings,
         topScorers,
+        upcomingFixtures,
+        glance,
       };
 
       if (standings.length > 0 || topScorers.length > 0) {
@@ -1990,7 +2151,13 @@ async function startServer() {
       res.json(payload);
     } catch (err) {
       console.error('League intel error:', err);
-      res.json({ configured: true, standings: [], topScorers: [] });
+      res.json({
+        configured: true,
+        standings: [],
+        topScorers: [],
+        upcomingFixtures: [],
+        glance: null,
+      });
     }
   });
 

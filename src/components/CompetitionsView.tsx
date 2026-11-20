@@ -42,8 +42,20 @@ interface UpcomingFixtureRow {
   id: string;
   dayLabel: string;
   homeTeam: string;
+  homeLogo?: string;
   awayTeam: string;
+  awayLogo?: string;
   time: string;
+}
+
+interface LeagueGlanceData {
+  matchesPlayed: string;
+  goalsScored: string;
+  goalsPerMatch: string;
+  winsDraws?: string;
+  bestAttack?: string;
+  bestDefense?: string;
+  teamsCount?: string;
 }
 
 interface LeagueHubData {
@@ -58,15 +70,7 @@ interface LeagueHubData {
   standings: StandingRow[];
   topScorers: TopScorerRow[];
   upcomingFixtures: UpcomingFixtureRow[];
-  glance: {
-    matchesPlayed: string;
-    goalsScored: string;
-    goalsPerMatch: string;
-    cleanSheets: string;
-    yellowCards: string;
-    redCards: string;
-    avgPossession: string;
-  };
+  glance: LeagueGlanceData | null;
 }
 
 const LEAGUES_DATABASE: Record<string, LeagueHubData> = {
@@ -76,41 +80,13 @@ const LEAGUES_DATABASE: Record<string, LeagueHubData> = {
     name: 'Premier League',
     country: 'England',
     flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
-    season: '2024/25',
+    season: '2025/26',
     region: 'europe',
     type: 'domestic',
-    standings: [
-      { rank: 1, club: 'Manchester City', p: 37, w: 27, d: 7, l: 3, gf: 93, ga: 33, gd: '+60', pts: 88, form: ['W', 'W', 'D', 'W', 'W'] },
-      { rank: 2, club: 'Arsenal', p: 37, w: 25, d: 7, l: 5, gf: 72, ga: 28, gd: '+44', pts: 82, form: ['W', 'W', 'W', 'D', 'L'] },
-      { rank: 3, club: 'Liverpool', p: 37, w: 24, d: 9, l: 4, gf: 85, ga: 41, gd: '+44', pts: 81, form: ['W', 'D', 'W', 'W', 'W'] },
-      { rank: 4, club: 'Aston Villa', p: 37, w: 20, d: 8, l: 9, gf: 76, ga: 56, gd: '+20', pts: 68, form: ['W', 'W', 'L', 'D', 'W'] },
-      { rank: 5, club: 'Tottenham Hotspur', p: 37, w: 19, d: 6, l: 12, gf: 71, ga: 61, gd: '+10', pts: 63, form: ['W', 'L', 'D', 'W', 'W'] },
-      { rank: 6, club: 'Chelsea', p: 37, w: 17, d: 9, l: 11, gf: 75, ga: 62, gd: '+13', pts: 60, form: ['W', 'W', 'W', 'W', 'D'] },
-      { rank: 7, club: 'Newcastle United', p: 37, w: 17, d: 6, l: 14, gf: 81, ga: 60, gd: '+21', pts: 57, form: ['W', 'W', 'D', 'W', 'L'] },
-      { rank: 8, club: 'Manchester United', p: 37, w: 17, d: 6, l: 14, gf: 55, ga: 58, gd: '-3', pts: 57, form: ['W', 'D', 'L', 'W', 'D'] },
-    ],
-    topScorers: [
-      { rank: 1, name: 'Erling Haaland', club: 'Manchester City', goals: 27, initials: 'EH', avatarGradient: 'from-sky-500 to-blue-900' },
-      { rank: 2, name: 'Cole Palmer', club: 'Chelsea', goals: 21, initials: 'CP', avatarGradient: 'from-blue-600 to-indigo-950' },
-      { rank: 3, name: 'Mohamed Salah', club: 'Liverpool', goals: 18, initials: 'MS', avatarGradient: 'from-red-600 to-rose-950' },
-      { rank: 4, name: 'Ollie Watkins', club: 'Aston Villa', goals: 16, initials: 'OW', avatarGradient: 'from-fuchsia-800 to-slate-900' },
-      { rank: 5, name: 'Heung-min Son', club: 'Tottenham Hotspur', goals: 15, initials: 'HS', avatarGradient: 'from-slate-600 to-slate-950' },
-    ],
-    upcomingFixtures: [
-      { id: 'fix-epl-1', dayLabel: 'Tomorrow', homeTeam: 'Man City', awayTeam: 'Arsenal', time: '17:30' },
-      { id: 'fix-epl-2', dayLabel: 'Sun, May 19', homeTeam: 'Liverpool', awayTeam: 'Aston Villa', time: '16:00' },
-      { id: 'match-arsenal-chelsea', dayLabel: 'Sun, May 19', homeTeam: 'Tottenham', awayTeam: 'Chelsea', time: '18:30' },
-      { id: 'match-newcastle-manutd', dayLabel: 'Mon, May 20', homeTeam: 'Newcastle United', awayTeam: 'Manchester United', time: '20:00' },
-    ],
-    glance: {
-      matchesPlayed: '370',
-      goalsScored: '1,048',
-      goalsPerMatch: '2.83',
-      cleanSheets: '118',
-      yellowCards: '1,405',
-      redCards: '52',
-      avgPossession: '54.1%',
-    },
+    standings: [],
+    topScorers: [],
+    upcomingFixtures: [],
+    glance: null,
   },
   'la-liga': {
     id: 'la-liga',
@@ -118,39 +94,13 @@ const LEAGUES_DATABASE: Record<string, LeagueHubData> = {
     name: 'La Liga',
     country: 'Spain',
     flag: '🇪🇸',
-    season: '2024/25',
+    season: '2025/26',
     region: 'europe',
     type: 'domestic',
-    standings: [
-      { rank: 1, club: 'Real Madrid', p: 36, w: 29, d: 6, l: 1, gf: 83, ga: 22, gd: '+61', pts: 93, form: ['W', 'W', 'W', 'W', 'W'] },
-      { rank: 2, club: 'Barcelona', p: 36, w: 24, d: 7, l: 5, gf: 74, ga: 43, gd: '+31', pts: 79, form: ['W', 'W', 'L', 'W', 'W'] },
-      { rank: 3, club: 'Girona', p: 36, w: 23, d: 6, l: 7, gf: 75, ga: 45, gd: '+30', pts: 75, form: ['W', 'D', 'L', 'W', 'W'] },
-      { rank: 4, club: 'Atlético Madrid', p: 36, w: 23, d: 4, l: 9, gf: 68, ga: 39, gd: '+29', pts: 73, form: ['W', 'W', 'W', 'W', 'L'] },
-      { rank: 5, club: 'Athletic Club', p: 36, w: 17, d: 11, l: 8, gf: 57, ga: 36, gd: '+21', pts: 62, form: ['L', 'D', 'W', 'L', 'D'] },
-      { rank: 6, club: 'Villarreal', p: 36, w: 14, d: 9, l: 13, gf: 60, ga: 60, gd: '0', pts: 51, form: ['W', 'D', 'L', 'W', 'D'] },
-    ],
-    topScorers: [
-      { rank: 1, name: 'Jude Bellingham', club: 'Real Madrid', goals: 23, initials: 'JB', avatarGradient: 'from-amber-500 to-slate-900' },
-      { rank: 2, name: 'Robert Lewandowski', club: 'Barcelona', goals: 20, initials: 'RL', avatarGradient: 'from-blue-700 to-rose-900' },
-      { rank: 3, name: 'Alexander Sørloth', club: 'Villarreal', goals: 19, initials: 'AS', avatarGradient: 'from-yellow-500 to-blue-950' },
-      { rank: 4, name: 'Antoine Griezmann', club: 'Atlético Madrid', goals: 16, initials: 'AG', avatarGradient: 'from-red-600 to-indigo-950' },
-      { rank: 5, name: 'Vinícius Júnior', club: 'Real Madrid', goals: 15, initials: 'VJ', avatarGradient: 'from-amber-400 to-slate-900' },
-    ],
-    upcomingFixtures: [
-      { id: 'match-barca-real', dayLabel: 'Tomorrow', homeTeam: 'Barcelona', awayTeam: 'Real Madrid', time: '21:00' },
-      { id: 'match-realmadrid-villarreal', dayLabel: 'Sun, May 19', homeTeam: 'Real Madrid', awayTeam: 'Villarreal', time: '20:00' },
-      { id: 'fix-esp-3', dayLabel: 'Sun, May 19', homeTeam: 'Atlético Madrid', awayTeam: 'Osasuna', time: '18:30' },
-      { id: 'fix-esp-4', dayLabel: 'Mon, May 20', homeTeam: 'Athletic Club', awayTeam: 'Sevilla', time: '21:00' },
-    ],
-    glance: {
-      matchesPlayed: '360',
-      goalsScored: '942',
-      goalsPerMatch: '2.62',
-      cleanSheets: '134',
-      yellowCards: '1,620',
-      redCards: '68',
-      avgPossession: '53.4%',
-    },
+    standings: [],
+    topScorers: [],
+    upcomingFixtures: [],
+    glance: null,
   },
   'serie-a': {
     id: 'serie-a',
@@ -158,39 +108,13 @@ const LEAGUES_DATABASE: Record<string, LeagueHubData> = {
     name: 'Serie A',
     country: 'Italy',
     flag: '🇮🇹',
-    season: '2024/25',
+    season: '2025/26',
     region: 'europe',
     type: 'domestic',
-    standings: [
-      { rank: 1, club: 'Inter Milan', p: 36, w: 29, d: 5, l: 2, gf: 86, ga: 19, gd: '+67', pts: 92, form: ['W', 'W', 'L', 'W', 'D'] },
-      { rank: 2, club: 'AC Milan', p: 36, w: 22, d: 8, l: 6, gf: 72, ga: 43, gd: '+29', pts: 74, form: ['W', 'D', 'L', 'W', 'W'] },
-      { rank: 3, club: 'Bologna', p: 36, w: 18, d: 13, l: 5, gf: 51, ga: 27, gd: '+24', pts: 67, form: ['W', 'D', 'D', 'W', 'D'] },
-      { rank: 4, club: 'Juventus', p: 36, w: 18, d: 13, l: 5, gf: 49, ga: 28, gd: '+21', pts: 67, form: ['D', 'D', 'D', 'D', 'D'] },
-      { rank: 5, club: 'Atalanta', p: 35, w: 19, d: 6, l: 10, gf: 65, ga: 39, gd: '+26', pts: 63, form: ['W', 'W', 'W', 'W', 'D'] },
-      { rank: 6, club: 'AS Roma', p: 36, w: 17, d: 9, l: 10, gf: 63, ga: 44, gd: '+19', pts: 60, form: ['L', 'D', 'D', 'W', 'L'] },
-    ],
-    topScorers: [
-      { rank: 1, name: 'Lautaro Martínez', club: 'Inter Milan', goals: 24, initials: 'LM', avatarGradient: 'from-blue-700 to-slate-950' },
-      { rank: 2, name: 'Dušan Vlahović', club: 'Juventus', goals: 16, initials: 'DV', avatarGradient: 'from-neutral-600 to-neutral-950' },
-      { rank: 3, name: 'Olivier Giroud', club: 'AC Milan', goals: 14, initials: 'OG', avatarGradient: 'from-red-700 to-neutral-950' },
-      { rank: 4, name: 'Paulo Dybala', club: 'AS Roma', goals: 13, initials: 'PD', avatarGradient: 'from-rose-800 to-amber-900' },
-      { rank: 5, name: 'Marcus Thuram', club: 'Inter Milan', goals: 13, initials: 'MT', avatarGradient: 'from-sky-700 to-slate-950' },
-    ],
-    upcomingFixtures: [
-      { id: 'match-milan-juve', dayLabel: 'Tomorrow', homeTeam: 'AC Milan', awayTeam: 'Juventus', time: '18:45' },
-      { id: 'match-milan-atalanta', dayLabel: 'Sun, May 19', homeTeam: 'AC Milan', awayTeam: 'Atalanta', time: '20:45' },
-      { id: 'fix-ita-3', dayLabel: 'Sun, May 19', homeTeam: 'Inter Milan', awayTeam: 'Lazio', time: '19:00' },
-      { id: 'fix-ita-4', dayLabel: 'Mon, May 20', homeTeam: 'AS Roma', awayTeam: 'Genoa', time: '20:45' },
-    ],
-    glance: {
-      matchesPlayed: '360',
-      goalsScored: '912',
-      goalsPerMatch: '2.53',
-      cleanSheets: '142',
-      yellowCards: '1,488',
-      redCards: '49',
-      avgPossession: '52.8%',
-    },
+    standings: [],
+    topScorers: [],
+    upcomingFixtures: [],
+    glance: null,
   },
   bundesliga: {
     id: 'bundesliga',
@@ -198,38 +122,13 @@ const LEAGUES_DATABASE: Record<string, LeagueHubData> = {
     name: 'Bundesliga',
     country: 'Germany',
     flag: '🇩🇪',
-    season: '2024/25',
+    season: '2025/26',
     region: 'europe',
     type: 'domestic',
-    standings: [
-      { rank: 1, club: 'Bayer Leverkusen', p: 33, w: 27, d: 6, l: 0, gf: 87, ga: 23, gd: '+64', pts: 87, form: ['W', 'W', 'D', 'D', 'W'] },
-      { rank: 2, club: 'Bayern Munich', p: 33, w: 23, d: 3, l: 7, gf: 92, ga: 41, gd: '+51', pts: 72, form: ['W', 'L', 'W', 'W', 'W'] },
-      { rank: 3, club: 'VfB Stuttgart', p: 33, w: 22, d: 4, l: 7, gf: 74, ga: 39, gd: '+35', pts: 70, form: ['W', 'W', 'D', 'L', 'W'] },
-      { rank: 4, club: 'RB Leipzig', p: 33, w: 19, d: 7, l: 7, gf: 75, ga: 37, gd: '+38', pts: 64, form: ['D', 'D', 'W', 'W', 'W'] },
-      { rank: 5, club: 'Dortmund', p: 33, w: 17, d: 9, l: 7, gf: 64, ga: 43, gd: '+21', pts: 60, form: ['L', 'W', 'L', 'D', 'W'] },
-    ],
-    topScorers: [
-      { rank: 1, name: 'Harry Kane', club: 'Bayern Munich', goals: 36, initials: 'HK', avatarGradient: 'from-red-600 to-rose-950' },
-      { rank: 2, name: 'Serhou Guirassy', club: 'VfB Stuttgart', goals: 26, initials: 'SG', avatarGradient: 'from-red-500 to-neutral-900' },
-      { rank: 3, name: 'Loïs Openda', club: 'RB Leipzig', goals: 24, initials: 'LO', avatarGradient: 'from-rose-600 to-blue-950' },
-      { rank: 4, name: 'Deniz Undav', club: 'VfB Stuttgart', goals: 18, initials: 'DU', avatarGradient: 'from-red-700 to-slate-900' },
-      { rank: 5, name: 'Florian Wirtz', club: 'Bayer Leverkusen', goals: 11, initials: 'FW', avatarGradient: 'from-red-600 to-black' },
-    ],
-    upcomingFixtures: [
-      { id: 'match-bayern-dortmund', dayLabel: 'Tomorrow', homeTeam: 'Bayern Munich', awayTeam: 'Dortmund', time: '20:30' },
-      { id: 'match-leverkusen-roma', dayLabel: 'Sun, May 19', homeTeam: 'Bayer Leverkusen', awayTeam: 'Augsburg', time: '16:30' },
-      { id: 'fix-ger-3', dayLabel: 'Sun, May 19', homeTeam: 'Stuttgart', awayTeam: 'Gladbach', time: '16:30' },
-      { id: 'fix-ger-4', dayLabel: 'Sun, May 19', homeTeam: 'RB Leipzig', awayTeam: 'Frankfurt', time: '16:30' },
-    ],
-    glance: {
-      matchesPlayed: '297',
-      goalsScored: '958',
-      goalsPerMatch: '3.22',
-      cleanSheets: '84',
-      yellowCards: '1,180',
-      redCards: '41',
-      avgPossession: '54.9%',
-    },
+    standings: [],
+    topScorers: [],
+    upcomingFixtures: [],
+    glance: null,
   },
   ucl: {
     id: 'ucl',
@@ -237,38 +136,111 @@ const LEAGUES_DATABASE: Record<string, LeagueHubData> = {
     name: 'UEFA Champions League',
     country: 'Europe',
     flag: '🇪🇺',
-    season: '2024/25',
+    season: '2025/26',
     region: 'europe',
     type: 'continental',
-    standings: [
-      { rank: 1, club: 'Real Madrid', p: 12, w: 9, d: 3, l: 0, gf: 26, ga: 14, gd: '+12', pts: 30, form: ['W', 'D', 'W', 'D', 'W'] },
-      { rank: 2, club: 'Dortmund', p: 12, w: 7, d: 3, l: 2, gf: 17, ga: 9, gd: '+8', pts: 24, form: ['W', 'W', 'W', 'L', 'W'] },
-      { rank: 3, club: 'Bayern Munich', p: 12, w: 7, d: 3, l: 2, gf: 21, ga: 13, gd: '+8', pts: 24, form: ['L', 'D', 'W', 'D', 'W'] },
-      { rank: 4, club: 'Paris Saint-Germain', p: 12, w: 5, d: 2, l: 5, gf: 19, ga: 15, gd: '+4', pts: 17, form: ['L', 'L', 'W', 'L', 'W'] },
-      { rank: 5, club: 'Manchester City', p: 10, w: 8, d: 2, l: 0, gf: 28, ga: 13, gd: '+15', pts: 26, form: ['D', 'D', 'W', 'W', 'W'] },
-    ],
-    topScorers: [
-      { rank: 1, name: 'Harry Kane', club: 'Bayern Munich', goals: 8, initials: 'HK', avatarGradient: 'from-red-600 to-slate-900' },
-      { rank: 2, name: 'Kylian Mbappé', club: 'Paris Saint-Germain', goals: 8, initials: 'KM', avatarGradient: 'from-blue-700 to-red-900' },
-      { rank: 3, name: 'Erling Haaland', club: 'Manchester City', goals: 6, initials: 'EH', avatarGradient: 'from-sky-500 to-blue-900' },
-      { rank: 4, name: 'Antoine Griezmann', club: 'Atlético Madrid', goals: 6, initials: 'AG', avatarGradient: 'from-red-600 to-indigo-950' },
-      { rank: 5, name: 'Vinícius Júnior', club: 'Real Madrid', goals: 5, initials: 'VJ', avatarGradient: 'from-amber-500 to-slate-900' },
-    ],
-    upcomingFixtures: [
-      { id: 'match-mancity-youngboys', dayLabel: 'Tomorrow', homeTeam: 'Man City', awayTeam: 'Young Boys', time: '21:00' },
-      { id: 'match-barca-real', dayLabel: 'Sat, Jun 1', homeTeam: 'Dortmund', awayTeam: 'Real Madrid', time: '21:00' },
-      { id: 'match-leverkusen-roma', dayLabel: 'Wed, May 22', homeTeam: 'Bayer Leverkusen', awayTeam: 'AS Roma', time: '21:00' },
-      { id: 'match-arsenal-chelsea', dayLabel: 'Tue, May 28', homeTeam: 'Arsenal', awayTeam: 'Bayern Munich', time: '21:00' },
-    ],
-    glance: {
-      matchesPlayed: '124',
-      goalsScored: '372',
-      goalsPerMatch: '3.00',
-      cleanSheets: '46',
-      yellowCards: '492',
-      redCards: '18',
-      avgPossession: '55.6%',
-    },
+    standings: [],
+    topScorers: [],
+    upcomingFixtures: [],
+    glance: null,
+  },
+  'copa-libertadores': {
+    id: 'copa-libertadores',
+    apiLeagueId: 13,
+    name: 'Copa Libertadores',
+    country: 'South America',
+    flag: '🌎',
+    season: '2025',
+    region: 'south_america',
+    type: 'continental',
+    standings: [],
+    topScorers: [],
+    upcomingFixtures: [],
+    glance: null,
+  },
+  'ligue-1': {
+    id: 'ligue-1',
+    apiLeagueId: 61,
+    name: 'Ligue 1',
+    country: 'France',
+    flag: '🇫🇷',
+    season: '2025/26',
+    region: 'europe',
+    type: 'domestic',
+    standings: [],
+    topScorers: [],
+    upcomingFixtures: [],
+    glance: null,
+  },
+  eredivisie: {
+    id: 'eredivisie',
+    apiLeagueId: 88,
+    name: 'Eredivisie',
+    country: 'Netherlands',
+    flag: '🇳🇱',
+    season: '2025/26',
+    region: 'europe',
+    type: 'domestic',
+    standings: [],
+    topScorers: [],
+    upcomingFixtures: [],
+    glance: null,
+  },
+  'primeira-liga': {
+    id: 'primeira-liga',
+    apiLeagueId: 94,
+    name: 'Primeira Liga',
+    country: 'Portugal',
+    flag: '🇵🇹',
+    season: '2025/26',
+    region: 'europe',
+    type: 'domestic',
+    standings: [],
+    topScorers: [],
+    upcomingFixtures: [],
+    glance: null,
+  },
+  'argentina-primera': {
+    id: 'argentina-primera',
+    apiLeagueId: 128,
+    name: 'Liga Profesional',
+    country: 'Argentina',
+    flag: '🇦🇷',
+    season: '2025',
+    region: 'south_america',
+    type: 'domestic',
+    standings: [],
+    topScorers: [],
+    upcomingFixtures: [],
+    glance: null,
+  },
+  brasileirao: {
+    id: 'brasileirao',
+    apiLeagueId: 71,
+    name: 'Brasileirão Série A',
+    country: 'Brazil',
+    flag: '🇧🇷',
+    season: '2025',
+    region: 'south_america',
+    type: 'domestic',
+    standings: [],
+    topScorers: [],
+    upcomingFixtures: [],
+    glance: null,
+  },
+  mls: {
+    id: 'mls',
+    apiLeagueId: 253,
+    name: 'MLS',
+    country: 'United States',
+    flag: '🇺🇸',
+    season: '2025',
+    region: 'north_america',
+    type: 'domestic',
+    standings: [],
+    topScorers: [],
+    upcomingFixtures: [],
+    glance: null,
   },
 };
 
@@ -531,7 +503,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [countryFilter, setCountryFilter] = useState<string>('all');
   const [compTypeFilter, setCompTypeFilter] = useState<string>('all');
-  const [seasonFilter, setSeasonFilter] = useState<string>('2024/25');
+  const [seasonFilter, setSeasonFilter] = useState<string>('auto');
   const [hubSubTab, setHubSubTab] = useState<
     'standings' | 'fixtures' | 'results' | 'form' | 'stats' | 'insights'
   >('standings');
@@ -543,13 +515,18 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
   const baseLeague = LEAGUES_DATABASE[selectedLeagueKey] || LEAGUES_DATABASE['premier-league'];
   const [liveLeagueIntel, setLiveLeagueIntel] = useState<{
     leagueId: number;
+    seasonLabel?: string;
     standings: StandingRow[];
     topScorers: TopScorerRow[];
+    upcomingFixtures: UpcomingFixtureRow[];
+    glance: LeagueGlanceData | null;
   } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/football/league-intel/${baseLeague.apiLeagueId}`)
+    fetch(
+      `/api/football/league-intel/${baseLeague.apiLeagueId}?season=${encodeURIComponent(seasonFilter)}`
+    )
       .then((r) => r.json())
       .then((data) => {
         if (!cancelled && data?.configured) {
@@ -579,13 +556,34 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
               });
             }
           }
+          for (const fx of data.upcomingFixtures || []) {
+            if (fx.homeTeam && fx.homeLogo) {
+              logoRegistrations.push({
+                homeTeam: fx.homeTeam,
+                awayTeam: fx.homeTeam,
+                homeLogo: fx.homeLogo,
+                awayLogo: fx.homeLogo,
+              });
+            }
+            if (fx.awayTeam && fx.awayLogo) {
+              logoRegistrations.push({
+                homeTeam: fx.awayTeam,
+                awayTeam: fx.awayTeam,
+                homeLogo: fx.awayLogo,
+                awayLogo: fx.awayLogo,
+              });
+            }
+          }
           if (logoRegistrations.length > 0) {
             registerMatchLogos(logoRegistrations);
           }
           setLiveLeagueIntel({
             leagueId: baseLeague.apiLeagueId,
+            seasonLabel: data.seasonLabel || baseLeague.season,
             standings: Array.isArray(data.standings) ? data.standings : [],
             topScorers: Array.isArray(data.topScorers) ? data.topScorers : [],
+            upcomingFixtures: Array.isArray(data.upcomingFixtures) ? data.upcomingFixtures : [],
+            glance: data.glance || null,
           });
         }
       })
@@ -593,20 +591,29 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [baseLeague.apiLeagueId]);
+  }, [baseLeague.apiLeagueId, seasonFilter]);
+
+  const isLiveIntelReady = liveLeagueIntel?.leagueId === baseLeague.apiLeagueId;
 
   const activeLeague: LeagueHubData = {
     ...baseLeague,
+    season:
+      isLiveIntelReady && liveLeagueIntel?.seasonLabel
+        ? liveLeagueIntel.seasonLabel
+        : baseLeague.season,
     standings:
-      liveLeagueIntel?.leagueId === baseLeague.apiLeagueId &&
-      liveLeagueIntel.standings.length > 0
+      isLiveIntelReady && liveLeagueIntel.standings.length > 0
         ? liveLeagueIntel.standings
         : baseLeague.standings,
     topScorers:
-      liveLeagueIntel?.leagueId === baseLeague.apiLeagueId &&
-      liveLeagueIntel.topScorers.length > 0
+      isLiveIntelReady && liveLeagueIntel.topScorers.length > 0
         ? liveLeagueIntel.topScorers
         : baseLeague.topScorers,
+    upcomingFixtures:
+      isLiveIntelReady
+        ? liveLeagueIntel.upcomingFixtures
+        : baseLeague.upcomingFixtures,
+    glance: isLiveIntelReady ? liveLeagueIntel.glance : baseLeague.glance,
   };
 
   // Featured Leagues Carousel Items with Official API-Sports League Emblems
@@ -652,7 +659,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       logoUrl: 'https://media.api-sports.io/football/leagues/2.png',
     },
     {
-      key: 'premier-league',
+      key: 'copa-libertadores',
       name: 'Copa Libertadores',
       country: 'South America',
       badgeBg: 'from-[#78350f] to-[#271003]',
@@ -660,7 +667,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       logoUrl: 'https://media.api-sports.io/football/leagues/13.png',
     },
     {
-      key: 'la-liga',
+      key: 'ligue-1',
       name: 'Ligue 1',
       country: 'France',
       badgeBg: 'from-[#1e293b] to-[#090d16]',
@@ -668,7 +675,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       logoUrl: 'https://media.api-sports.io/football/leagues/61.png',
     },
     {
-      key: 'serie-a',
+      key: 'eredivisie',
       name: 'Eredivisie',
       country: 'Netherlands',
       badgeBg: 'from-[#1e1b4b] to-[#090a1a]',
@@ -680,55 +687,55 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
   // Popular Leagues by Region cards with Official API-Sports League Emblems
   const regionalLeagues = [
     {
-      key: 'premier-league',
+      key: 'primeira-liga',
       name: 'Primeira Liga',
       country: 'Portugal',
-      season: '2024/25',
+      season: '2025/26',
       region: 'europe',
       crestBg: 'from-emerald-800 to-red-900',
       logoUrl: 'https://media.api-sports.io/football/leagues/94.png',
     },
     {
-      key: 'la-liga',
+      key: 'ligue-1',
       name: 'Ligue 1',
       country: 'France',
-      season: '2024/25',
+      season: '2025/26',
       region: 'europe',
       crestBg: 'from-slate-800 to-slate-950',
       logoUrl: 'https://media.api-sports.io/football/leagues/61.png',
     },
     {
-      key: 'serie-a',
+      key: 'eredivisie',
       name: 'Eredivisie',
       country: 'Netherlands',
-      season: '2024/25',
+      season: '2025/26',
       region: 'europe',
       crestBg: 'from-blue-900 to-indigo-950',
       logoUrl: 'https://media.api-sports.io/football/leagues/88.png',
     },
     {
-      key: 'bundesliga',
-      name: 'Primeira Division',
+      key: 'argentina-primera',
+      name: 'Liga Profesional',
       country: 'Argentina',
-      season: '2024',
+      season: '2025',
       region: 'south_america',
       crestBg: 'from-sky-600 to-amber-700',
       logoUrl: 'https://media.api-sports.io/football/leagues/128.png',
     },
     {
-      key: 'ucl',
+      key: 'brasileirao',
       name: 'Brasileirão Série A',
       country: 'Brazil',
-      season: '2024',
+      season: '2025',
       region: 'south_america',
       crestBg: 'from-yellow-500 to-emerald-900',
       logoUrl: 'https://media.api-sports.io/football/leagues/71.png',
     },
     {
-      key: 'premier-league',
+      key: 'mls',
       name: 'MLS',
       country: 'United States',
-      season: '2024',
+      season: '2025',
       region: 'north_america',
       crestBg: 'from-red-700 to-blue-950',
       logoUrl: 'https://media.api-sports.io/football/leagues/253.png',
@@ -741,21 +748,72 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       matches.find((m) => m.id === fixture.id) ||
       matches.find(
         (m) =>
-          m.homeTeam.toLowerCase().includes(fixture.homeTeam.toLowerCase()) ||
-          m.awayTeam.toLowerCase().includes(fixture.awayTeam.toLowerCase())
-      ) ||
-      matches[0];
+          m.homeTeam.toLowerCase() === fixture.homeTeam.toLowerCase() &&
+          m.awayTeam.toLowerCase() === fixture.awayTeam.toLowerCase()
+      );
 
     if (found) {
       onOpenMatch(found);
+      return;
     }
+
+    // Build a real Match object for API-Football fixture ID so MatchDetailPage fetches its live telemetry
+    const constructedMatch: Match = {
+      id: fixture.id,
+      league: activeLeague.name,
+      leagueCountry: activeLeague.country,
+      leagueLogo: `https://media.api-sports.io/football/leagues/${activeLeague.apiLeagueId}.png`,
+      homeTeam: fixture.homeTeam,
+      awayTeam: fixture.awayTeam,
+      homeLogo: fixture.homeLogo,
+      awayLogo: fixture.awayLogo,
+      homeScore: 0,
+      awayScore: 0,
+      status: 'SCHEDULED',
+      startTime: fixture.dayLabel,
+      hasRealStats: false,
+      bookmakerOdds: { home: 2.1, draw: 3.4, away: 3.3 },
+      fairOdds: {
+        homeProb: 0.45,
+        drawProb: 0.27,
+        awayProb: 0.28,
+        fairHomeOdds: 2.22,
+        fairDrawOdds: 3.7,
+        fairAwayOdds: 3.57,
+        over25Prob: 0.54,
+        under25Prob: 0.46,
+        bttsProb: 0.52,
+        expectedGoalsHome: 1.45,
+        expectedGoalsAway: 1.15,
+      },
+      events: [],
+      stats: {
+        possessionHome: 50,
+        possessionAway: 50,
+        shotsHome: 0,
+        shotsAway: 0,
+        shotsOnTargetHome: 0,
+        shotsOnTargetAway: 0,
+        cornersHome: 0,
+        cornersAway: 0,
+        dangerousAttacksHome: 0,
+        dangerousAttacksAway: 0,
+        foulsHome: 0,
+        foulsAway: 0,
+        yellowCardsHome: 0,
+        yellowCardsAway: 0,
+        redCardsHome: 0,
+        redCardsAway: 0,
+      },
+    };
+    onOpenMatch(constructedMatch);
   };
 
   const handleResetFilters = () => {
     setSearchQuery('');
     setCountryFilter('all');
     setCompTypeFilter('all');
-    setSeasonFilter('2024/25');
+    setSeasonFilter('auto');
   };
 
   const displayedStandings = showFullTable
@@ -888,15 +946,16 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
             <option value="continental">{t.continentalCup}</option>
           </select>
 
-          {/* Season 2024/25 */}
+          {/* Season Selector */}
           <select
             value={seasonFilter}
             onChange={(e) => setSeasonFilter(e.target.value)}
             className="rounded-xl border border-[#1c2a3b] bg-[#0d1520] px-3.5 py-2 text-xs text-neutral-200 focus:border-[#43f08a] focus:outline-none cursor-pointer"
           >
-            <option value="2024/25">📅 2024/25</option>
-            <option value="2025/26">📅 2025/26</option>
-            <option value="2023/24">📅 2023/24</option>
+            <option value="auto">📅 Текущ сезон (Актуален)</option>
+            <option value="2025">📅 2025/26</option>
+            <option value="2024">📅 2024/25</option>
+            <option value="2023">📅 2023/24</option>
           </select>
 
           {/* More Filters */}
@@ -967,7 +1026,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                 : true
             )
             .map((lg, idx) => {
-              const isSelected = selectedLeagueKey === lg.key && idx < 5;
+              const isSelected = selectedLeagueKey === lg.key;
               return (
                 <button
                   key={`${lg.name}-${idx}`}
@@ -1049,6 +1108,13 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                 <option value="serie-a">Serie A</option>
                 <option value="bundesliga">Bundesliga</option>
                 <option value="ucl">Champions League</option>
+                <option value="ligue-1">Ligue 1</option>
+                <option value="eredivisie">Eredivisie</option>
+                <option value="primeira-liga">Primeira Liga</option>
+                <option value="copa-libertadores">Copa Libertadores</option>
+                <option value="argentina-primera">Liga Profesional (ARG)</option>
+                <option value="brasileirao">Brasileirão Série A</option>
+                <option value="mls">MLS</option>
               </select>
             </div>
 
@@ -1238,79 +1304,85 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
           </div>
 
           <div className="divide-y divide-[#141f2e] flex-1 flex flex-col justify-around">
-            {activeLeague.upcomingFixtures.map((fx) => (
-              <div
-                key={fx.id}
-                onClick={() => handleOpenFixtureMatch(fx)}
-                className="py-2 space-y-1.5 hover:bg-[#0e1622] rounded-lg px-1.5 transition-colors cursor-pointer group"
-              >
-                <span className="text-[10px] text-[#8f9cae] block">{fx.dayLabel}</span>
-                <div className="flex items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                    <span className="font-bold text-white group-hover:text-[#43f08a] truncate">
-                      {fx.homeTeam}
-                    </span>
-                    <TeamBadge name={fx.homeTeam} size="sm" className="w-5 h-5 text-[8px]" />
-                  </div>
+            {activeLeague.upcomingFixtures.length > 0 ? (
+              activeLeague.upcomingFixtures.map((fx) => (
+                <div
+                  key={fx.id}
+                  onClick={() => handleOpenFixtureMatch(fx)}
+                  className="py-2 space-y-1.5 hover:bg-[#0e1622] rounded-lg px-1.5 transition-colors cursor-pointer group"
+                >
+                  <span className="text-[10px] text-[#8f9cae] block">{fx.dayLabel}</span>
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                      <span className="font-bold text-white group-hover:text-[#43f08a] truncate">
+                        {fx.homeTeam}
+                      </span>
+                      <TeamBadge
+                        name={fx.homeTeam}
+                        logoUrl={fx.homeLogo}
+                        size="sm"
+                        className="w-5 h-5 text-[8px]"
+                      />
+                    </div>
 
-                  <span className="px-2 py-0.5 rounded bg-[#131d2a] border border-[#1f2e42] font-mono text-[11px] font-bold text-neutral-200 shrink-0">
-                    {fx.time}
-                  </span>
-
-                  <div className="flex items-center justify-end gap-1.5 flex-1 min-w-0">
-                    <TeamBadge name={fx.awayTeam} size="sm" className="w-5 h-5 text-[8px]" />
-                    <span className="font-bold text-white group-hover:text-[#43f08a] truncate">
-                      {fx.awayTeam}
+                    <span className="px-2 py-0.5 rounded bg-[#131d2a] border border-[#1f2e42] font-mono text-[11px] font-bold text-neutral-200 shrink-0">
+                      {fx.time}
                     </span>
+
+                    <div className="flex items-center justify-end gap-1.5 flex-1 min-w-0">
+                      <TeamBadge
+                        name={fx.awayTeam}
+                        logoUrl={fx.awayLogo}
+                        size="sm"
+                        className="w-5 h-5 text-[8px]"
+                      />
+                      <span className="font-bold text-white group-hover:text-[#43f08a] truncate">
+                        {fx.awayTeam}
+                      </span>
+                    </div>
                   </div>
                 </div>
+              ))
+            ) : (
+              <div className="py-8 text-center text-xs text-[#8f9cae]">
+                Няма обявени предстоящи мачове в API за този период.
               </div>
-            ))}
+            )}
           </div>
         </div>
 
-        {/* PANEL 4 (Right 2 cols): League at a Glance */}
-        <div className="xl:col-span-2 rounded-2xl border border-[#182434] bg-[#0a1018] p-4 flex flex-col justify-between shadow-xl space-y-3">
-          <div className="border-b border-[#162232] pb-2.5">
-            <h3 className="text-sm font-extrabold text-white">{t.leagueAtGlance}</h3>
-          </div>
+        {/* PANEL 4 (Right 2 cols): League at a Glance (100% Real Calculated Stats from Standings) */}
+        {activeLeague.glance && (
+          <div className="xl:col-span-2 rounded-2xl border border-[#182434] bg-[#0a1018] p-4 flex flex-col justify-between shadow-xl space-y-3">
+            <div className="border-b border-[#162232] pb-2.5">
+              <h3 className="text-sm font-extrabold text-white">{t.leagueAtGlance}</h3>
+            </div>
 
-          <div className="divide-y divide-[#141f2e] text-xs flex-1 flex flex-col justify-around">
-            {[
-              { label: t.matchesPlayed, val: activeLeague.glance.matchesPlayed },
-              { label: t.goalsScored, val: activeLeague.glance.goalsScored },
-              { label: t.goalsPerMatch, val: activeLeague.glance.goalsPerMatch },
-              { label: t.cleanSheets, val: activeLeague.glance.cleanSheets },
-              { label: t.yellowCards, val: activeLeague.glance.yellowCards },
-              { label: t.redCards, val: activeLeague.glance.redCards },
-            ].map((item, i) => (
-              <div key={i} className="py-1.5 flex items-center justify-between">
-                <span className="text-[#8f9cae] text-[11px]">{item.label}</span>
-                <span className="font-mono font-black text-white">{item.val}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Bottom Avg. Possession + Sparkline */}
-          <div className="pt-2 border-t border-[#162232]">
-            <span className="text-[10px] text-[#8f9cae] block">{t.avgPossession}</span>
-            <div className="flex items-end justify-between gap-2 mt-1">
-              <span className="text-lg font-mono font-black text-white leading-none">
-                {activeLeague.glance.avgPossession}
-              </span>
-              <svg className="w-24 h-7 overflow-visible" viewBox="0 0 90 26">
-                <path
-                  d="M0 22 L12 18 L24 20 L36 14 L48 16 L60 9 L74 12 L88 4"
-                  fill="none"
-                  stroke="#43f08a"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-                <circle cx="88" cy="4" r="2.5" fill="#43f08a" />
-              </svg>
+            <div className="divide-y divide-[#141f2e] text-xs flex-1 flex flex-col justify-around">
+              {[
+                { label: t.matchesPlayed, val: activeLeague.glance.matchesPlayed },
+                { label: t.goalsScored, val: activeLeague.glance.goalsScored },
+                { label: t.goalsPerMatch, val: activeLeague.glance.goalsPerMatch },
+                ...(activeLeague.glance.winsDraws
+                  ? [{ label: 'Победи / Равенства', val: activeLeague.glance.winsDraws }]
+                  : []),
+                ...(activeLeague.glance.bestAttack
+                  ? [{ label: 'Най-силна атака', val: activeLeague.glance.bestAttack }]
+                  : []),
+                ...(activeLeague.glance.bestDefense
+                  ? [{ label: 'Най-здрава защита', val: activeLeague.glance.bestDefense }]
+                  : []),
+              ].map((item, i) => (
+                <div key={i} className="py-1.5 flex items-center justify-between gap-2">
+                  <span className="text-[#8f9cae] text-[11px] shrink-0">{item.label}</span>
+                  <span className="font-mono font-black text-white text-right truncate">
+                    {item.val}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* =================================================================== */}
