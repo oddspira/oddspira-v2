@@ -338,6 +338,8 @@ export default function AppView() {
         onOpenAdmin={isOwnerAdmin ? () => setIsAdminOpen(true) : undefined}
         currentUser={currentUser}
         onLogout={handleLogout}
+        matches={matches}
+        onOpenMatch={handleOpenMatchPage}
       />
 
       {/* Hero Showcase (displayed ONLY on the Main Homepage 'home' when no match page is open) */}

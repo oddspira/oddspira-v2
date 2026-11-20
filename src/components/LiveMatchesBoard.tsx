@@ -742,108 +742,110 @@ export function LiveMatchesBoard({
         {/* LEFT COLUMN (9 COLS): Header Banner, Filters, Featured Match, Live Table */}
         {/* =============================================================== */}
         <div className="xl:col-span-9 space-y-4">
-          {/* 1. TOP BANNER: Live Matches Heading + LIVE Real-time Telemetry Card */}
-          <div className="relative rounded-2xl border border-[#172231] bg-gradient-to-r from-[#070d15] via-[#0b1520] to-[#081018] p-5 sm:p-6 overflow-hidden shadow-2xl">
+          {/* 1. TOP BANNER: Compact Full-Width Heading + 5-Column LIVE Real-time Telemetry Bar */}
+          <div className="relative rounded-2xl border border-[#172231] bg-gradient-to-r from-[#070d15] via-[#0b1520] to-[#081018] p-4 sm:p-5 overflow-hidden shadow-2xl space-y-4">
             {/* Stadium ambient glow */}
             <div
               className="pointer-events-none absolute -top-24 left-1/3 w-96 h-56 rounded-full bg-emerald-500/10 blur-3xl"
               aria-hidden="true"
             />
-            <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-              {/* Left Title & 3 Trust Badges */}
-              <div className="space-y-2.5">
-                <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+
+            {/* Row 1: Title & Subtitle on Left + 3 Trust Badges on Right */}
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
                   {t.pageTitle}
                 </h1>
-                <p className="text-xs sm:text-sm text-[#94a3b8] max-w-xl">
+                <p className="text-xs sm:text-sm text-[#94a3b8] mt-1">
                   {t.pageSub}
                 </p>
-                <div className="flex flex-wrap items-center gap-4 pt-1 text-xs text-neutral-300">
-                  <span className="inline-flex items-center gap-1.5">
-                    <svg className="w-4 h-4 text-[#43f08a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 17l6-6 4 4 8-8" />
-                    </svg>
-                    <span>{t.badgeRealtime}</span>
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <svg className="w-4 h-4 text-[#43f08a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                    <span>{t.badgeAnalytics}</span>
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <svg className="w-4 h-4 text-[#43f08a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                    </svg>
-                    <span>{t.badgeTrusted}</span>
-                  </span>
-                </div>
               </div>
 
-              {/* Right Telemetry Box (LIVE | 128 | 24 | 312 | 10:32:18) */}
-              <div className="rounded-2xl border border-[#1c2b3b] bg-[#0b131d]/95 px-4 py-3.5 grid grid-cols-2 sm:grid-cols-5 gap-4 items-center shrink-0 shadow-inner">
-                {/* Col 1: LIVE sparkline */}
-                <div className="pr-2 border-r border-[#1a2636]">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#43f08a] animate-pulse" />
-                    <span className="text-sm font-black text-white tracking-wide">LIVE</span>
-                  </div>
-                  <span className="text-[10px] text-[#8f9cae] block mt-0.5">{t.liveUpdates}</span>
-                  <svg className="w-20 h-5 mt-1" viewBox="0 0 80 20">
-                    <path
-                      d="M0 16 L12 12 L24 15 L36 8 L48 11 L62 4 L78 7"
-                      fill="none"
-                      stroke="#43f08a"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                    />
+              <div className="flex flex-wrap items-center gap-3.5 text-xs text-neutral-300 shrink-0">
+                <span className="inline-flex items-center gap-1.5">
+                  <svg className="w-4 h-4 text-[#43f08a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 17l6-6 4 4 8-8" />
                   </svg>
-                </div>
+                  <span>{t.badgeRealtime}</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <svg className="w-4 h-4 text-[#43f08a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  <span>{t.badgeAnalytics}</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <svg className="w-4 h-4 text-[#43f08a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                  <span>{t.badgeTrusted}</span>
+                </span>
+              </div>
+            </div>
 
-                {/* Col 2: Real Live Matches Count */}
-                <div className="pr-2 sm:border-r border-[#1a2636]">
-                  <span className="text-[10px] text-[#8f9cae] block">{t.liveMatchesStat}</span>
-                  <span className="text-xl font-black text-white font-mono tabular-nums block my-0.5">
-                    {liveMatchesCount}
-                  </span>
-                  <span className="text-[10px] text-[#64748b] block">
-                    {language === 'bg'
-                      ? `В ${activeLeaguesCount} първенства`
-                      : `Across ${activeLeaguesCount} Leagues`}
-                  </span>
+            {/* Row 2: Full-Width 5-Column LIVE Real-Time Telemetry Bar */}
+            <div className="relative z-10 w-full rounded-xl border border-[#1c2b3b] bg-[#0b131d]/95 px-4 py-3 grid grid-cols-2 sm:grid-cols-5 gap-4 items-center shadow-inner">
+              {/* Col 1: LIVE sparkline */}
+              <div className="pr-2 border-r border-[#1a2636]">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#43f08a] animate-pulse" />
+                  <span className="text-sm font-black text-white tracking-wide">LIVE</span>
                 </div>
+                <span className="text-[10px] text-[#8f9cae] block mt-0.5">{t.liveUpdates}</span>
+                <svg className="w-20 h-4 mt-1" viewBox="0 0 80 20">
+                  <path
+                    d="M0 16 L12 12 L24 15 L36 8 L48 11 L62 4 L78 7"
+                    fill="none"
+                    stroke="#43f08a"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </div>
 
-                {/* Col 3: Real Goals in Feed */}
-                <div className="pr-2 border-r border-[#1a2636]">
-                  <span className="text-[10px] text-[#8f9cae] block">{t.goalAlerts}</span>
-                  <span className="text-xl font-black text-white font-mono tabular-nums block my-0.5">
-                    {totalGoalsInFeed}
-                  </span>
-                  <span className="text-[10px] text-[#64748b] block">
-                    {language === 'bg' ? 'Отбелязани в мачовете' : t.last15Min}
-                  </span>
-                </div>
+              {/* Col 2: Real Live Matches Count */}
+              <div className="pr-2 sm:border-r border-[#1a2636]">
+                <span className="text-[10px] text-[#8f9cae] block">{t.liveMatchesStat}</span>
+                <span className="text-xl font-black text-white font-mono tabular-nums block my-0.5">
+                  {liveMatchesCount}
+                </span>
+                <span className="text-[10px] text-[#64748b] block">
+                  {language === 'bg'
+                    ? `В ${activeLeaguesCount} първенства`
+                    : `Across ${activeLeaguesCount} Leagues`}
+                </span>
+              </div>
 
-                {/* Col 4: Real Tracked Bets Count */}
-                <div className="pr-2 sm:border-r border-[#1a2636]">
-                  <span className="text-[10px] text-[#8f9cae] block">{t.trackedBets}</span>
-                  <span className="text-xl font-black text-white font-mono tabular-nums block my-0.5">
-                    {bets.length}
-                  </span>
-                  <span className="text-[10px] text-[#64748b] block">{t.acrossMarkets}</span>
-                </div>
+              {/* Col 3: Real Goals in Feed */}
+              <div className="pr-2 border-r border-[#1a2636]">
+                <span className="text-[10px] text-[#8f9cae] block">{t.goalAlerts}</span>
+                <span className="text-xl font-black text-white font-mono tabular-nums block my-0.5">
+                  {totalGoalsInFeed}
+                </span>
+                <span className="text-[10px] text-[#64748b] block">
+                  {language === 'bg' ? 'Отбелязани в мачовете' : t.last15Min}
+                </span>
+              </div>
 
-                {/* Col 5: Last Updated */}
-                <div>
-                  <span className="text-[10px] text-[#8f9cae] block">{t.lastUpdated}</span>
-                  <span className="text-base sm:text-lg font-black text-white font-mono tabular-nums block my-0.5">
-                    {clockStr}
-                  </span>
-                  <span className="inline-flex items-center gap-1 text-[10px] text-[#43f08a]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#43f08a]" />
-                    {t.justNow}
-                  </span>
-                </div>
+              {/* Col 4: Real Tracked Bets Count */}
+              <div className="pr-2 sm:border-r border-[#1a2636]">
+                <span className="text-[10px] text-[#8f9cae] block">{t.trackedBets}</span>
+                <span className="text-xl font-black text-white font-mono tabular-nums block my-0.5">
+                  {bets.length}
+                </span>
+                <span className="text-[10px] text-[#64748b] block">{t.acrossMarkets}</span>
+              </div>
+
+              {/* Col 5: Last Updated */}
+              <div>
+                <span className="text-[10px] text-[#8f9cae] block">{t.lastUpdated}</span>
+                <span className="text-base sm:text-lg font-black text-white font-mono tabular-nums block my-0.5">
+                  {clockStr}
+                </span>
+                <span className="inline-flex items-center gap-1 text-[10px] text-[#43f08a]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#43f08a]" />
+                  {t.justNow}
+                </span>
               </div>
             </div>
           </div>

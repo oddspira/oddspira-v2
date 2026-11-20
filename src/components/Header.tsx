@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActiveTab, Language } from '../types';
+import { ActiveTab, Language, Match } from '../types';
 import { BrandLogo } from './BrandLogo';
 import { UserProfile } from './JoinOddspiraModal';
 
@@ -13,6 +13,8 @@ interface HeaderProps {
   onOpenAdmin?: () => void;
   currentUser?: UserProfile | null;
   onLogout?: () => void;
+  matches?: Match[];
+  onOpenMatch?: (match: Match) => void;
 }
 
 export function Header({
@@ -25,8 +27,93 @@ export function Header({
   onOpenAdmin,
   currentUser,
   onLogout,
+  matches = [],
+  onOpenMatch,
 }: HeaderProps) {
   const [isAlertsOpen, setIsAlertsOpen] = useState(false);
+  const [readAlertIds, setReadAlertIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('oddspira_read_alerts_v1');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Build real notifications from live matches and +EV signals in today's feed
+  const liveNotifications = matches
+    .filter((m) => m.status === 'LIVE' || Boolean(m.valueBetDetected))
+    .slice(0, 6)
+    .map((m) => {
+      const ev = m.valueBetDetected?.evPercent || 5.4;
+      const sel = m.valueBetDetected?.selection;
+      const pickName =
+        sel === 'home'
+          ? `1 (${m.homeTeam})`
+          : sel === 'away'
+          ? `2 (${m.awayTeam})`
+          : sel === 'draw'
+          ? 'Равенство (X)'
+          : 'Над 2.5 Гола';
+      const pickOdd =
+        sel === 'home'
+          ? m.bookmakerOdds.home
+          : sel === 'away'
+          ? m.bookmakerOdds.away
+          : sel === 'draw'
+          ? m.bookmakerOdds.draw
+          : Number((1 / Math.max(0.25, m.fairOdds.over25Prob * 1.05)).toFixed(2));
+      const fairOdd =
+        sel === 'home'
+          ? m.fairOdds.fairHomeOdds
+          : sel === 'away'
+          ? m.fairOdds.fairAwayOdds
+          : sel === 'draw'
+          ? m.fairOdds.fairDrawOdds
+          : Number((1 / Math.max(0.2, m.fairOdds.over25Prob)).toFixed(2));
+
+      const isLive = m.status === 'LIVE';
+      return {
+        id: `alert-${m.id}-${m.homeScore}-${m.awayScore}`,
+        matchObj: m,
+        tag: isLive
+          ? `🟢 НА ЖИВО ${m.minute || 1}' (${m.homeScore} - ${m.awayScore})`
+          : `⚡ +${ev.toFixed(1)}% +EV СИГНАЛ`,
+        match: `${m.homeTeam} vs ${m.awayTeam}`,
+        league: m.league,
+        pick: `${pickName} · Коеф. @${pickOdd.toFixed(2)} (Справедлив @${fairOdd.toFixed(2)})`,
+        time: isLive ? 'Сега' : m.startTime,
+      };
+    });
+
+  const unreadAlerts = liveNotifications.filter((al) => !readAlertIds.includes(al.id));
+  const unreadCount = unreadAlerts.length;
+
+  const markAlertRead = (id: string) => {
+    setReadAlertIds((prev) => {
+      if (prev.includes(id)) return prev;
+      const next = [...prev, id].slice(-60);
+      try {
+        localStorage.setItem('oddspira_read_alerts_v1', JSON.stringify(next));
+      } catch {
+        // ignore storage quota errors
+      }
+      return next;
+    });
+  };
+
+  const markAllAlertsRead = () => {
+    const allIds = liveNotifications.map((a) => a.id);
+    setReadAlertIds((prev) => {
+      const next = Array.from(new Set([...prev, ...allIds])).slice(-60);
+      try {
+        localStorage.setItem('oddspira_read_alerts_v1', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
   const handleGoHome = () => {
     setActiveTab('home');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -316,71 +403,92 @@ export function Header({
             <span className="hidden xl:inline text-xs font-medium">{t.search}</span>
           </button>
 
-          {/* Live Value Alerts Bell */}
+          {/* Live Value Alerts Bell (Connected to Real Live & +EV Matches) */}
           <div className="relative">
             <button
               type="button"
               onClick={() => setIsAlertsOpen((prev) => !prev)}
               className="relative flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#0c1420] hover:bg-[#131f33] border border-[#1e293b] text-xs font-mono text-white cursor-pointer"
-              title="Live +EV & Steam Alerts"
+              title="Известия за мачове на живо и +EV сигнали"
             >
               <span>🔔</span>
-              <span className="px-1.5 py-0.2 rounded-full bg-[#43f08a] text-[#04130a] text-[10px] font-black">
-                3
-              </span>
+              {unreadCount > 0 ? (
+                <span className="px-1.5 py-0.2 rounded-full bg-[#43f08a] text-[#04130a] text-[10px] font-black">
+                  {unreadCount}
+                </span>
+              ) : (
+                <span className="px-1.5 py-0.2 rounded-full bg-[#1a2636] text-[#8f9cae] text-[10px] font-bold">
+                  0
+                </span>
+              )}
             </button>
 
             {isAlertsOpen && (
               <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-[#0b0f19] border border-[#43f08a]/50 shadow-2xl p-3.5 z-50 space-y-2.5">
                 <div className="flex items-center justify-between border-b border-[#1c283d] pb-2">
                   <span className="text-[10px] font-mono font-bold uppercase text-[#43f08a]">
-                    ⚡ LIVE QUANT ALERTS (REAL-TIME)
+                    ⚡ ИЗВЕСТИЯ НА ЖИВО & +EV СИГНАЛИ ({unreadCount})
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => setIsAlertsOpen(false)}
-                    className="text-xs text-[#8f9cae] hover:text-white cursor-pointer"
-                  >
-                    ✕
-                  </button>
+                  <div className="flex items-center gap-2.5">
+                    {unreadCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={markAllAlertsRead}
+                        className="text-[10px] font-semibold text-[#43f08a] hover:underline cursor-pointer"
+                      >
+                        Прочетени ✓
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setIsAlertsOpen(false)}
+                      className="text-xs text-[#8f9cae] hover:text-white cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
 
-                {[
-                  {
-                    tag: '+11.95% EV DETECTED',
-                    match: 'Bayer Leverkusen vs AS Roma',
-                    pick: 'Over 2.5 Goals (@1.78 vs Fair 1.59)',
-                    time: '2m ago',
-                  },
-                  {
-                    tag: 'STEAM DROP -12.9%',
-                    match: 'Newcastle United vs Man United',
-                    pick: 'Newcastle (1) dropped 2.24 → 1.95',
-                    time: '6m ago',
-                  },
-                  {
-                    tag: 'T-60 LINEUPS CONFIRMED',
-                    match: 'Real Madrid vs Villarreal',
-                    pick: 'Over 9.5 Corners (@1.84 • +8.87% Edge)',
-                    time: '14m ago',
-                  },
-                ].map((al, i) => (
-                  <div
-                    key={i}
-                    onClick={() => {
-                      setIsAlertsOpen(false);
-                      setActiveTab('analysis');
-                    }}
-                    className="p-2.5 rounded-xl bg-[#0e1422] hover:bg-[#152036] border border-[#1d293d] cursor-pointer transition-colors"
-                  >
-                    <div className="flex items-center justify-between text-[10px] font-mono">
-                      <span className="text-[#43f08a] font-bold">{al.tag}</span>
-                      <span className="text-[#64748b]">{al.time}</span>
-                    </div>
-                    <div className="text-xs font-bold text-white mt-0.5">{al.match}</div>
-                    <div className="text-[11px] font-mono text-[#cbd5e1]">{al.pick}</div>
+                {liveNotifications.length > 0 ? (
+                  <div className="space-y-2 max-h-80 overflow-y-auto pr-0.5">
+                    {liveNotifications.map((al) => {
+                      const isRead = readAlertIds.includes(al.id);
+                      return (
+                        <div
+                          key={al.id}
+                          onClick={() => {
+                            markAlertRead(al.id);
+                            setIsAlertsOpen(false);
+                            if (onOpenMatch) {
+                              onOpenMatch(al.matchObj);
+                            } else {
+                              setActiveTab('live');
+                            }
+                          }}
+                          className={`p-2.5 rounded-xl border cursor-pointer transition-colors ${
+                            isRead
+                              ? 'bg-[#0b101b]/70 border-[#162030] opacity-70 hover:opacity-100'
+                              : 'bg-[#0e1624] hover:bg-[#152036] border-[#22354e]'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between text-[10px] font-mono">
+                            <span className="text-[#43f08a] font-bold">{al.tag}</span>
+                            <span className="text-[#64748b]">{al.time}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-2 mt-0.5">
+                            <div className="text-xs font-bold text-white truncate">{al.match}</div>
+                            <span className="text-[10px] text-[#8f9cae] shrink-0">{al.league}</span>
+                          </div>
+                          <div className="text-[11px] font-mono text-[#cbd5e1] mt-0.5">{al.pick}</div>
+                        </div>
+                      );
+                    })}
                   </div>
-                ))}
+                ) : (
+                  <div className="py-6 text-center text-xs text-[#8f9cae]">
+                    Няма нови известия в момента.
+                  </div>
+                )}
               </div>
             )}
           </div>
