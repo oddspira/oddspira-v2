@@ -896,7 +896,7 @@ async function startServer() {
       return;
     }
 
-    const cacheKey = 'football:normalized_live_feed_v6';
+    const cacheKey = 'football:normalized_live_feed_v7';
     const ttlMs = 2 * 60 * 1000; // 2 minutes SQLite cache
 
     try {
@@ -1049,7 +1049,7 @@ async function startServer() {
         return p;
       };
 
-      const mappedMatches = rawFixtures.slice(0, 24).map((item, idx) => {
+      const mappedMatches = rawFixtures.slice(0, 80).map((item, idx) => {
         const fixId = String(item?.fixture?.id || `live-${idx}`);
         const homeTeamId = item?.teams?.home?.id;
         const homeTeam = String(item?.teams?.home?.name || 'Home Team');

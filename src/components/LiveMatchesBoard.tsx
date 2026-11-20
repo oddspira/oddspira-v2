@@ -111,7 +111,7 @@ const DICT = {
     colDangerous: 'ОПАСНИ АТАКИ',
     quickBetSlip: 'Бърз фиш (Bet Slip)',
     combinedOdds: 'Общ коефициент',
-    stakeLabel: 'Залог ($)',
+    stakeLabel: 'Залог (€)',
     potentialPayout: 'Потенциална печалба',
     saveToMyBets: 'Запиши в Моите залози',
     myBetsTitle: 'Моите залози',
@@ -488,21 +488,30 @@ export function LiveMatchesBoard({
     return () => clearInterval(simInterval);
   }, [setMatches]);
 
-  // Featured Match (Bayer Leverkusen vs AS Roma or first LIVE match)
+  // Featured Match (First LIVE match or first match in feed)
   const featuredMatch =
-    matches.find((m) => m.id === 'match-leverkusen-roma') ||
     matches.find((m) => m.status === 'LIVE') ||
     matches[0];
 
-  // Table matches (excluding featured match when viewing all/live unless filtered)
+  // Dynamic 100% Real Counters from the active matches feed (Zero Lies)
+  const totalMatchesCount = matches.length;
+  const liveMatchesCount = matches.filter((m) => m.status === 'LIVE').length;
+  const upcomingMatchesCount = matches.filter((m) => m.status === 'SCHEDULED').length;
+  const finishedMatchesCount = matches.filter((m) => m.status === 'FINISHED').length;
+  const activeLeaguesCount = new Set(
+    matches.map((m) => `${m.leagueCountry || ''}:${m.league || ''}`)
+  ).size;
+  const totalGoalsInFeed = matches.reduce(
+    (sum, m) => sum + (Number(m.homeScore) || 0) + (Number(m.awayScore) || 0),
+    0
+  );
+  const favMatchesCount = favorites.filter((id) => matches.some((m) => m.id === id)).length;
+
+  // Table matches matching active tab & filters 1:1 with the tab badge counter
   const countries = Array.from(new Set(matches.map((m) => m.leagueCountry)));
   const leagues = Array.from(new Set(matches.map((m) => m.league)));
 
   const tableMatches = matches.filter((m) => {
-    // Keep featured match in its hero spotlight unless user specifically searches for it
-    if (m.id === featuredMatch?.id && !searchQuery.trim() && statusTab === 'all') {
-      return false;
-    }
     if (statusTab === 'live' && m.status !== 'LIVE') return false;
     if (statusTab === 'upcoming' && m.status !== 'SCHEDULED') return false;
     if (statusTab === 'finished' && m.status !== 'FINISHED') return false;
@@ -791,34 +800,40 @@ export function LiveMatchesBoard({
                   </svg>
                 </div>
 
-                {/* Col 2: 128 Live Matches */}
+                {/* Col 2: Real Live Matches Count */}
                 <div className="pr-2 sm:border-r border-[#1a2636]">
                   <span className="text-[10px] text-[#8f9cae] block">{t.liveMatchesStat}</span>
                   <span className="text-xl font-black text-white font-mono tabular-nums block my-0.5">
-                    128
+                    {liveMatchesCount}
                   </span>
-                  <span className="text-[10px] text-[#64748b] block">{t.acrossLeagues}</span>
+                  <span className="text-[10px] text-[#64748b] block">
+                    {language === 'bg'
+                      ? `В ${activeLeaguesCount} първенства`
+                      : `Across ${activeLeaguesCount} Leagues`}
+                  </span>
                 </div>
 
-                {/* Col 3: 24 Goal Alerts */}
+                {/* Col 3: Real Goals in Feed */}
                 <div className="pr-2 border-r border-[#1a2636]">
                   <span className="text-[10px] text-[#8f9cae] block">{t.goalAlerts}</span>
                   <span className="text-xl font-black text-white font-mono tabular-nums block my-0.5">
-                    24
+                    {totalGoalsInFeed}
                   </span>
-                  <span className="text-[10px] text-[#64748b] block">{t.last15Min}</span>
+                  <span className="text-[10px] text-[#64748b] block">
+                    {language === 'bg' ? 'Отбелязани в мачовете' : t.last15Min}
+                  </span>
                 </div>
 
-                {/* Col 4: 312 Tracked Bets */}
+                {/* Col 4: Real Tracked Bets Count */}
                 <div className="pr-2 sm:border-r border-[#1a2636]">
                   <span className="text-[10px] text-[#8f9cae] block">{t.trackedBets}</span>
                   <span className="text-xl font-black text-white font-mono tabular-nums block my-0.5">
-                    {310 + bets.length}
+                    {bets.length}
                   </span>
                   <span className="text-[10px] text-[#64748b] block">{t.acrossMarkets}</span>
                 </div>
 
-                {/* Col 5: Last Updated 10:32:18 */}
+                {/* Col 5: Last Updated */}
                 <div>
                   <span className="text-[10px] text-[#8f9cae] block">{t.lastUpdated}</span>
                   <span className="text-base sm:text-lg font-black text-white font-mono tabular-nums block my-0.5">
@@ -833,7 +848,7 @@ export function LiveMatchesBoard({
             </div>
           </div>
 
-          {/* 2. STATUS FILTER TABS ROW (All Matches 128 | Live Now 64 | Upcoming 28 | Finished 36 | Favorites) */}
+          {/* 2. STATUS FILTER TABS ROW (Real Dynamic Counts matching table rows 1:1) */}
           <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[#16202e] bg-[#0a1018] p-2">
             <button
               type="button"
@@ -846,7 +861,7 @@ export function LiveMatchesBoard({
             >
               <span>{t.allMatches}</span>
               <span className="px-1.5 py-0.5 rounded-md bg-[#16a34a]/30 text-[#43f08a] font-mono text-[10px]">
-                128
+                {totalMatchesCount}
               </span>
             </button>
 
@@ -861,7 +876,7 @@ export function LiveMatchesBoard({
             >
               <span>{t.liveNow}</span>
               <span className="px-1.5 py-0.5 rounded-md bg-[#16202e] text-neutral-300 font-mono text-[10px]">
-                64
+                {liveMatchesCount}
               </span>
             </button>
 
@@ -876,7 +891,7 @@ export function LiveMatchesBoard({
             >
               <span>{t.upcoming}</span>
               <span className="px-1.5 py-0.5 rounded-md bg-[#16202e] text-neutral-300 font-mono text-[10px]">
-                28
+                {upcomingMatchesCount}
               </span>
             </button>
 
@@ -891,7 +906,7 @@ export function LiveMatchesBoard({
             >
               <span>{t.finished}</span>
               <span className="px-1.5 py-0.5 rounded-md bg-[#16202e] text-neutral-300 font-mono text-[10px]">
-                36
+                {finishedMatchesCount}
               </span>
             </button>
 
@@ -906,9 +921,9 @@ export function LiveMatchesBoard({
             >
               <span>★</span>
               <span>{t.favorites}</span>
-              {favorites.length > 0 && (
+              {favMatchesCount > 0 && (
                 <span className="px-1.5 py-0.5 rounded-md bg-[#16202e] text-[#43f08a] font-mono text-[10px]">
-                  {favorites.length}
+                  {favMatchesCount}
                 </span>
               )}
             </button>
@@ -1034,12 +1049,22 @@ export function LiveMatchesBoard({
                         {t.featuredMatch}
                       </span>
                       <div className="flex items-center gap-1.5 text-xs text-neutral-300 mt-0.5">
-                        <span>⚽</span>
+                        {featuredMatch.leagueLogo ? (
+                          <img
+                            src={featuredMatch.leagueLogo}
+                            alt={featuredMatch.league}
+                            className="w-4 h-4 object-contain rounded-sm bg-white/90 p-0.5"
+                          />
+                        ) : (
+                          <span>⚽</span>
+                        )}
                         <span className="font-semibold">{featuredMatch.league}</span>
                       </div>
                     </div>
                     <span className="text-sm font-mono font-extrabold text-[#43f08a] tabular-nums">
-                      {featuredMatch.minute || 63}:{String(featuredSeconds).padStart(2, '0')}
+                      {featuredMatch.status === 'LIVE'
+                        ? `${featuredMatch.minute || 1}:${String(featuredSeconds).padStart(2, '0')}`
+                        : featuredMatch.startTime}
                     </span>
                   </div>
 
@@ -1050,7 +1075,11 @@ export function LiveMatchesBoard({
                   >
                     {/* Home Team */}
                     <div className="flex items-center gap-2.5">
-                      <TeamBadge name={featuredMatch.homeTeam} size="md" />
+                      <TeamBadge
+                        name={featuredMatch.homeTeam}
+                        logoUrl={featuredMatch.homeLogo}
+                        size="md"
+                      />
                       <div>
                         <div className="text-sm sm:text-base font-extrabold text-white group-hover:text-[#43f08a] transition-colors leading-tight">
                           {featuredMatch.homeTeam}
@@ -1065,7 +1094,10 @@ export function LiveMatchesBoard({
                         {featuredMatch.homeScore} - {featuredMatch.awayScore}
                       </div>
                       <span className="inline-block mt-1 px-2 py-0.5 rounded bg-[#14202e] border border-[#233549] text-[10px] font-mono text-neutral-300">
-                        {HT_SCORES[featuredMatch.id] || 'HT 1-0'}
+                        {featuredMatch.halftimeScore ||
+                          (featuredMatch.status === 'LIVE'
+                            ? `LIVE ${featuredMatch.minute || 1}'`
+                            : featuredMatch.startTime)}
                       </span>
                     </div>
 
@@ -1079,24 +1111,38 @@ export function LiveMatchesBoard({
                           {renderFormBadges(featuredMatch.awayTeam)}
                         </div>
                       </div>
-                      <TeamBadge name={featuredMatch.awayTeam} size="md" />
+                      <TeamBadge
+                        name={featuredMatch.awayTeam}
+                        logoUrl={featuredMatch.awayLogo}
+                        size="md"
+                      />
                     </div>
                   </div>
 
-                  {/* Events Strip (21' Wirtz | 34' Schick | 56' Dybala) */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-[#070d13]/90 border border-[#162230] text-[11px] text-neutral-300 font-mono">
-                    <span className="inline-flex items-center gap-1">
-                      <span className="text-[#43f08a]">⚽</span> 21&apos; Wirtz
-                    </span>
-                    <span className="text-neutral-600">|</span>
-                    <span className="inline-flex items-center gap-1">
-                      34&apos; <span className="text-[#43f08a]">⚽</span> Schick
-                    </span>
-                    <span className="text-neutral-600">|</span>
-                    <span className="inline-flex items-center gap-1">
-                      <span className="text-amber-400">🟨</span> 56&apos; <span className="text-[#43f08a]">⚽</span> Dybala
-                    </span>
-                  </div>
+                  {/* Real Match Events Strip (only rendered when real events exist!) */}
+                  {featuredMatch.events && featuredMatch.events.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-xl bg-[#070d13]/90 border border-[#162230] text-[11px] text-neutral-300 font-mono">
+                      {featuredMatch.events.slice(0, 3).map((ev, idx) => (
+                        <React.Fragment key={idx}>
+                          {idx > 0 && <span className="text-neutral-600">|</span>}
+                          <span className="inline-flex items-center gap-1 truncate max-w-[160px]">
+                            <span>
+                              {ev.type === 'goal'
+                                ? '⚽'
+                                : ev.type === 'red_card'
+                                ? '🟥'
+                                : ev.type === 'yellow_card'
+                                ? '🟨'
+                                : '⚡'}
+                            </span>
+                            <span>
+                              {ev.minute}&apos; {ev.description.replace(/^Гол:\s*/i, '')}
+                            </span>
+                          </span>
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Col 6-8: MOMENTUM Chart */}
@@ -1287,14 +1333,25 @@ export function LiveMatchesBoard({
                         className="flex-1 min-w-0 space-y-1.5 cursor-pointer group"
                       >
                         <div className="flex items-center gap-1.5 text-[10px] font-medium text-[#8f9cae]">
-                          <span>⚽</span>
-                          <span className="truncate">{match.league}</span>
+                          {match.leagueLogo ? (
+                            <img
+                              src={match.leagueLogo}
+                              alt={match.league}
+                              className="w-3.5 h-3.5 object-contain rounded-sm bg-white/90 p-0.5 shrink-0"
+                            />
+                          ) : (
+                            <span>⚽</span>
+                          )}
+                          <span className="truncate">
+                            {match.leagueCountry ? `${match.leagueCountry} · ` : ''}
+                            {match.league}
+                          </span>
                         </div>
 
                         {/* Home Team Row */}
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2 min-w-0">
-                            <TeamBadge name={match.homeTeam} size="sm" />
+                            <TeamBadge name={match.homeTeam} logoUrl={match.homeLogo} size="sm" />
                             <span className="text-xs sm:text-sm font-bold text-white group-hover:text-[#43f08a] transition-colors truncate">
                               {match.homeTeam}
                             </span>
@@ -1305,7 +1362,7 @@ export function LiveMatchesBoard({
                         {/* Away Team Row */}
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2 min-w-0">
-                            <TeamBadge name={match.awayTeam} size="sm" />
+                            <TeamBadge name={match.awayTeam} logoUrl={match.awayLogo} size="sm" />
                             <span className="text-xs sm:text-sm font-bold text-white group-hover:text-[#43f08a] transition-colors truncate">
                               {match.awayTeam}
                             </span>
@@ -1329,7 +1386,7 @@ export function LiveMatchesBoard({
                                 LIVE
                               </span>
                               <span className="block text-[11px] font-mono text-neutral-300 tabular-nums">
-                                {match.minute}:12
+                                {match.minute || 1}&apos;
                               </span>
                             </>
                           ) : (
@@ -1345,8 +1402,8 @@ export function LiveMatchesBoard({
                         </div>
                       </div>
 
-                      <span className="px-1.5 py-0.5 rounded bg-[#131d2a] text-[9px] font-mono text-[#8f9cae]">
-                        {HT_SCORES[match.id] || (isLive ? 'HT 0-0' : 'TODAY')}
+                      <span className="px-1.5 py-0.5 rounded bg-[#131d2a] text-[9px] font-mono text-[#8f9cae] truncate max-w-[90px]">
+                        {match.halftimeScore || (isLive ? `LIVE ${match.minute || 1}'` : 'ДНЕС')}
                       </span>
                     </div>
 
@@ -1606,7 +1663,7 @@ export function LiveMatchesBoard({
                                 : 'bg-[#121c29] text-neutral-300 hover:text-white'
                             }`}
                           >
-                            ${amt}
+                            €{amt}
                           </button>
                         ))}
                       </div>
@@ -1622,7 +1679,7 @@ export function LiveMatchesBoard({
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-[#8f9cae]">{t.potentialPayout}</span>
                       <span className="font-mono font-black text-[#43f08a] text-base tabular-nums">
-                        ${potentialPayout.toFixed(2)}
+                        €{potentialPayout.toFixed(2)}
                       </span>
                     </div>
 
@@ -1736,7 +1793,7 @@ export function LiveMatchesBoard({
                             onClick={() => handleCashOutBet(bet.id, cashOutVal)}
                             className="px-2.5 py-1 rounded-lg border border-[#22c55e]/50 bg-[#0f291e] hover:bg-[#22c55e] text-[#43f08a] hover:text-[#04130b] font-mono font-bold text-[10px] transition-colors cursor-pointer"
                           >
-                            {t.cashOutBtn} ${cashOutVal.toFixed(2)}
+                            {t.cashOutBtn} €{cashOutVal.toFixed(2)}
                           </button>
                         ) : (
                           <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-[#43f08a]">
@@ -1747,11 +1804,11 @@ export function LiveMatchesBoard({
 
                         <div className="text-right font-mono text-[10px] text-neutral-300">
                           <span className="block">
-                            {t.stakeText} ${bet.stake.toFixed(2)}
+                            {t.stakeText} €{bet.stake.toFixed(2)}
                           </span>
                           {index !== 0 && (
                             <span className="block text-white font-semibold">
-                              {t.payoutText} ${fullPayout.toFixed(2)}
+                              {t.payoutText} €{fullPayout.toFixed(2)}
                             </span>
                           )}
                         </div>
@@ -1770,7 +1827,7 @@ export function LiveMatchesBoard({
                             bet.pnl >= 0 ? 'text-[#43f08a] font-bold' : 'text-red-400 font-bold'
                           }
                         >
-                          {bet.pnl >= 0 ? `+$${bet.pnl.toFixed(2)}` : `-$${Math.abs(bet.pnl).toFixed(2)}`}
+                          {bet.pnl >= 0 ? `+€${bet.pnl.toFixed(2)}` : `-€${Math.abs(bet.pnl).toFixed(2)}`}
                         </span>
                       </div>
                     )}
