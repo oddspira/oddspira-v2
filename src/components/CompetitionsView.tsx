@@ -11,6 +11,23 @@ interface CompetitionsViewProps {
   initialLeagueTarget?: { leagueKey?: string; leagueId?: number; leagueName?: string } | null;
 }
 
+interface FormMatchDetail {
+  id: string;
+  date: string;
+  homeTeamId?: number;
+  homeTeam: string;
+  homeLogo?: string;
+  awayTeamId?: number;
+  awayTeam: string;
+  awayLogo?: string;
+  homeGoals: number;
+  awayGoals: number;
+  opponent: string;
+  opponentLogo?: string;
+  isHome: boolean;
+  result: 'W' | 'D' | 'L';
+}
+
 interface StandingRow {
   rank: number;
   teamId?: number;
@@ -25,6 +42,7 @@ interface StandingRow {
   gd: string;
   pts: number;
   form: ('W' | 'D' | 'L')[];
+  formDetails?: FormMatchDetail[];
 }
 
 interface TopScorerRow {
@@ -591,6 +609,12 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
   const t = (DICT as Record<string, typeof DICT.en>)[language] || DICT.en;
 
   const [selectedLeagueKey, setSelectedLeagueKey] = useState<string>('premier-league');
+  const [customLeagueOverride, setCustomLeagueOverride] = useState<{
+    apiLeagueId: number;
+    name: string;
+    country: string;
+    flag: string;
+  } | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [countryFilter, setCountryFilter] = useState<string>('all');
   const [compTypeFilter, setCompTypeFilter] = useState<string>('all');
@@ -602,6 +626,27 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
   const [activeRegion, setActiveRegion] = useState<
     'europe' | 'south_america' | 'north_america' | 'asia' | 'africa'
   >('europe');
+
+  // "Всички лиги" (All Leagues Directory Modal) state
+  const [showAllLeaguesModal, setShowAllLeaguesModal] = useState<boolean>(false);
+  const [modalSearchQuery, setModalSearchQuery] = useState<string>('');
+  const [modalRegionFilter, setModalRegionFilter] = useState<
+    'all' | 'europe' | 'south_america' | 'north_america' | 'asia' | 'africa' | 'today'
+  >('all');
+
+  // Floating hover tooltip state for W/D/L form badges in Standings & Form tables
+  const [hoveredFormBadge, setHoveredFormBadge] = useState<{
+    row: StandingRow;
+    badgeIdx: number;
+    resultChar: 'W' | 'D' | 'L';
+    matchDetail?: FormMatchDetail;
+    rect: { top: number; left: number };
+  } | null>(null);
+
+  const selectBuiltInLeague = (key: string) => {
+    setCustomLeagueOverride(null);
+    setSelectedLeagueKey(key);
+  };
 
   // Sync with initialLeagueTarget when navigated from Homepage Popular Leagues, TeamDetailPage, or MatchDetailPage
   useEffect(() => {
@@ -622,7 +667,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       'bulgaria-first': 'bulgaria-first',
     };
     if (initialLeagueTarget.leagueKey && keyAliases[initialLeagueTarget.leagueKey]) {
-      setSelectedLeagueKey(keyAliases[initialLeagueTarget.leagueKey]);
+      selectBuiltInLeague(keyAliases[initialLeagueTarget.leagueKey]);
       return;
     }
     if (initialLeagueTarget.leagueId) {
@@ -630,7 +675,15 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
         (l) => l.apiLeagueId === initialLeagueTarget.leagueId
       );
       if (foundById) {
-        setSelectedLeagueKey(foundById.id);
+        selectBuiltInLeague(foundById.id);
+        return;
+      } else {
+        setCustomLeagueOverride({
+          apiLeagueId: initialLeagueTarget.leagueId,
+          name: initialLeagueTarget.leagueName || `League #${initialLeagueTarget.leagueId}`,
+          country: 'International',
+          flag: '🏆',
+        });
         return;
       }
     }
@@ -642,12 +695,27 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
           norm.includes(l.name.toLowerCase())
       );
       if (foundByName) {
-        setSelectedLeagueKey(foundByName.id);
+        selectBuiltInLeague(foundByName.id);
       }
     }
   }, [initialLeagueTarget]);
 
-  const baseLeague = LEAGUES_DATABASE[selectedLeagueKey] || LEAGUES_DATABASE['premier-league'];
+  const rawBaseLeague = LEAGUES_DATABASE[selectedLeagueKey] || LEAGUES_DATABASE['premier-league'];
+  const baseLeague: LeagueHubData = customLeagueOverride
+    ? {
+        ...rawBaseLeague,
+        id: `custom-${customLeagueOverride.apiLeagueId}`,
+        apiLeagueId: customLeagueOverride.apiLeagueId,
+        name: customLeagueOverride.name,
+        country: customLeagueOverride.country,
+        flag: customLeagueOverride.flag,
+        standings: [],
+        topScorers: [],
+        upcomingFixtures: [],
+        recentResults: [],
+        glance: null,
+      }
+    : rawBaseLeague;
   const [liveLeagueIntel, setLiveLeagueIntel] = useState<{
     leagueId: number;
     seasonLabel?: string;
@@ -1033,6 +1101,86 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
     ? activeLeague.standings
     : activeLeague.standings.slice(0, 5);
 
+  // Interactive Form Badges renderer with instant hover match popover & click-to-open match
+  const renderInteractiveFormBadges = (
+    row: StandingRow,
+    align: 'right' | 'center' = 'right'
+  ) => {
+    const details = Array.isArray(row.formDetails) ? row.formDetails : [];
+    // Align details from the right (most recent match = last badge)
+    const offset = row.form.length - details.length;
+
+    return (
+      <div
+        className={`flex items-center ${
+          align === 'center' ? 'justify-center' : 'justify-end'
+        } gap-1`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {row.form.map((f, i) => {
+          const detailIdx = i - offset;
+          const matchDetail =
+            detailIdx >= 0 && detailIdx < details.length ? details[detailIdx] : undefined;
+
+          return (
+            <button
+              key={i}
+              type="button"
+              onMouseEnter={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setHoveredFormBadge({
+                  row,
+                  badgeIdx: i,
+                  resultChar: f,
+                  matchDetail,
+                  rect: {
+                    top: rect.top,
+                    left: rect.left + rect.width / 2,
+                  },
+                });
+              }}
+              onMouseLeave={() => setHoveredFormBadge(null)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setHoveredFormBadge(null);
+                if (matchDetail) {
+                  handleOpenFixtureMatch({
+                    id: matchDetail.id,
+                    dayLabel: matchDetail.date,
+                    homeTeamId: matchDetail.homeTeamId,
+                    homeTeam: matchDetail.homeTeam,
+                    homeLogo: matchDetail.homeLogo,
+                    awayTeamId: matchDetail.awayTeamId,
+                    awayTeam: matchDetail.awayTeam,
+                    awayLogo: matchDetail.awayLogo,
+                    time: `${matchDetail.homeGoals} - ${matchDetail.awayGoals}`,
+                  });
+                } else {
+                  openTeamProfile({
+                    teamId: row.teamId,
+                    teamName: row.club,
+                    teamLogo: row.clubLogo,
+                    leagueId: activeLeague.apiLeagueId,
+                    leagueName: activeLeague.name,
+                  });
+                }
+              }}
+              className={`w-4 h-4 rounded text-[9px] font-black flex items-center justify-center transition-transform hover:scale-125 hover:ring-2 hover:ring-white/80 cursor-pointer ${
+                f === 'W'
+                  ? 'bg-[#10b981] text-[#04130b]'
+                  : f === 'D'
+                  ? 'bg-[#334155] text-white'
+                  : 'bg-[#ef4444] text-white'
+              }`}
+            >
+              {f}
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-5 animate-fade-in">
       {/* =================================================================== */}
@@ -1258,12 +1406,12 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
               return true;
             })
             .map((lg, idx) => {
-              const isSelected = selectedLeagueKey === lg.key;
+              const isSelected = !customLeagueOverride && selectedLeagueKey === lg.key;
               return (
                 <button
                   key={`${lg.name}-${idx}`}
                   type="button"
-                  onClick={() => setSelectedLeagueKey(lg.key)}
+                  onClick={() => selectBuiltInLeague(lg.key)}
                   className={`rounded-xl border p-2.5 text-left transition-all cursor-pointer flex items-center gap-2 ${
                     isSelected
                       ? 'border-[#43f08a] bg-[#0e231b] shadow-md shadow-[#22c55e]/10'
@@ -1292,14 +1440,14 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
               );
             })}
 
-          {/* View all leagues card */}
+          {/* View all leagues directory modal button */}
           <button
             type="button"
-            onClick={() => setShowFullTable(!showFullTable)}
-            className="rounded-xl border border-[#1a2636] bg-[#0d1520] hover:border-[#43f08a]/50 p-2.5 flex flex-col items-center justify-center gap-1 text-center cursor-pointer transition-all"
+            onClick={() => setShowAllLeaguesModal(true)}
+            className="rounded-xl border border-emerald-500/40 bg-[#0d1f18] hover:bg-[#122b22] hover:border-[#43f08a] p-2.5 flex flex-col items-center justify-center gap-1 text-center cursor-pointer transition-all shadow-[0_0_15px_rgba(16,185,129,0.12)]"
           >
-            <span className="text-base text-neutral-300">⊞</span>
-            <span className="text-[11px] font-bold text-white">{t.viewAllLeagues} ›</span>
+            <span className="text-base text-[#43f08a]">⊞</span>
+            <span className="text-[11px] font-extrabold text-[#43f08a]">{t.viewAllLeagues} ›</span>
           </button>
         </div>
       </div>
@@ -1448,22 +1596,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                         <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.gd}</td>
                         <td className="py-2.5 px-2 text-center font-black text-white">{row.pts}</td>
                         <td className="py-2.5 pl-2">
-                          <div className="flex items-center justify-end gap-1">
-                            {row.form.map((f, i) => (
-                              <span
-                                key={i}
-                                className={`w-4 h-4 rounded text-[9px] font-black flex items-center justify-center ${
-                                  f === 'W'
-                                    ? 'bg-[#10b981] text-[#04130b]'
-                                    : f === 'D'
-                                    ? 'bg-[#334155] text-white'
-                                    : 'bg-[#ef4444] text-white'
-                                }`}
-                              >
-                                {f}
-                              </span>
-                            ))}
-                          </div>
+                          {renderInteractiveFormBadges(row, 'right')}
                         </td>
                       </tr>
                     ))}
@@ -1690,22 +1823,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                             </div>
                           </td>
                           <td className="py-2.5 px-2">
-                            <div className="flex items-center justify-center gap-1">
-                              {row.form.map((f, i) => (
-                                <span
-                                  key={i}
-                                  className={`w-4 h-4 rounded text-[9px] font-black flex items-center justify-center ${
-                                    f === 'W'
-                                      ? 'bg-[#10b981] text-[#04130b]'
-                                      : f === 'D'
-                                      ? 'bg-[#334155] text-white'
-                                      : 'bg-[#ef4444] text-white'
-                                  }`}
-                                >
-                                  {f}
-                                </span>
-                              ))}
-                            </div>
+                            {renderInteractiveFormBadges(row, 'center')}
                           </td>
                           <td className="py-2.5 pl-2 text-right font-black text-[#43f08a]">
                             {row.formPts} / 15 т.
@@ -2150,6 +2268,394 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
           {t.exploreTools} →
         </button>
       </div>
+
+      {/* =================================================================== */}
+      {/* FLOATING HOVER TOOLTIP FOR STANDINGS / FORM W-D-L BADGES            */}
+      {/* =================================================================== */}
+      {hoveredFormBadge && (
+        <div
+          style={{
+            top: Math.max(16, hoveredFormBadge.rect.top - 12),
+            left: Math.min(
+              typeof window !== 'undefined' ? window.innerWidth - 170 : 800,
+              Math.max(170, hoveredFormBadge.rect.left)
+            ),
+          }}
+          className="fixed z-50 -translate-x-1/2 -translate-y-full pointer-events-none w-72 rounded-2xl border border-emerald-500/40 bg-[#070d15]/98 p-3.5 shadow-[0_18px_45px_rgba(0,0,0,0.85)] backdrop-blur-md space-y-2.5"
+        >
+          {/* Header: Team + Form Summary */}
+          <div className="flex items-center justify-between border-b border-[#182638] pb-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <TeamBadge
+                name={hoveredFormBadge.row.club}
+                logoUrl={hoveredFormBadge.row.clubLogo}
+                teamId={hoveredFormBadge.row.teamId}
+                size="sm"
+                className="w-5 h-5"
+              />
+              <span className="text-xs font-extrabold text-white truncate">
+                {hoveredFormBadge.row.club}
+              </span>
+            </div>
+            <span
+              className={`px-2 py-0.5 rounded text-[10px] font-mono font-black ${
+                hoveredFormBadge.resultChar === 'W'
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                  : hoveredFormBadge.resultChar === 'D'
+                  ? 'bg-slate-700/60 text-slate-200 border border-slate-500/40'
+                  : 'bg-red-500/20 text-red-300 border border-red-500/40'
+              }`}
+            >
+              {hoveredFormBadge.resultChar === 'W'
+                ? 'ПОБЕДА (+3 т.)'
+                : hoveredFormBadge.resultChar === 'D'
+                ? 'РАВЕНСТВО (+1 т.)'
+                : 'ЗАГУБА (0 т.)'}
+            </span>
+          </div>
+
+          {/* Hovered Specific Match Detail (if available from API-Football last 55 league matches) */}
+          {hoveredFormBadge.matchDetail ? (
+            <div className="rounded-xl bg-[#0c1623] border border-[#1d2e44] p-2.5 space-y-1.5">
+              <div className="flex items-center justify-between text-[10px] font-mono text-[#8f9cae]">
+                <span>{hoveredFormBadge.matchDetail.date}</span>
+                <span className="text-emerald-400">
+                  {hoveredFormBadge.matchDetail.isHome ? 'Домакин' : 'Гост'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                  <TeamBadge
+                    name={hoveredFormBadge.matchDetail.homeTeam}
+                    logoUrl={hoveredFormBadge.matchDetail.homeLogo}
+                    teamId={hoveredFormBadge.matchDetail.homeTeamId}
+                    size="sm"
+                    className="w-4 h-4"
+                  />
+                  <span className="font-bold text-white truncate">
+                    {hoveredFormBadge.matchDetail.homeTeam}
+                  </span>
+                </div>
+                <span className="px-2 py-0.5 rounded bg-[#142234] border border-emerald-500/30 font-mono font-black text-white text-xs shrink-0">
+                  {hoveredFormBadge.matchDetail.homeGoals} : {hoveredFormBadge.matchDetail.awayGoals}
+                </span>
+                <div className="flex items-center justify-end gap-1.5 min-w-0 flex-1">
+                  <span className="font-bold text-white truncate">
+                    {hoveredFormBadge.matchDetail.awayTeam}
+                  </span>
+                  <TeamBadge
+                    name={hoveredFormBadge.matchDetail.awayTeam}
+                    logoUrl={hoveredFormBadge.matchDetail.awayLogo}
+                    teamId={hoveredFormBadge.matchDetail.awayTeamId}
+                    size="sm"
+                    className="w-4 h-4"
+                  />
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {/* Last 5 Matches History List */}
+          {hoveredFormBadge.row.formDetails && hoveredFormBadge.row.formDetails.length > 0 ? (
+            <div className="space-y-1">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[#8f9cae] block">
+                Последни мачове в лигата:
+              </span>
+              {hoveredFormBadge.row.formDetails.map((md, idx) => (
+                <div
+                  key={md.id || idx}
+                  className={`flex items-center justify-between text-[10px] font-mono px-2 py-1 rounded ${
+                    hoveredFormBadge.matchDetail?.id === md.id
+                      ? 'bg-emerald-500/15 border border-emerald-500/30 text-white'
+                      : 'text-neutral-300'
+                  }`}
+                >
+                  <span className="truncate max-w-[165px]">
+                    {md.homeTeam} vs {md.awayTeam}
+                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="font-bold text-white">
+                      {md.homeGoals}:{md.awayGoals}
+                    </span>
+                    <span
+                      className={`w-3.5 h-3.5 rounded text-[8px] font-black flex items-center justify-center ${
+                        md.result === 'W'
+                          ? 'bg-[#10b981] text-[#04130b]'
+                          : md.result === 'D'
+                          ? 'bg-[#334155] text-white'
+                          : 'bg-[#ef4444] text-white'
+                      }`}
+                    >
+                      {md.result}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-[11px] text-neutral-300 font-mono">
+              Форма (последни 5 мача):{' '}
+              <span className="text-emerald-400 font-bold">
+                {hoveredFormBadge.row.form.filter((x) => x === 'W').length}П -{' '}
+                {hoveredFormBadge.row.form.filter((x) => x === 'D').length}Р -{' '}
+                {hoveredFormBadge.row.form.filter((x) => x === 'L').length}З
+              </span>
+            </div>
+          )}
+
+          <div className="text-[10px] text-emerald-400 font-mono text-center pt-1 border-t border-[#182638]">
+            Кликни за детайли за мача / отбора →
+          </div>
+        </div>
+      )}
+
+      {/* =================================================================== */}
+      {/* MODAL: ВСИЧКИ ЛИГИ И ПЪРВЕНСТВА (ALL LEAGUES DIRECTORY MODAL)       */}
+      {/* =================================================================== */}
+      {showAllLeaguesModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setShowAllLeaguesModal(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-4xl max-h-[85vh] rounded-2xl border border-[#1d2e42] bg-[#080e17] shadow-2xl flex flex-col overflow-hidden"
+          >
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-[#182434] flex items-center justify-between gap-4 bg-[#0a121d]">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-bold">
+                  🏆
+                </div>
+                <div>
+                  <h2 className="text-base sm:text-lg font-extrabold text-white">
+                    Всички лиги и турнири — Пълен каталог
+                  </h2>
+                  <p className="text-xs text-[#8f9cae]">
+                    Избери първенство, за да заредиш официално класиране, голмайстори, програма, резултати и форма от API-Football v3
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAllLeaguesModal(false)}
+                className="w-8 h-8 rounded-xl bg-[#131d2b] border border-[#223247] text-neutral-400 hover:text-white flex items-center justify-center cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Search & Region Filter Bar */}
+            <div className="px-6 py-3.5 border-b border-[#162232] bg-[#09101a] flex flex-wrap items-center justify-between gap-3">
+              <div className="relative flex-1 min-w-[220px]">
+                <input
+                  type="text"
+                  value={modalSearchQuery}
+                  onChange={(e) => setModalSearchQuery(e.target.value)}
+                  placeholder="Търсене на лига или държава (напр. Serie A, България, England, Brazil)..."
+                  className="w-full rounded-xl border border-[#1e2d42] bg-[#0d1624] px-3.5 py-2 text-xs text-white placeholder-[#64748b] focus:border-[#43f08a] focus:outline-none"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                {[
+                  { key: 'all', label: 'Всички' },
+                  { key: 'europe', label: 'Европа' },
+                  { key: 'south_america', label: 'Южна Америка' },
+                  { key: 'north_america', label: 'Сев. Америка' },
+                  { key: 'asia', label: 'Азия' },
+                  { key: 'africa', label: 'Африка' },
+                  { key: 'today', label: '🔥 С мачове днес' },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setModalRegionFilter(tab.key as typeof modalRegionFilter)}
+                    className={`px-3 py-1.5 rounded-xl font-bold transition-colors cursor-pointer ${
+                      modalRegionFilter === tab.key
+                        ? 'bg-[#0f291e] border border-[#22c55e]/60 text-[#43f08a]'
+                        : 'bg-[#0e1622] border border-[#1a2636] text-[#8f9cae] hover:text-white'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Modal Body: Grid of All Supported & Today's Active Leagues */}
+            <div className="p-6 overflow-y-auto space-y-6">
+              {/* Section 1: Main Supported Leagues in LEAGUES_DATABASE */}
+              <div>
+                <div className="text-xs font-mono uppercase tracking-wider text-emerald-400 mb-3 flex items-center justify-between">
+                  <span>Основни първенства и континентални турнири ({Object.keys(LEAGUES_DATABASE).length})</span>
+                  <span>Пълно класиране & статистика</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {Object.values(LEAGUES_DATABASE)
+                    .filter((lg) => {
+                      if (
+                        modalRegionFilter !== 'all' &&
+                        modalRegionFilter !== 'today' &&
+                        lg.region !== modalRegionFilter
+                      ) {
+                        return false;
+                      }
+                      if (modalSearchQuery.trim()) {
+                        const q = modalSearchQuery.toLowerCase();
+                        return (
+                          lg.name.toLowerCase().includes(q) ||
+                          lg.country.toLowerCase().includes(q)
+                        );
+                      }
+                      return true;
+                    })
+                    .map((lg) => {
+                      const isCurrent =
+                        !customLeagueOverride && selectedLeagueKey === lg.id;
+                      const todayCount = matches.filter(
+                        (m) =>
+                          m.leagueId === lg.apiLeagueId ||
+                          m.league.toLowerCase() === lg.name.toLowerCase()
+                      ).length;
+
+                      return (
+                        <button
+                          key={lg.id}
+                          type="button"
+                          onClick={() => {
+                            selectBuiltInLeague(lg.id);
+                            setShowAllLeaguesModal(false);
+                            window.scrollTo({ top: 260, behavior: 'smooth' });
+                          }}
+                          className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-3 group ${
+                            isCurrent
+                              ? 'border-[#43f08a] bg-[#0e231b] shadow-lg'
+                              : 'border-[#1a2636] bg-[#0c1420] hover:border-emerald-500/50 hover:bg-[#101b2b]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-10 h-10 rounded-xl bg-white/95 border border-white/20 p-1.5 flex items-center justify-center shrink-0">
+                              <img
+                                src={`/api/football/media/leagues/${lg.apiLeagueId}.png`}
+                                alt={lg.name}
+                                className="w-full h-full object-contain"
+                                loading="lazy"
+                              />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs sm:text-sm font-extrabold text-white group-hover:text-[#43f08a] transition-colors truncate">
+                                {lg.name}
+                              </div>
+                              <div className="text-[11px] text-[#8f9cae] truncate">
+                                {lg.flag} {lg.country} · {lg.season}
+                              </div>
+                              {todayCount > 0 && (
+                                <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-[9px] font-mono font-bold text-emerald-300">
+                                  {todayCount} мача днес
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <span className="text-xs font-mono font-bold text-[#43f08a] shrink-0">
+                            Отвори →
+                          </span>
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
+
+              {/* Section 2: Additional Active Leagues from Today's Live Feed */}
+              {(() => {
+                const builtInIds = new Set(
+                  Object.values(LEAGUES_DATABASE).map((l) => l.apiLeagueId)
+                );
+                const extraMap = new Map<
+                  number,
+                  { apiLeagueId: number; name: string; country: string; count: number }
+                >();
+                for (const m of matches) {
+                  if (m.leagueId && !builtInIds.has(m.leagueId)) {
+                    const prev = extraMap.get(m.leagueId);
+                    if (prev) {
+                      prev.count += 1;
+                    } else {
+                      extraMap.set(m.leagueId, {
+                        apiLeagueId: m.leagueId,
+                        name: m.league,
+                        country: m.leagueCountry || 'International',
+                        count: 1,
+                      });
+                    }
+                  }
+                }
+                const extraLeagues = Array.from(extraMap.values()).filter((lg) => {
+                  if (!modalSearchQuery.trim()) return true;
+                  const q = modalSearchQuery.toLowerCase();
+                  return (
+                    lg.name.toLowerCase().includes(q) ||
+                    lg.country.toLowerCase().includes(q)
+                  );
+                });
+
+                if (extraLeagues.length === 0) return null;
+
+                return (
+                  <div>
+                    <div className="text-xs font-mono uppercase tracking-wider text-sky-400 mb-3 flex items-center justify-between">
+                      <span>Още активни лиги с мачове днес ({extraLeagues.length})</span>
+                      <span>Директна връзка с API-Football v3</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                      {extraLeagues.map((xlg) => (
+                        <button
+                          key={xlg.apiLeagueId}
+                          type="button"
+                          onClick={() => {
+                            setCustomLeagueOverride({
+                              apiLeagueId: xlg.apiLeagueId,
+                              name: xlg.name,
+                              country: xlg.country,
+                              flag: '🌍',
+                            });
+                            setShowAllLeaguesModal(false);
+                            window.scrollTo({ top: 260, behavior: 'smooth' });
+                          }}
+                          className="p-3 rounded-xl border border-[#1a2636] bg-[#0c1420] hover:border-sky-400/50 hover:bg-[#101b2b] text-left transition-all cursor-pointer flex items-center justify-between gap-2.5 group"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-8 h-8 rounded-lg bg-white/95 p-1 flex items-center justify-center shrink-0">
+                              <img
+                                src={`/api/football/media/leagues/${xlg.apiLeagueId}.png`}
+                                alt={xlg.name}
+                                className="w-full h-full object-contain"
+                                loading="lazy"
+                              />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs font-bold text-white group-hover:text-sky-300 truncate">
+                                {xlg.name}
+                              </div>
+                              <div className="text-[10px] text-[#8f9cae] truncate">
+                                {xlg.country} · {xlg.count} мача днес
+                              </div>
+                            </div>
+                          </div>
+                          <span className="text-[11px] font-mono font-bold text-sky-400 shrink-0">
+                            Класиране →
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

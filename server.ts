@@ -2139,7 +2139,7 @@ async function startServer() {
       return;
     }
 
-    const cacheKey = `football:league_intel_v6:${leagueId}:${requestedSeasonParam}`;
+    const cacheKey = `football:league_intel_v7:${leagueId}:${requestedSeasonParam}`;
     const ttlMs = 30 * 60 * 1000; // 30 minutes SQLite cache for fresh standings & fixtures
 
     try {
@@ -2226,53 +2226,7 @@ async function startServer() {
         }
       }
 
-      const standings = rawStandings.map((row) => {
-        const gdNum = Number(row?.goalsDiff || 0);
-        const formStr = String(row?.form || '').slice(-5);
-        return {
-          rank: Number(row?.rank || 1),
-          teamId: row?.team?.id ? Number(row.team.id) : undefined,
-          club: String(row?.team?.name || 'Club'),
-          clubLogo: proxyMediaUrl(row?.team?.logo, 'teams', row?.team?.id),
-          p: Number(row?.all?.played || 0),
-          w: Number(row?.all?.win || 0),
-          d: Number(row?.all?.draw || 0),
-          l: Number(row?.all?.lose || 0),
-          gf: Number(row?.all?.goals?.for || 0),
-          ga: Number(row?.all?.goals?.against || 0),
-          gd: gdNum > 0 ? `+${gdNum}` : String(gdNum),
-          pts: Number(row?.points || 0),
-          form: formStr.split('').filter((c) => c === 'W' || c === 'D' || c === 'L'),
-        };
-      });
-
-      const topScorers = rawScorers.slice(0, 10).map((item, idx) => {
-        const player = item?.player || {};
-        const stat = item?.statistics?.[0] || {};
-        const name = String(player?.name || 'Player');
-        const parts = name.split(' ');
-        const initials =
-          parts.length >= 2
-            ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
-            : name.slice(0, 2).toUpperCase();
-
-        return {
-          rank: idx + 1,
-          name,
-          photo: proxyMediaUrl(player?.photo, 'players', player?.id),
-          teamId: stat?.team?.id ? Number(stat.team.id) : undefined,
-          club: String(stat?.team?.name || 'Club'),
-          clubLogo: proxyMediaUrl(stat?.team?.logo, 'teams', stat?.team?.id),
-          goals: Number(stat?.goals?.total || 0),
-          assists: Number(stat?.goals?.assists || 0),
-          yellowCards: Number(stat?.cards?.yellow || 0),
-          shotsOnTarget: Number(stat?.shots?.on || 0),
-          initials,
-          avatarGradient: 'from-emerald-600 to-slate-900',
-        };
-      });
-
-      // 2. Fetch real upcoming fixtures AND recent finished results for this league
+      // 2. Fetch real upcoming fixtures AND last 55 finished results for this league (covers last 5 matches for every team!)
       let rawFixtures: Array<Record<string, any>> = [];
       let rawRecentResults: Array<Record<string, any>> = [];
       try {
@@ -2282,7 +2236,7 @@ async function startServer() {
             { headers: { 'x-apisports-key': apiKey } }
           ),
           fetch(
-            `https://v3.football.api-sports.io/fixtures?league=${leagueId}&season=${activeSeason}&last=8`,
+            `https://v3.football.api-sports.io/fixtures?league=${leagueId}&season=${activeSeason}&last=55`,
             { headers: { 'x-apisports-key': apiKey } }
           ),
         ]);
@@ -2315,6 +2269,124 @@ async function startServer() {
         rawFixtures = [];
       }
 
+      const standings = rawStandings.map((row) => {
+        const gdNum = Number(row?.goalsDiff || 0);
+        const formStr = String(row?.form || '').slice(-5);
+        const teamIdNum = row?.team?.id ? Number(row.team.id) : undefined;
+        const clubName = String(row?.team?.name || 'Club');
+        const formArr = formStr.split('').filter((c) => c === 'W' || c === 'D' || c === 'L') as (
+          | 'W'
+          | 'D'
+          | 'L'
+        )[];
+
+        // Match this team's last 5 finished fixtures chronologically (oldest -> newest to align with formArr)
+        const teamFinished = rawRecentResults
+          .filter((fx) => {
+            const hId = Number(fx?.teams?.home?.id || 0);
+            const aId = Number(fx?.teams?.away?.id || 0);
+            if (teamIdNum && (hId === teamIdNum || aId === teamIdNum)) return true;
+            const hName = String(fx?.teams?.home?.name || '').toLowerCase();
+            const aName = String(fx?.teams?.away?.name || '').toLowerCase();
+            return hName === clubName.toLowerCase() || aName === clubName.toLowerCase();
+          })
+          .sort((a, b) => {
+            const tA = a?.fixture?.date ? new Date(a.fixture.date).getTime() : 0;
+            const tB = b?.fixture?.date ? new Date(b.fixture.date).getTime() : 0;
+            return tA - tB;
+          })
+          .slice(-5)
+          .map((fx) => {
+            const fxId = String(fx?.fixture?.id || '');
+            const fxDate = fx?.fixture?.date ? new Date(fx.fixture.date) : null;
+            const dateStr = fxDate
+              ? fxDate.toLocaleDateString('bg-BG', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                })
+              : '';
+            const rawRound = String(fx?.league?.round || '').replace(
+              /Regular Season - (\d+)/i,
+              'Кръг $1'
+            );
+            const hId = Number(fx?.teams?.home?.id || 0);
+            const hName = String(fx?.teams?.home?.name || 'Home');
+            const aName = String(fx?.teams?.away?.name || 'Away');
+            const hLogo = proxyMediaUrl(fx?.teams?.home?.logo, 'teams', fx?.teams?.home?.id);
+            const aLogo = proxyMediaUrl(fx?.teams?.away?.logo, 'teams', fx?.teams?.away?.id);
+            const hGoals = Number(fx?.goals?.home ?? 0);
+            const aGoals = Number(fx?.goals?.away ?? 0);
+            const isHome = teamIdNum
+              ? hId === teamIdNum
+              : hName.toLowerCase() === clubName.toLowerCase();
+            const myGoals = isHome ? hGoals : aGoals;
+            const oppGoals = isHome ? aGoals : hGoals;
+            const result: 'W' | 'D' | 'L' =
+              myGoals > oppGoals ? 'W' : myGoals === oppGoals ? 'D' : 'L';
+
+            return {
+              id: `api-${fxId}`,
+              date: rawRound ? `${dateStr} · ${rawRound}` : dateStr,
+              homeTeamId: hId || undefined,
+              homeTeam: hName,
+              homeLogo: hLogo,
+              awayTeamId: Number(fx?.teams?.away?.id || 0) || undefined,
+              awayTeam: aName,
+              awayLogo: aLogo,
+              homeGoals: hGoals,
+              awayGoals: aGoals,
+              opponent: isHome ? aName : hName,
+              opponentLogo: isHome ? aLogo : hLogo,
+              isHome,
+              result,
+            };
+          });
+
+        return {
+          rank: Number(row?.rank || 1),
+          teamId: teamIdNum,
+          club: clubName,
+          clubLogo: proxyMediaUrl(row?.team?.logo, 'teams', row?.team?.id),
+          p: Number(row?.all?.played || 0),
+          w: Number(row?.all?.win || 0),
+          d: Number(row?.all?.draw || 0),
+          l: Number(row?.all?.lose || 0),
+          gf: Number(row?.all?.goals?.for || 0),
+          ga: Number(row?.all?.goals?.against || 0),
+          gd: gdNum > 0 ? `+${gdNum}` : String(gdNum),
+          pts: Number(row?.points || 0),
+          form: formArr,
+          formDetails: teamFinished,
+        };
+      });
+
+      const topScorers = rawScorers.slice(0, 10).map((item, idx) => {
+        const player = item?.player || {};
+        const stat = item?.statistics?.[0] || {};
+        const name = String(player?.name || 'Player');
+        const parts = name.split(' ');
+        const initials =
+          parts.length >= 2
+            ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
+            : name.slice(0, 2).toUpperCase();
+
+        return {
+          rank: idx + 1,
+          name,
+          photo: proxyMediaUrl(player?.photo, 'players', player?.id),
+          teamId: stat?.team?.id ? Number(stat.team.id) : undefined,
+          club: String(stat?.team?.name || 'Club'),
+          clubLogo: proxyMediaUrl(stat?.team?.logo, 'teams', stat?.team?.id),
+          goals: Number(stat?.goals?.total || 0),
+          assists: Number(stat?.goals?.assists || 0),
+          yellowCards: Number(stat?.cards?.yellow || 0),
+          shotsOnTarget: Number(stat?.shots?.on || 0),
+          initials,
+          avatarGradient: 'from-emerald-600 to-slate-900',
+        };
+      });
+
       const mapLeagueFixtureRow = (fx: Record<string, any>) => {
         const fxId = String(fx?.fixture?.id || '');
         const fxDate = fx?.fixture?.date ? new Date(fx.fixture.date) : null;
@@ -2336,6 +2408,8 @@ async function startServer() {
             })
           : '20:00';
         const rawRound = String(fx?.league?.round || '').replace(/Regular Season - (\d+)/i, 'Кръг $1');
+        const hGoals = Number(fx?.goals?.home ?? 0);
+        const aGoals = Number(fx?.goals?.away ?? 0);
 
         return {
           id: `api-${fxId}`,
@@ -2346,19 +2420,22 @@ async function startServer() {
           awayTeamId: fx?.teams?.away?.id ? Number(fx.teams.away.id) : undefined,
           awayTeam: String(fx?.teams?.away?.name || 'Away'),
           awayLogo: proxyMediaUrl(fx?.teams?.away?.logo, 'teams', fx?.teams?.away?.id),
-          homeScore: Number(fx?.goals?.home ?? 0),
-          awayScore: Number(fx?.goals?.away ?? 0),
+          homeScore: hGoals,
+          awayScore: aGoals,
+          homeGoals: hGoals,
+          awayGoals: aGoals,
+          status: shortStatus,
           isFinished,
           time: isFinished
-            ? `${fx?.goals?.home ?? 0} - ${fx?.goals?.away ?? 0} (КР)`
+            ? `${hGoals} - ${aGoals} (КР)`
             : isLive
-            ? `${fx?.goals?.home ?? 0} - ${fx?.goals?.away ?? 0} LIVE`
+            ? `${hGoals} - ${aGoals} LIVE`
             : timeStr,
         };
       };
 
       const upcomingFixtures = rawFixtures.slice(0, 6).map(mapLeagueFixtureRow);
-      const recentResults = rawRecentResults.slice(0, 8).map(mapLeagueFixtureRow);
+      const recentResults = rawRecentResults.slice(0, 10).map(mapLeagueFixtureRow);
 
       // 3. Calculate 100% real League Statistics from the official standings (Zero fabricated stats)
       let glance = null;
