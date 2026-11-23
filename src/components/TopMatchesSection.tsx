@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ActiveTab, Language, Match } from '../types';
-import { TeamBadge, getLeagueLogoUrl } from './TeamBadge';
+import { TeamBadge, LeagueBadge } from './TeamBadge';
 
 interface TopMatchesSectionProps {
   language: Language;
@@ -46,7 +46,7 @@ export function TopMatchesSection({
   const [activeLeagueDot, setActiveLeagueDot] = useState<number>(0);
   const [emailInput, setEmailInput] = useState<string>('');
 
-  // Take the 4 featured matches matching the homepage design screenshot
+  // Select the 4 highest-profile matches today (prioritizing major 1st-division leagues over reserve/2nd-tier matches)
   const homeMatchIds = [
     'match-arsenal-chelsea',
     'match-barca-real',
@@ -56,7 +56,51 @@ export function TopMatchesSection({
   const filteredHome = homeMatchIds
     .map((id) => matches.find((m) => m.id === id))
     .filter((m): m is Match => Boolean(m));
-  const topMatches = filteredHome.length === 4 ? filteredHome : matches.slice(0, 4);
+
+  const isEliteFirstDivision = (m: Match): boolean => {
+    const lg = (m.league || '').toLowerCase();
+    const ctry = (m.leagueCountry || '').toLowerCase();
+    const teams = `${m.homeTeam} ${m.awayTeam}`.toLowerCase();
+    if (/\bii\b|\biii\b|\bu1[5-9]\b|\bu2[0-3]\b|reserve|second league|2\.|ligue 2|division 1|serie c|third/i.test(`${lg} ${teams}`)) {
+      return false;
+    }
+    return (
+      lg === 'premier league' && ['england', 'scotland', 'egypt'].includes(ctry) ||
+      lg === 'la liga' ||
+      lg === 'laliga' ||
+      lg === 'serie a' ||
+      lg === 'bundesliga' ||
+      (lg === 'ligue 1' && ctry === 'france') ||
+      lg.includes('champions league') ||
+      lg.includes('europa league') ||
+      lg.includes('conference league') ||
+      (lg === 'first league' && ctry === 'bulgaria') ||
+      lg === 'super league 1' ||
+      lg === 'süper lig' ||
+      lg === 'primeira liga' ||
+      lg === 'eredivisie' ||
+      lg === 'superliga' ||
+      lg === 'ekstraklasa' ||
+      lg === 'liga i' ||
+      lg.includes('liga profesional')
+    );
+  };
+
+  const rankedForHomepage = [...matches].sort((a, b) => {
+    const aElite = isEliteFirstDivision(a) ? 1 : 0;
+    const bElite = isEliteFirstDivision(b) ? 1 : 0;
+    const aActive = a.status === 'LIVE' || a.status === 'SCHEDULED' ? 1 : 0;
+    const bActive = b.status === 'LIVE' || b.status === 'SCHEDULED' ? 1 : 0;
+    const aLive = a.status === 'LIVE' ? 1 : 0;
+    const bLive = b.status === 'LIVE' ? 1 : 0;
+
+    if (aActive !== bActive) return bActive - aActive;
+    if (aElite !== bElite) return bElite - aElite;
+    if (aLive !== bLive) return bLive - aLive;
+    return 0;
+  });
+
+  const topMatches = filteredHome.length === 4 ? filteredHome : rankedForHomepage.slice(0, 4);
 
   // Comprehensive 4-language dictionary (BG, EN, ES, DE) for all 4 homepage rows
   const dict = {
@@ -571,24 +615,15 @@ export function TopMatchesSection({
 
   // League badge helper for Top Matches mini cards with real API-Football League Logo
   const renderLeagueBadge = (league: string, explicitLogo?: string) => {
-    const logoUrl = getLeagueLogoUrl(league, explicitLogo);
     return (
       <span className="flex items-center gap-1.5 text-[11px] font-medium text-neutral-300">
-        {logoUrl ? (
-          <span className="w-4 h-4 rounded bg-white/95 border border-white/20 flex items-center justify-center p-0.5 shrink-0 overflow-hidden">
-            <img src={logoUrl} alt={league} loading="lazy" className="w-full h-full object-contain" />
-          </span>
-        ) : (
-          <span className="w-4 h-4 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-[9px] font-black text-emerald-400 shrink-0">
-            ⚽
-          </span>
-        )}
+        <LeagueBadge name={league} logoUrl={explicitLogo} size="sm" />
         <span className="truncate">{league}</span>
       </span>
     );
   };
 
-  // Popular Leagues data with real official API-Sports League Crests
+  // Popular Leagues data with real official API-Sports League Crests (served via first-party proxy)
   const popularLeaguesData = [
     {
       id: 'epl',
@@ -598,7 +633,7 @@ export function TopMatchesSection({
       renderCrest: () => (
         <div className="w-12 h-12 rounded-2xl bg-white/95 border border-purple-400/50 p-1.5 flex items-center justify-center shadow-[0_0_20px_rgba(147,51,234,0.25)]">
           <img
-            src="https://media.api-sports.io/football/leagues/39.png"
+            src="/api/football/media/leagues/39.png"
             alt="Premier League"
             loading="lazy"
             className="w-full h-full object-contain"
@@ -614,7 +649,7 @@ export function TopMatchesSection({
       renderCrest: () => (
         <div className="w-12 h-12 rounded-2xl bg-white/95 border border-[#ff4b4b]/50 p-1.5 flex items-center justify-center shadow-[0_0_20px_rgba(239,68,68,0.2)]">
           <img
-            src="https://media.api-sports.io/football/leagues/140.png"
+            src="/api/football/media/leagues/140.png"
             alt="La Liga"
             loading="lazy"
             className="w-full h-full object-contain"
@@ -630,7 +665,7 @@ export function TopMatchesSection({
       renderCrest: () => (
         <div className="w-12 h-12 rounded-2xl bg-white/95 border border-sky-400/50 p-1.5 flex items-center justify-center shadow-[0_0_20px_rgba(14,165,233,0.25)]">
           <img
-            src="https://media.api-sports.io/football/leagues/135.png"
+            src="/api/football/media/leagues/135.png"
             alt="Serie A"
             loading="lazy"
             className="w-full h-full object-contain"
@@ -646,7 +681,7 @@ export function TopMatchesSection({
       renderCrest: () => (
         <div className="w-12 h-12 rounded-2xl bg-white/95 border border-red-400/50 p-1.5 flex items-center justify-center shadow-[0_0_20px_rgba(220,38,38,0.3)]">
           <img
-            src="https://media.api-sports.io/football/leagues/78.png"
+            src="/api/football/media/leagues/78.png"
             alt="Bundesliga"
             loading="lazy"
             className="w-full h-full object-contain"
@@ -662,7 +697,7 @@ export function TopMatchesSection({
       renderCrest: () => (
         <div className="w-12 h-12 rounded-2xl bg-white/95 border border-slate-400/50 p-1.5 flex items-center justify-center shadow-[0_0_20px_rgba(148,163,184,0.2)]">
           <img
-            src="https://media.api-sports.io/football/leagues/2.png"
+            src="/api/football/media/leagues/2.png"
             alt="Champions League"
             loading="lazy"
             className="w-full h-full object-contain"

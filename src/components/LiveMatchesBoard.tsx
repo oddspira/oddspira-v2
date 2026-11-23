@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActiveTab, BetRecord, Language, Match } from '../types';
 import { computePoissonMatrix } from '../utils/mathModels';
-import { TeamBadge } from './TeamBadge';
+import { TeamBadge, LeagueBadge } from './TeamBadge';
 
 interface LiveMatchesBoardProps {
   language: Language;
@@ -1051,15 +1051,11 @@ export function LiveMatchesBoard({
                         {t.featuredMatch}
                       </span>
                       <div className="flex items-center gap-1.5 text-xs text-neutral-300 mt-0.5">
-                        {featuredMatch.leagueLogo ? (
-                          <img
-                            src={featuredMatch.leagueLogo}
-                            alt={featuredMatch.league}
-                            className="w-4 h-4 object-contain rounded-sm bg-white/90 p-0.5"
-                          />
-                        ) : (
-                          <span>⚽</span>
-                        )}
+                        <LeagueBadge
+                          name={featuredMatch.league}
+                          logoUrl={featuredMatch.leagueLogo}
+                          size="sm"
+                        />
                         <span className="font-semibold">{featuredMatch.league}</span>
                       </div>
                     </div>
@@ -1335,15 +1331,11 @@ export function LiveMatchesBoard({
                         className="flex-1 min-w-0 space-y-1.5 cursor-pointer group"
                       >
                         <div className="flex items-center gap-1.5 text-[10px] font-medium text-[#8f9cae]">
-                          {match.leagueLogo ? (
-                            <img
-                              src={match.leagueLogo}
-                              alt={match.league}
-                              className="w-3.5 h-3.5 object-contain rounded-sm bg-white/90 p-0.5 shrink-0"
-                            />
-                          ) : (
-                            <span>⚽</span>
-                          )}
+                          <LeagueBadge
+                            name={match.league}
+                            logoUrl={match.leagueLogo}
+                            size="xs"
+                          />
                           <span className="truncate">
                             {match.leagueCountry ? `${match.leagueCountry} · ` : ''}
                             {match.league}

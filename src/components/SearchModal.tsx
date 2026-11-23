@@ -108,14 +108,14 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-1.5">
-                        <TeamBadge name={m.homeTeam} size="sm" />
+                        <TeamBadge name={m.homeTeam} logoUrl={m.homeLogo} size="sm" />
                         <span className="text-sm font-semibold text-[#f7f8fb]">
                           {m.homeTeam}
                         </span>
                       </div>
                       <span className="text-xs text-[#8f9cae] font-mono">vs</span>
                       <div className="flex items-center gap-1.5">
-                        <TeamBadge name={m.awayTeam} size="sm" />
+                        <TeamBadge name={m.awayTeam} logoUrl={m.awayLogo} size="sm" />
                         <span className="text-sm font-semibold text-[#f7f8fb]">
                           {m.awayTeam}
                         </span>

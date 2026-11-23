@@ -656,7 +656,7 @@ export function MasterAnalysisDashboard({
 
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
-                        <TeamBadge name={m.homeTeam} size="sm" />
+                        <TeamBadge name={m.homeTeam} logoUrl={m.homeLogo} size="sm" />
                         <span className="text-xs font-bold text-white truncate">
                           {m.homeTeam}
                         </span>
@@ -668,7 +668,7 @@ export function MasterAnalysisDashboard({
 
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
-                        <TeamBadge name={m.awayTeam} size="sm" />
+                        <TeamBadge name={m.awayTeam} logoUrl={m.awayLogo} size="sm" />
                         <span className="text-xs font-bold text-neutral-200 truncate">
                           {m.awayTeam}
                         </span>
@@ -700,7 +700,7 @@ export function MasterAnalysisDashboard({
                 {/* Home Team */}
                 <div className="flex flex-col items-center sm:items-start text-center sm:text-left gap-2">
                   <div className="flex items-center gap-3">
-                    <TeamBadge name={activeMatch.homeTeam} size="lg" />
+                    <TeamBadge name={activeMatch.homeTeam} logoUrl={activeMatch.homeLogo} size="lg" />
                     <div>
                       <div className="text-base sm:text-lg font-extrabold text-white">
                         {activeMatch.homeTeam}
@@ -732,7 +732,7 @@ export function MasterAnalysisDashboard({
                 {/* Away Team */}
                 <div className="flex flex-col items-center sm:items-end text-center sm:text-right gap-2">
                   <div className="flex items-center sm:flex-row-reverse gap-3">
-                    <TeamBadge name={activeMatch.awayTeam} size="lg" />
+                    <TeamBadge name={activeMatch.awayTeam} logoUrl={activeMatch.awayLogo} size="lg" />
                     <div>
                       <div className="text-base sm:text-lg font-extrabold text-white">
                         {activeMatch.awayTeam}

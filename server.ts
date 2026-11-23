@@ -342,7 +342,225 @@ async function startServer() {
   }
 
   const authRateLimiter = createRateLimiter(12, 15 * 60 * 1000, 'auth'); // 12 req / 15 min per IP
-  const apiRateLimiter = createRateLimiter(90, 60 * 1000, 'api'); // 90 req / 1 min per IP
+  const apiRateLimiter = createRateLimiter(180, 60 * 1000, 'api'); // 180 req / 1 min per IP
+
+  // =========================================================================
+  // 0. FIRST-PARTY CLUB & LEAGUE EMBLEM PROXY + SSD DISK CACHE
+  //    Exempt from apiRateLimiter so loading 150+ emblems never triggers 429
+  //    or third-party BunnyCDN (media.api-sports.io) per-IP connection drops.
+  // =========================================================================
+  const MEDIA_CACHE_ROOT = path.join(dataDir, 'media-cache');
+  const ALLOWED_MEDIA_FOLDERS = new Set([
+    'teams',
+    'leagues',
+    'players',
+    'coachs',
+    'venues',
+    'flags',
+  ]);
+  for (const folder of ALLOWED_MEDIA_FOLDERS) {
+    const dir = path.join(MEDIA_CACHE_ROOT, folder);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  }
+
+  const mediaMemoryCache = new Map<string, { buf: Buffer; contentType: string }>();
+  const inFlightMediaFetches = new Map<
+    string,
+    Promise<{ buf: Buffer; contentType: string } | null>
+  >();
+
+  // Controlled upstream concurrency queue (max 6 concurrent fetches to media.api-sports.io)
+  let activeUpstreamMediaCount = 0;
+  const upstreamMediaWaiters: Array<() => void> = [];
+  const acquireUpstreamSlot = (): Promise<void> => {
+    if (activeUpstreamMediaCount < 6) {
+      activeUpstreamMediaCount++;
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      upstreamMediaWaiters.push(() => {
+        activeUpstreamMediaCount++;
+        resolve();
+      });
+    });
+  };
+  const releaseUpstreamSlot = () => {
+    activeUpstreamMediaCount = Math.max(0, activeUpstreamMediaCount - 1);
+    const next = upstreamMediaWaiters.shift();
+    if (next) next();
+  };
+
+  function detectMediaContentType(buf: Buffer, filename: string): string {
+    if (
+      filename.toLowerCase().endsWith('.svg') ||
+      buf.slice(0, 80).toString('utf8').includes('<svg')
+    ) {
+      return 'image/svg+xml; charset=utf-8';
+    }
+    if (buf.length >= 4 && buf[0] === 0xff && buf[1] === 0xd8) {
+      return 'image/jpeg';
+    }
+    if (buf.length >= 4 && buf[0] === 0x89 && buf[1] === 0x50) {
+      return 'image/png';
+    }
+    if (buf.length >= 4 && buf.slice(0, 4).toString('ascii') === 'RIFF') {
+      return 'image/webp';
+    }
+    return 'image/png';
+  }
+
+  function proxyMediaUrl(rawUrl: unknown, fallbackFolder?: string, fallbackId?: unknown): string {
+    const str = String(rawUrl || '').trim();
+    if (str.startsWith('/api/football/media/')) return str;
+    const mFootball = str.match(
+      /^https?:\/\/media(?:-\d+)?\.api-sports\.io\/football\/([a-z0-9_-]+)\/([a-z0-9_.-]+)$/i
+    );
+    if (mFootball) {
+      return `/api/football/media/${mFootball[1].toLowerCase()}/${mFootball[2]}`;
+    }
+    const mFlag = str.match(
+      /^https?:\/\/media(?:-\d+)?\.api-sports\.io\/flags\/([a-z0-9_.-]+)$/i
+    );
+    if (mFlag) {
+      return `/api/football/media/flags/${mFlag[1]}`;
+    }
+    if (!str && fallbackFolder && fallbackId && /^\d+$/.test(String(fallbackId))) {
+      return `/api/football/media/${fallbackFolder}/${fallbackId}.png`;
+    }
+    return str;
+  }
+
+  async function resolveAndCacheMedia(
+    folder: string,
+    file: string
+  ): Promise<{ buf: Buffer; contentType: string } | null> {
+    if (!ALLOWED_MEDIA_FOLDERS.has(folder)) return null;
+    if (!/^[a-zA-Z0-9_.-]+\.(png|svg|jpg|jpeg|webp)$/i.test(file) || file.includes('..')) {
+      return null;
+    }
+
+    const cacheKey = `${folder}/${file}`;
+    const memHit = mediaMemoryCache.get(cacheKey);
+    if (memHit) return memHit;
+
+    const diskPath = path.join(MEDIA_CACHE_ROOT, folder, file);
+    try {
+      if (fs.existsSync(diskPath)) {
+        const stat = fs.statSync(diskPath);
+        if (stat.size > 64) {
+          const buf = fs.readFileSync(diskPath);
+          const contentType = detectMediaContentType(buf, file);
+          if (mediaMemoryCache.size > 600) {
+            const firstKey = mediaMemoryCache.keys().next().value;
+            if (firstKey) mediaMemoryCache.delete(firstKey);
+          }
+          mediaMemoryCache.set(cacheKey, { buf, contentType });
+          return { buf, contentType };
+        }
+      }
+    } catch {
+      // Fall through to upstream fetch
+    }
+
+    const existingPromise = inFlightMediaFetches.get(cacheKey);
+    if (existingPromise) return existingPromise;
+
+    const fetchPromise = (async () => {
+      await acquireUpstreamSlot();
+      try {
+        const upstreamUrl =
+          folder === 'flags'
+            ? `https://media.api-sports.io/flags/${file}`
+            : `https://media.api-sports.io/football/${folder}/${file}`;
+
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            const r = await fetch(upstreamUrl, {
+              headers: {
+                'User-Agent': 'Oddspira-Media-Cache/2.0',
+                Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+              },
+            });
+            if (r.ok) {
+              const buf = Buffer.from(await r.arrayBuffer());
+              if (buf.length > 64) {
+                const contentType = detectMediaContentType(buf, file);
+                try {
+                  fs.writeFileSync(diskPath, buf);
+                } catch {
+                  // Ignore disk write error
+                }
+                if (mediaMemoryCache.size > 600) {
+                  const firstKey = mediaMemoryCache.keys().next().value;
+                  if (firstKey) mediaMemoryCache.delete(firstKey);
+                }
+                mediaMemoryCache.set(cacheKey, { buf, contentType });
+                return { buf, contentType };
+              }
+            } else if (r.status === 404) {
+              break;
+            }
+          } catch {
+            // Wait 200ms before retry
+          }
+          if (attempt === 0) {
+            await new Promise((r) => setTimeout(r, 200));
+          }
+        }
+        return null;
+      } finally {
+        releaseUpstreamSlot();
+        inFlightMediaFetches.delete(cacheKey);
+      }
+    })();
+
+    inFlightMediaFetches.set(cacheKey, fetchPromise);
+    return fetchPromise;
+  }
+
+  function prewarmMediaCache(proxiedUrls: string[]) {
+    const unique = Array.from(new Set(proxiedUrls.filter(Boolean))).slice(0, 48);
+    setImmediate(async () => {
+      for (const u of unique) {
+        const m = u.match(/^\/api\/football\/media\/([a-z0-9_-]+)\/([a-zA-Z0-9_.-]+)$/);
+        if (m) {
+          await resolveAndCacheMedia(m[1], m[2]).catch(() => null);
+        }
+      }
+    });
+  }
+
+  const FALLBACK_SHIELD_SVG = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+      <defs>
+        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#0f291e"/>
+          <stop offset="100%" stop-color="#07131d"/>
+        </linearGradient>
+      </defs>
+      <path d="M32 4L56 14V32C56 46 32 58 32 58C32 58 8 46 8 32V14L32 4Z" fill="url(#g)" stroke="#43f08a" stroke-width="3"/>
+      <circle cx="32" cy="31" r="10" fill="none" stroke="#43f08a" stroke-width="2.5" stroke-opacity="0.85"/>
+      <circle cx="32" cy="31" r="3.5" fill="#43f08a"/>
+    </svg>`,
+    'utf8'
+  );
+
+  app.get('/api/football/media/:folder/:file', async (req: Request, res: Response) => {
+    const folder = String(req.params.folder || '').toLowerCase();
+    const file = String(req.params.file || '');
+    const resolved = await resolveAndCacheMedia(folder, file);
+    if (resolved) {
+      res.setHeader('Content-Type', resolved.contentType);
+      res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+      res.send(resolved.buf);
+      return;
+    }
+    res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.send(FALLBACK_SHIELD_SVG);
+  });
 
   app.use('/api/auth/register', authRateLimiter);
   app.use('/api/auth/login', authRateLimiter);
@@ -896,7 +1114,7 @@ async function startServer() {
       return;
     }
 
-    const cacheKey = 'football:normalized_live_feed_v7';
+    const cacheKey = 'football:normalized_live_feed_v8';
     const ttlMs = 2 * 60 * 1000; // 2 minutes SQLite cache
 
     try {
@@ -973,7 +1191,10 @@ async function startServer() {
         }
 
         // Non-live matches (NS or FT) must be from TODAY
-        return itemDateIso === todayIso;
+        if (itemDateIso !== todayIso) return false;
+        // Filter out untracked lower-division NS matches whose kickoff passed >25 mins ago without starting
+        if (st === 'NS' && diffHours > 0.4) return false;
+        return true;
       });
 
       // Top league IDs in API-Football (UEFA, Top 5 European, Balkan & Major National/Club competitions)
@@ -1005,7 +1226,9 @@ async function startServer() {
         const text = `${item?.league?.name || ''} ${item?.teams?.home?.name || ''} ${
           item?.teams?.away?.name || ''
         }`.toLowerCase();
-        return /\bu1[5-9]\b|\bu2[0-3]\b|youth|reserve|friendl|women|amateur/i.test(text);
+        return /\bu1[5-9]\b|\bu2[0-3]\b|\bii\b|\biii\b|youth|reserve|friendl|women|amateur|third league/i.test(
+          text
+        );
       };
 
       rawFixtures.sort((a, b) => {
@@ -1052,10 +1275,12 @@ async function startServer() {
       const mappedMatches = rawFixtures.slice(0, 80).map((item, idx) => {
         const fixId = String(item?.fixture?.id || `live-${idx}`);
         const homeTeamId = item?.teams?.home?.id;
+        const awayTeamId = item?.teams?.away?.id;
+        const leagueId = item?.league?.id;
         const homeTeam = String(item?.teams?.home?.name || 'Home Team');
         const awayTeam = String(item?.teams?.away?.name || 'Away Team');
-        const homeLogo = String(item?.teams?.home?.logo || '');
-        const awayLogo = String(item?.teams?.away?.logo || '');
+        const homeLogo = proxyMediaUrl(item?.teams?.home?.logo, 'teams', homeTeamId);
+        const awayLogo = proxyMediaUrl(item?.teams?.away?.logo, 'teams', awayTeamId);
         const league = String(item?.league?.name || 'Premier League');
         const leagueCountry = String(item?.league?.country || 'Europe');
         const rawRound = String(item?.league?.round || '').trim();
@@ -1065,8 +1290,8 @@ async function startServer() {
               .replace(/Group ([A-Z0-9]+) - (\d+)/i, 'Група $1 · Кръг $2')
               .replace(/Round (\d+)/i, 'Кръг $1')
           : undefined;
-        const leagueLogo = String(item?.league?.logo || '');
-        const leagueFlag = String(item?.league?.flag || '');
+        const leagueLogo = proxyMediaUrl(item?.league?.logo, 'leagues', leagueId);
+        const leagueFlag = proxyMediaUrl(item?.league?.flag);
         const homeScore = Number(item?.goals?.home ?? 0);
         const awayScore = Number(item?.goals?.away ?? 0);
         const shortStatus = String(item?.fixture?.status?.short || 'NS');
@@ -1318,6 +1543,15 @@ async function startServer() {
         db.prepare(
           'INSERT OR REPLACE INTO api_cache (cache_key, payload, updated_at) VALUES (?, ?, ?)'
         ).run(cacheKey, JSON.stringify(mappedMatches), now);
+
+        // Pre-warm top 20 matches' club & league emblems into SSD cache in the background
+        const logosToWarm: string[] = [];
+        for (const m of mappedMatches.slice(0, 20)) {
+          if (m.leagueLogo) logosToWarm.push(m.leagueLogo);
+          if (m.homeLogo) logosToWarm.push(m.homeLogo);
+          if (m.awayLogo) logosToWarm.push(m.awayLogo);
+        }
+        prewarmMediaCache(logosToWarm);
       }
 
       res.json({
@@ -1342,7 +1576,7 @@ async function startServer() {
       return;
     }
 
-    const cacheKey = `football:match_intel_v3:${rawId}`;
+    const cacheKey = `football:match_intel_v4:${rawId}`;
     const ttlMs = 45 * 1000; // 45-second cache for live match telemetry
 
     const getCachedHelper = async (subKey: string, subTtlMs: number, url: string) => {
@@ -1412,8 +1646,8 @@ async function startServer() {
       const awayTeamId = item?.teams?.away?.id;
       const homeTeamName = String(item?.teams?.home?.name || '');
       const awayTeamName = String(item?.teams?.away?.name || '');
-      const homeLogo = String(item?.teams?.home?.logo || '');
-      const awayLogo = String(item?.teams?.away?.logo || '');
+      const homeLogo = proxyMediaUrl(item?.teams?.home?.logo, 'teams', homeTeamId);
+      const awayLogo = proxyMediaUrl(item?.teams?.away?.logo, 'teams', awayTeamId);
       const leagueId = item?.league?.id;
       const season = item?.league?.season || 2024;
       const leagueName = String(item?.league?.name || '');
@@ -1505,7 +1739,7 @@ async function startServer() {
           rank: Number(row?.rank || 1),
           teamId: row?.team?.id,
           club: String(row?.team?.name || 'Club'),
-          clubLogo: String(row?.team?.logo || ''),
+          clubLogo: proxyMediaUrl(row?.team?.logo, 'teams', row?.team?.id),
           p: Number(row?.all?.played || 0),
           w: Number(row?.all?.win || 0),
           d: Number(row?.all?.draw || 0),
@@ -1562,8 +1796,8 @@ async function startServer() {
             league: String(f?.league?.name || leagueName),
             homeTeam: hName,
             awayTeam: aName,
-            homeLogo: String(f?.teams?.home?.logo || ''),
-            awayLogo: String(f?.teams?.away?.logo || ''),
+            homeLogo: proxyMediaUrl(f?.teams?.home?.logo, 'teams', f?.teams?.home?.id),
+            awayLogo: proxyMediaUrl(f?.teams?.away?.logo, 'teams', f?.teams?.away?.id),
             homeScore: hGoals,
             awayScore: aGoals,
             opp: isTeamHome ? `vs ${aName}` : `@ ${hName}`,
@@ -1623,8 +1857,8 @@ async function startServer() {
           league: String(f?.league?.name || leagueName),
           homeTeam: hName,
           awayTeam: aName,
-          homeLogo: String(f?.teams?.home?.logo || ''),
-          awayLogo: String(f?.teams?.away?.logo || ''),
+          homeLogo: proxyMediaUrl(f?.teams?.home?.logo, 'teams', f?.teams?.home?.id),
+          awayLogo: proxyMediaUrl(f?.teams?.away?.logo, 'teams', f?.teams?.away?.id),
           homeScore: hGoals,
           awayScore: aGoals,
           opp: `${hName} vs ${aName}`,
@@ -1899,7 +2133,7 @@ async function startServer() {
       return;
     }
 
-    const cacheKey = `football:league_intel_v3:${leagueId}:${requestedSeasonParam}`;
+    const cacheKey = `football:league_intel_v4:${leagueId}:${requestedSeasonParam}`;
     const ttlMs = 30 * 60 * 1000; // 30 minutes SQLite cache for fresh standings & fixtures
 
     try {
@@ -1992,7 +2226,7 @@ async function startServer() {
         return {
           rank: Number(row?.rank || 1),
           club: String(row?.team?.name || 'Club'),
-          clubLogo: String(row?.team?.logo || ''),
+          clubLogo: proxyMediaUrl(row?.team?.logo, 'teams', row?.team?.id),
           p: Number(row?.all?.played || 0),
           w: Number(row?.all?.win || 0),
           d: Number(row?.all?.draw || 0),
@@ -2018,9 +2252,9 @@ async function startServer() {
         return {
           rank: idx + 1,
           name,
-          photo: String(player?.photo || ''),
+          photo: proxyMediaUrl(player?.photo, 'players', player?.id),
           club: String(stat?.team?.name || 'Club'),
-          clubLogo: String(stat?.team?.logo || ''),
+          clubLogo: proxyMediaUrl(stat?.team?.logo, 'teams', stat?.team?.id),
           goals: Number(stat?.goals?.total || 0),
           assists: Number(stat?.goals?.assists || 0),
           yellowCards: Number(stat?.cards?.yellow || 0),
@@ -2093,9 +2327,9 @@ async function startServer() {
           id: `api-${fxId}`,
           dayLabel: rawRound ? `${dateStr} · ${rawRound}` : dateStr,
           homeTeam: String(fx?.teams?.home?.name || 'Home'),
-          homeLogo: String(fx?.teams?.home?.logo || ''),
+          homeLogo: proxyMediaUrl(fx?.teams?.home?.logo, 'teams', fx?.teams?.home?.id),
           awayTeam: String(fx?.teams?.away?.name || 'Away'),
-          awayLogo: String(fx?.teams?.away?.logo || ''),
+          awayLogo: proxyMediaUrl(fx?.teams?.away?.logo, 'teams', fx?.teams?.away?.id),
           time: isFinished
             ? `${fx?.goals?.home ?? 0} - ${fx?.goals?.away ?? 0} (КР)`
             : isLive

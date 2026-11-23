@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActiveTab, Language, Match } from '../types';
 import { computePoissonMatrix } from '../utils/mathModels';
-import { TeamBadge, registerMatchLogos } from './TeamBadge';
+import { TeamBadge, LeagueBadge, registerMatchLogos } from './TeamBadge';
 
 export interface FormMatchItem {
   fixtureId?: string | number;
@@ -1170,7 +1170,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                   </td>
                   <td className="py-2 px-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <TeamBadge name={row.club} size="sm" />
+                      <TeamBadge name={row.club} logoUrl={row.clubLogo} size="sm" />
                       <span
                         className={`truncate ${
                           isMatchTeam ? 'font-extrabold text-[#43f08a]' : 'font-semibold text-white'
@@ -1314,7 +1314,11 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
           {/* Top Center League & Stadium Info */}
           <div className="relative z-10 text-center space-y-1">
             <div className="inline-flex items-center gap-2 text-xs text-neutral-200 font-semibold">
-              <span>⚽</span>
+              <LeagueBadge
+                name={liveIntel?.league || match.league}
+                logoUrl={liveIntel?.leagueLogo || match.leagueLogo}
+                className="w-4 h-4 rounded-sm"
+              />
               <span>{liveIntel?.league || match.league}</span>
               {(liveIntel?.leagueRound || match.leagueRound) && (
                 <>
@@ -1340,7 +1344,12 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
           <div className="relative z-20 grid grid-cols-1 sm:grid-cols-11 gap-4 items-center my-5">
             {/* Home Team (4 cols) */}
             <div className="sm:col-span-4 flex items-center justify-center sm:justify-start gap-4">
-              <TeamBadge name={match.homeTeam} size="lg" className="w-16 h-16 text-base rounded-2xl" />
+              <TeamBadge
+                name={match.homeTeam}
+                logoUrl={liveIntel?.homeLogo || match.homeLogo}
+                size="lg"
+                className="w-16 h-16 text-base rounded-2xl"
+              />
               <div className="space-y-1.5">
                 <h1 className="text-lg sm:text-2xl font-extrabold text-white tracking-tight leading-tight">
                   {match.homeTeam}
@@ -1389,7 +1398,12 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                   </div>
                 )}
               </div>
-              <TeamBadge name={match.awayTeam} size="lg" className="w-16 h-16 text-base rounded-2xl" />
+              <TeamBadge
+                name={match.awayTeam}
+                logoUrl={liveIntel?.awayLogo || match.awayLogo}
+                size="lg"
+                className="w-16 h-16 text-base rounded-2xl"
+              />
             </div>
           </div>
 
@@ -1670,13 +1684,13 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
               {/* Left Score & Crests (2 cols) */}
               <div className="col-span-2 flex flex-col justify-between h-full py-2 items-center border-r border-[#162232] pr-2">
                 <div className="flex flex-col items-center gap-1">
-                  <TeamBadge name={match.homeTeam} size="sm" />
+                  <TeamBadge name={match.homeTeam} logoUrl={liveIntel?.homeLogo || match.homeLogo} size="sm" />
                   <span className="text-2xl font-black text-white font-mono">
                     {displayHomeScore}
                   </span>
                 </div>
                 <div className="flex flex-col items-center gap-1">
-                  <TeamBadge name={match.awayTeam} size="sm" />
+                  <TeamBadge name={match.awayTeam} logoUrl={liveIntel?.awayLogo || match.awayLogo} size="sm" />
                   <span className="text-2xl font-black text-white font-mono">
                     {displayAwayScore}
                   </span>
@@ -2016,7 +2030,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
             {/* Teams & Formations Header */}
             <div className="flex items-center justify-between text-xs px-1">
               <div className="flex items-center gap-2">
-                <TeamBadge name={match.homeTeam} size="sm" />
+                <TeamBadge name={match.homeTeam} logoUrl={liveIntel?.homeLogo || match.homeLogo} size="sm" />
                 <div>
                   <div className="font-bold text-white leading-tight">{match.homeTeam}</div>
                   <div className="text-[10px] font-mono text-[#8f9cae]">{meta.homeFormation}</div>
@@ -2028,7 +2042,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                   <div className="font-bold text-white leading-tight">{match.awayTeam}</div>
                   <div className="text-[10px] font-mono text-[#8f9cae]">{meta.awayFormation}</div>
                 </div>
-                <TeamBadge name={match.awayTeam} size="sm" />
+                <TeamBadge name={match.awayTeam} logoUrl={liveIntel?.awayLogo || match.awayLogo} size="sm" />
               </div>
             </div>
 
@@ -2109,7 +2123,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
               {/* Home Form Column */}
               <div className="space-y-2">
                 <div className="flex items-center gap-2 pb-1">
-                  <TeamBadge name={match.homeTeam} size="sm" />
+                  <TeamBadge name={match.homeTeam} logoUrl={liveIntel?.homeLogo || match.homeLogo} size="sm" />
                   <div>
                     <div className="text-xs font-bold text-white truncate max-w-[130px]">
                       {match.homeTeam}
@@ -2154,7 +2168,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
               {/* Away Form Column */}
               <div className="space-y-2 sm:border-l border-[#162232] sm:pl-3">
                 <div className="flex items-center gap-2 pb-1">
-                  <TeamBadge name={match.awayTeam} size="sm" />
+                  <TeamBadge name={match.awayTeam} logoUrl={liveIntel?.awayLogo || match.awayLogo} size="sm" />
                   <div>
                     <div className="text-xs font-bold text-white truncate max-w-[130px]">
                       {match.awayTeam}
@@ -2483,7 +2497,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                   </span>
 
                   <div className="flex items-center gap-2 flex-1 justify-end pr-2">
-                    <TeamBadge name={rm.homeTeam} size="sm" />
+                    <TeamBadge name={rm.homeTeam} logoUrl={rm.homeLogo} size="sm" />
                     <span className="text-white font-medium truncate max-w-[90px]">
                       {rm.homeTeam}
                     </span>
@@ -2496,7 +2510,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                   </span>
 
                   <div className="flex items-center gap-2 flex-1 pl-2">
-                    <TeamBadge name={rm.awayTeam} size="sm" />
+                    <TeamBadge name={rm.awayTeam} logoUrl={rm.awayLogo} size="sm" />
                     <span className="text-white font-medium truncate max-w-[90px]">
                       {rm.awayTeam}
                     </span>
@@ -2572,7 +2586,11 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
             <div className="p-6 bg-gradient-to-r from-[#07111a] via-[#0b1b20] to-[#08111a] border-b border-[#162232]">
               <div className="grid grid-cols-11 gap-3 items-center">
                 <div className="col-span-4 flex items-center gap-3">
-                  <TeamBadge name={selectedPastMatch.homeTeam} size="md" />
+                  <TeamBadge
+                    name={selectedPastMatch.homeTeam}
+                    logoUrl={pastMatchIntel?.homeLogo || selectedPastMatch.homeLogo}
+                    size="md"
+                  />
                   <span className="text-sm sm:text-base font-extrabold text-white leading-tight">
                     {selectedPastMatch.homeTeam}
                   </span>
@@ -2595,7 +2613,11 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                   <span className="text-sm sm:text-base font-extrabold text-white leading-tight">
                     {selectedPastMatch.awayTeam}
                   </span>
-                  <TeamBadge name={selectedPastMatch.awayTeam} size="md" />
+                  <TeamBadge
+                    name={selectedPastMatch.awayTeam}
+                    logoUrl={pastMatchIntel?.awayLogo || selectedPastMatch.awayLogo}
+                    size="md"
+                  />
                 </div>
               </div>
 

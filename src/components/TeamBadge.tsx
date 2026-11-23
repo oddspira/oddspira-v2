@@ -67,6 +67,25 @@ const LEAGUE_LOGO_REGISTRY: Record<string, string> = {
   'first league': 'https://media.api-sports.io/football/leagues/172.png',
 };
 
+export function proxyApiSportsUrl(rawUrl?: string | null): string | null {
+  const str = String(rawUrl || '').trim();
+  if (!str) return null;
+  if (str.startsWith('/api/football/media/')) return str;
+  const mFootball = str.match(
+    /^https?:\/\/media(?:-\d+)?\.api-sports\.io\/football\/([a-z0-9_-]+)\/([a-z0-9_.-]+)$/i
+  );
+  if (mFootball) {
+    return `/api/football/media/${mFootball[1].toLowerCase()}/${mFootball[2]}`;
+  }
+  const mFlag = str.match(
+    /^https?:\/\/media(?:-\d+)?\.api-sports\.io\/flags\/([a-z0-9_.-]+)$/i
+  );
+  if (mFlag) {
+    return `/api/football/media/flags/${mFlag[1]}`;
+  }
+  return str;
+}
+
 export function registerMatchLogos(
   matches: Array<{
     homeTeam?: string;
@@ -79,26 +98,29 @@ export function registerMatchLogos(
 ): void {
   for (const m of matches) {
     if (m.homeTeam && m.homeLogo) {
-      TEAM_LOGO_REGISTRY[m.homeTeam.trim().toLowerCase()] = m.homeLogo;
+      const proxied = proxyApiSportsUrl(m.homeLogo);
+      if (proxied) TEAM_LOGO_REGISTRY[m.homeTeam.trim().toLowerCase()] = proxied;
     }
     if (m.awayTeam && m.awayLogo) {
-      TEAM_LOGO_REGISTRY[m.awayTeam.trim().toLowerCase()] = m.awayLogo;
+      const proxied = proxyApiSportsUrl(m.awayLogo);
+      if (proxied) TEAM_LOGO_REGISTRY[m.awayTeam.trim().toLowerCase()] = proxied;
     }
     if (m.league && m.leagueLogo) {
-      LEAGUE_LOGO_REGISTRY[m.league.trim().toLowerCase()] = m.leagueLogo;
+      const proxied = proxyApiSportsUrl(m.leagueLogo);
+      if (proxied) LEAGUE_LOGO_REGISTRY[m.league.trim().toLowerCase()] = proxied;
     }
   }
 }
 
 export function getTeamLogoUrl(teamName: string, explicitLogo?: string): string | null {
-  if (explicitLogo) return explicitLogo;
+  if (explicitLogo) return proxyApiSportsUrl(explicitLogo);
   const key = (teamName || '').trim().toLowerCase();
   if (!key) return null;
-  if (TEAM_LOGO_REGISTRY[key]) return TEAM_LOGO_REGISTRY[key];
+  if (TEAM_LOGO_REGISTRY[key]) return proxyApiSportsUrl(TEAM_LOGO_REGISTRY[key]);
   for (const [knownName, url] of Object.entries(TEAM_LOGO_REGISTRY)) {
     if (knownName.length >= 4 && key.length >= 4) {
       if (key.includes(knownName) || knownName.includes(key)) {
-        return url;
+        return proxyApiSportsUrl(url);
       }
     }
   }
@@ -106,17 +128,72 @@ export function getTeamLogoUrl(teamName: string, explicitLogo?: string): string 
 }
 
 export function getLeagueLogoUrl(leagueName: string, explicitLogo?: string): string | null {
-  if (explicitLogo) return explicitLogo;
+  if (explicitLogo) return proxyApiSportsUrl(explicitLogo);
   const key = (leagueName || '').trim().toLowerCase();
   if (!key) return null;
-  if (LEAGUE_LOGO_REGISTRY[key]) return LEAGUE_LOGO_REGISTRY[key];
+  if (LEAGUE_LOGO_REGISTRY[key]) return proxyApiSportsUrl(LEAGUE_LOGO_REGISTRY[key]);
   for (const [knownName, url] of Object.entries(LEAGUE_LOGO_REGISTRY)) {
     if (key === knownName || key.includes(knownName)) {
-      return url;
+      return proxyApiSportsUrl(url);
     }
   }
   return null;
 }
+
+interface LeagueBadgeProps {
+  name: string;
+  logoUrl?: string;
+  size?: 'xs' | 'sm' | 'md' | 'lg';
+  className?: string;
+}
+
+export const LeagueBadge: React.FC<LeagueBadgeProps> = ({
+  name,
+  logoUrl,
+  size = 'sm',
+  className = '',
+}) => {
+  const [imgError, setImgError] = useState(false);
+  const resolvedLogo = getLeagueLogoUrl(name, logoUrl);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [resolvedLogo]);
+
+  const sizeClasses = {
+    xs: 'w-3.5 h-3.5 rounded-sm p-0.5 text-[9px]',
+    sm: 'w-4 h-4 rounded p-0.5 text-[9px]',
+    md: 'w-8 h-8 rounded-lg p-1 text-xs',
+    lg: 'w-11 h-11 rounded-xl p-1.5 text-sm',
+  };
+
+  if (resolvedLogo && !imgError) {
+    return (
+      <span
+        className={`inline-flex items-center justify-center bg-white/95 border border-white/20 shrink-0 overflow-hidden select-none ${sizeClasses[size]} ${className}`}
+        title={name}
+      >
+        <img
+          src={resolvedLogo}
+          alt={name}
+          loading="lazy"
+          decoding="async"
+          onError={() => setImgError(true)}
+          className="w-full h-full object-contain"
+        />
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={`inline-flex items-center justify-center bg-emerald-500/20 border border-emerald-500/40 font-black text-emerald-400 shrink-0 select-none ${sizeClasses[size]} ${className}`}
+      title={name}
+    >
+      ⚽
+    </span>
+  );
+};
 
 interface TeamBadgeProps {
   name: string;

@@ -47,7 +47,22 @@ export default function AppView() {
   const [legalModalTab, setLegalModalTab] = useState<LegalTab | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState<boolean>(false);
-  const [matches, setMatches] = useState<Match[]>(initialMatches);
+  const [matches, setMatches] = useState<Match[]>(() => {
+    try {
+      const cached = localStorage.getItem('oddspira_live_matches_v8');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          registerMatchLogos(parsed);
+          return parsed;
+        }
+      }
+    } catch {
+      // ignore localStorage read errors
+    }
+    registerMatchLogos(initialMatches);
+    return initialMatches;
+  });
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Authenticated User & Token State
@@ -91,6 +106,11 @@ export default function AppView() {
           if (active && data?.configured && Array.isArray(data.matches) && data.matches.length > 0) {
             registerMatchLogos(data.matches);
             setMatches(data.matches);
+            try {
+              localStorage.setItem('oddspira_live_matches_v8', JSON.stringify(data.matches));
+            } catch {
+              // ignore storage quota errors
+            }
           }
         })
         .catch(() => {});
