@@ -4,6 +4,7 @@ import {
   TeamBadge,
   LeagueBadge,
   openTeamProfile,
+  openCompetitionLeague,
   registerMatchLogos,
 } from './TeamBadge';
 
@@ -638,7 +639,15 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
               <span className="text-neutral-600">›</span>
               <button
                 type="button"
-                onClick={() => setActiveTab('competitions')}
+                onClick={(e) =>
+                  openCompetitionLeague(
+                    {
+                      leagueId: intel.league?.id || undefined,
+                      leagueName: intel.league?.name || undefined,
+                    },
+                    e
+                  )
+                }
                 className="hover:text-white transition-colors cursor-pointer"
               >
                 {intel.league.name}

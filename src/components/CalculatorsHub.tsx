@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Language } from '../types';
 import { getToolsUI } from '../utils/toolsI18n';
 import { computePoissonMatrix } from '../utils/mathModels';
 
 interface CalculatorsHubProps {
   language?: Language;
+  initialTool?: ToolTab;
 }
 
 type ToolTab = 'ev' | 'poisson' | 'novig' | 'kelly' | 'dutching';
@@ -101,10 +102,19 @@ function computeKellyDetails(odds: number, probPct: number, bankroll: number, fr
   };
 }
 
-export const CalculatorsHub: React.FC<CalculatorsHubProps> = ({ language = 'bg' }) => {
+export const CalculatorsHub: React.FC<CalculatorsHubProps> = ({
+  language = 'bg',
+  initialTool = 'ev',
+}) => {
   const ui = getToolsUI(language);
-  const [activeTool, setActiveTool] = useState<ToolTab>('ev');
+  const [activeTool, setActiveTool] = useState<ToolTab>(initialTool);
   const [activePresetId, setActivePresetId] = useState<string>('ars-bay');
+
+  useEffect(() => {
+    if (initialTool) {
+      setActiveTool(initialTool);
+    }
+  }, [initialTool]);
 
   // Tool 1: +EV & CLV State
   const [evOdds, setEvOdds] = useState<number>(1.92);

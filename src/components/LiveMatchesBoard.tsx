@@ -434,6 +434,39 @@ export function LiveMatchesBoard({
 
   // Detailed Match Modal
   const [detailMatch, setDetailMatch] = useState<Match | null>(null);
+  const [slipSyncedWithLive, setSlipSyncedWithLive] = useState<boolean>(false);
+
+  // Sync initial Quick Bet Slip with top 3 real matches when real API-Football fixtures load
+  useEffect(() => {
+    if (slipSyncedWithLive || matches.length === 0) return;
+    const hasRealApiFixtures = matches.some((m) => /^\d+$/.test(String(m.id).replace(/^apif-/, '')));
+    if (!hasRealApiFixtures) return;
+    const topReal = matches.slice(0, 3);
+    if (topReal.length > 0) {
+      setSlipItems(
+        topReal.map((m, idx) => ({
+          id: `slip-real-${m.id}-${idx}`,
+          matchId: m.id,
+          matchTitle: `${m.homeTeam} vs ${m.awayTeam}`,
+          market: m.valueBetDetected ? 'Value Edge (1X2)' : 'Full Time Result',
+          selection:
+            m.valueBetDetected?.selection === 'away'
+              ? m.awayTeam
+              : m.valueBetDetected?.selection === 'draw'
+              ? 'Draw (X)'
+              : m.homeTeam,
+          odds:
+            m.valueBetDetected?.selection === 'away'
+              ? m.bookmakerOdds.away
+              : m.valueBetDetected?.selection === 'draw'
+              ? m.bookmakerOdds.draw
+              : m.bookmakerOdds.home,
+          evPercent: m.valueBetDetected?.evPercent || 4.5,
+        }))
+      );
+      setSlipSyncedWithLive(true);
+    }
+  }, [matches, slipSyncedWithLive]);
 
   // Live ticking clock & real-time match simulation
   useEffect(() => {
@@ -710,11 +743,37 @@ export function LiveMatchesBoard({
   const displayedMyBets =
     myBetsTab === 'settled' ? settledBetsList : liveBetsList;
 
-  const renderFormBadges = (teamName: string) => {
-    const form = TEAM_FORMS[teamName] || ['W', 'D', 'W', 'L', 'W'];
+  const renderFormBadges = (
+    teamName: string,
+    teamId?: number,
+    teamLogo?: string,
+    leagueId?: number,
+    leagueName?: string
+  ) => {
+    const knownForm = TEAM_FORMS[teamName];
+    if (!knownForm) {
+      return (
+        <button
+          type="button"
+          onClick={(e) =>
+            openTeamProfile({ teamId, teamName, teamLogo, leagueId, leagueName }, e)
+          }
+          className="px-1.5 py-0.5 rounded bg-[#101c2a] hover:bg-emerald-500/15 border border-[#1e2f44] hover:border-emerald-500/40 text-[9px] font-mono text-emerald-400 transition-colors cursor-pointer shrink-0"
+          title={`${teamName} — Официален профил, класиране и форма от API-Football`}
+        >
+          {language === 'bg' ? 'Профил ↗' : 'Profile ↗'}
+        </button>
+      );
+    }
     return (
-      <div className="flex items-center gap-1">
-        {form.map((res, idx) => (
+      <div
+        onClick={(e) =>
+          openTeamProfile({ teamId, teamName, teamLogo, leagueId, leagueName }, e)
+        }
+        className="flex items-center gap-1 cursor-pointer"
+        title={`${teamName} — Профил и форма`}
+      >
+        {knownForm.map((res, idx) => (
           <span
             key={idx}
             className={`w-3.5 h-3.5 rounded-full text-[8px] font-mono font-black flex items-center justify-center ${
@@ -1098,7 +1157,15 @@ export function LiveMatchesBoard({
                         >
                           {featuredMatch.homeTeam}
                         </div>
-                        <div className="mt-1">{renderFormBadges(featuredMatch.homeTeam)}</div>
+                        <div className="mt-1">
+                          {renderFormBadges(
+                            featuredMatch.homeTeam,
+                            featuredMatch.homeTeamId,
+                            featuredMatch.homeLogo,
+                            featuredMatch.leagueId,
+                            featuredMatch.league
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -1137,7 +1204,13 @@ export function LiveMatchesBoard({
                           {featuredMatch.awayTeam}
                         </div>
                         <div className="mt-1 flex justify-end">
-                          {renderFormBadges(featuredMatch.awayTeam)}
+                          {renderFormBadges(
+                            featuredMatch.awayTeam,
+                            featuredMatch.awayTeamId,
+                            featuredMatch.awayLogo,
+                            featuredMatch.leagueId,
+                            featuredMatch.league
+                          )}
                         </div>
                       </div>
                       <TeamBadge
@@ -1402,7 +1475,14 @@ export function LiveMatchesBoard({
                               {match.homeTeam}
                             </span>
                           </div>
-                          {!isCompact && renderFormBadges(match.homeTeam)}
+                          {!isCompact &&
+                            renderFormBadges(
+                              match.homeTeam,
+                              match.homeTeamId,
+                              match.homeLogo,
+                              match.leagueId,
+                              match.league
+                            )}
                         </div>
 
                         {/* Away Team Row */}
@@ -1433,7 +1513,14 @@ export function LiveMatchesBoard({
                               {match.awayTeam}
                             </span>
                           </div>
-                          {!isCompact && renderFormBadges(match.awayTeam)}
+                          {!isCompact &&
+                            renderFormBadges(
+                              match.awayTeam,
+                              match.awayTeamId,
+                              match.awayLogo,
+                              match.leagueId,
+                              match.league
+                            )}
                         </div>
                       </div>
                     </div>

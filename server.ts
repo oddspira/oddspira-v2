@@ -2139,7 +2139,7 @@ async function startServer() {
       return;
     }
 
-    const cacheKey = `football:league_intel_v5:${leagueId}:${requestedSeasonParam}`;
+    const cacheKey = `football:league_intel_v6:${leagueId}:${requestedSeasonParam}`;
     const ttlMs = 30 * 60 * 1000; // 30 minutes SQLite cache for fresh standings & fixtures
 
     try {
@@ -2272,14 +2272,27 @@ async function startServer() {
         };
       });
 
-      // 2. Fetch real upcoming fixtures for this league (or recent matches if season ended / break)
+      // 2. Fetch real upcoming fixtures AND recent finished results for this league
       let rawFixtures: Array<Record<string, any>> = [];
+      let rawRecentResults: Array<Record<string, any>> = [];
       try {
-        const nextRes = await fetch(
-          `https://v3.football.api-sports.io/fixtures?league=${leagueId}&season=${activeSeason}&next=6`,
-          { headers: { 'x-apisports-key': apiKey } }
-        );
+        const [nextRes, lastRes] = await Promise.all([
+          fetch(
+            `https://v3.football.api-sports.io/fixtures?league=${leagueId}&season=${activeSeason}&next=8`,
+            { headers: { 'x-apisports-key': apiKey } }
+          ),
+          fetch(
+            `https://v3.football.api-sports.io/fixtures?league=${leagueId}&season=${activeSeason}&last=8`,
+            { headers: { 'x-apisports-key': apiKey } }
+          ),
+        ]);
         const nextJson = (await nextRes.json()) as { response?: Array<Record<string, any>> };
+        const lastJson = (await lastRes.json()) as { response?: Array<Record<string, any>> };
+
+        if (Array.isArray(lastJson?.response) && lastJson.response.length > 0) {
+          rawRecentResults = lastJson.response;
+        }
+
         if (Array.isArray(nextJson?.response) && nextJson.response.length > 0) {
           rawFixtures = nextJson.response;
         } else {
@@ -2293,23 +2306,16 @@ async function startServer() {
           );
           const rangeJson = (await rangeRes.json()) as { response?: Array<Record<string, any>> };
           if (Array.isArray(rangeJson?.response) && rangeJson.response.length > 0) {
-            rawFixtures = rangeJson.response.slice(0, 6);
-          } else {
-            const lastRes = await fetch(
-              `https://v3.football.api-sports.io/fixtures?league=${leagueId}&season=${activeSeason}&last=6`,
-              { headers: { 'x-apisports-key': apiKey } }
-            );
-            const lastJson = (await lastRes.json()) as { response?: Array<Record<string, any>> };
-            if (Array.isArray(lastJson?.response) && lastJson.response.length > 0) {
-              rawFixtures = lastJson.response.slice(0, 6);
-            }
+            rawFixtures = rangeJson.response.slice(0, 8);
+          } else if (rawRecentResults.length > 0) {
+            rawFixtures = rawRecentResults.slice(0, 6);
           }
         }
       } catch {
         rawFixtures = [];
       }
 
-      const upcomingFixtures = rawFixtures.slice(0, 6).map((fx) => {
+      const mapLeagueFixtureRow = (fx: Record<string, any>) => {
         const fxId = String(fx?.fixture?.id || '');
         const fxDate = fx?.fixture?.date ? new Date(fx.fixture.date) : null;
         const shortStatus = String(fx?.fixture?.status?.short || 'NS');
@@ -2340,13 +2346,19 @@ async function startServer() {
           awayTeamId: fx?.teams?.away?.id ? Number(fx.teams.away.id) : undefined,
           awayTeam: String(fx?.teams?.away?.name || 'Away'),
           awayLogo: proxyMediaUrl(fx?.teams?.away?.logo, 'teams', fx?.teams?.away?.id),
+          homeScore: Number(fx?.goals?.home ?? 0),
+          awayScore: Number(fx?.goals?.away ?? 0),
+          isFinished,
           time: isFinished
             ? `${fx?.goals?.home ?? 0} - ${fx?.goals?.away ?? 0} (КР)`
             : isLive
             ? `${fx?.goals?.home ?? 0} - ${fx?.goals?.away ?? 0} LIVE`
             : timeStr,
         };
-      });
+      };
+
+      const upcomingFixtures = rawFixtures.slice(0, 6).map(mapLeagueFixtureRow);
+      const recentResults = rawRecentResults.slice(0, 8).map(mapLeagueFixtureRow);
 
       // 3. Calculate 100% real League Statistics from the official standings (Zero fabricated stats)
       let glance = null;
@@ -2383,6 +2395,7 @@ async function startServer() {
         standings,
         topScorers,
         upcomingFixtures,
+        recentResults,
         glance,
       };
 

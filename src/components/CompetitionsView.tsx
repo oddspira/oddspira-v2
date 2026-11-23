@@ -8,6 +8,7 @@ interface CompetitionsViewProps {
   setActiveTab: (tab: ActiveTab) => void;
   onSelectCompetition?: (leagueName: string) => void;
   onOpenMatch?: (match: Match) => void;
+  initialLeagueTarget?: { leagueKey?: string; leagueId?: number; leagueName?: string } | null;
 }
 
 interface StandingRow {
@@ -52,6 +53,20 @@ interface UpcomingFixtureRow {
   time: string;
 }
 
+interface RecentResultRow {
+  id: string;
+  dayLabel: string;
+  homeTeamId?: number;
+  homeTeam: string;
+  homeLogo?: string;
+  awayTeamId?: number;
+  awayTeam: string;
+  awayLogo?: string;
+  homeGoals: number;
+  awayGoals: number;
+  status: string;
+}
+
 interface LeagueGlanceData {
   matchesPlayed: string;
   goalsScored: string;
@@ -74,6 +89,7 @@ interface LeagueHubData {
   standings: StandingRow[];
   topScorers: TopScorerRow[];
   upcomingFixtures: UpcomingFixtureRow[];
+  recentResults?: RecentResultRow[];
   glance: LeagueGlanceData | null;
 }
 
@@ -240,6 +256,76 @@ const LEAGUES_DATABASE: Record<string, LeagueHubData> = {
     flag: '🇺🇸',
     season: '2025',
     region: 'north_america',
+    type: 'domestic',
+    standings: [],
+    topScorers: [],
+    upcomingFixtures: [],
+    glance: null,
+  },
+  'bulgaria-first': {
+    id: 'bulgaria-first',
+    apiLeagueId: 172,
+    name: 'Първа лига (efbet Лига)',
+    country: 'Bulgaria',
+    flag: '🇧🇬',
+    season: '2025/26',
+    region: 'europe',
+    type: 'domestic',
+    standings: [],
+    topScorers: [],
+    upcomingFixtures: [],
+    glance: null,
+  },
+  uel: {
+    id: 'uel',
+    apiLeagueId: 3,
+    name: 'UEFA Europa League',
+    country: 'Europe',
+    flag: '🇪🇺',
+    season: '2025/26',
+    region: 'europe',
+    type: 'continental',
+    standings: [],
+    topScorers: [],
+    upcomingFixtures: [],
+    glance: null,
+  },
+  'super-lig': {
+    id: 'super-lig',
+    apiLeagueId: 203,
+    name: 'Süper Lig',
+    country: 'Turkey',
+    flag: '🇹🇷',
+    season: '2025/26',
+    region: 'europe',
+    type: 'domestic',
+    standings: [],
+    topScorers: [],
+    upcomingFixtures: [],
+    glance: null,
+  },
+  'saudi-pro': {
+    id: 'saudi-pro',
+    apiLeagueId: 307,
+    name: 'Saudi Pro League',
+    country: 'Saudi Arabia',
+    flag: '🇸🇦',
+    season: '2025/26',
+    region: 'asia',
+    type: 'domestic',
+    standings: [],
+    topScorers: [],
+    upcomingFixtures: [],
+    glance: null,
+  },
+  'egypt-premier': {
+    id: 'egypt-premier',
+    apiLeagueId: 233,
+    name: 'Egyptian Premier League',
+    country: 'Egypt',
+    flag: '🇪🇬',
+    season: '2025/26',
+    region: 'africa',
     type: 'domestic',
     standings: [],
     topScorers: [],
@@ -500,6 +586,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
   matches,
   setActiveTab,
   onOpenMatch,
+  initialLeagueTarget,
 }) => {
   const t = (DICT as Record<string, typeof DICT.en>)[language] || DICT.en;
 
@@ -516,6 +603,50 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
     'europe' | 'south_america' | 'north_america' | 'asia' | 'africa'
   >('europe');
 
+  // Sync with initialLeagueTarget when navigated from Homepage Popular Leagues, TeamDetailPage, or MatchDetailPage
+  useEffect(() => {
+    if (!initialLeagueTarget) return;
+    const keyAliases: Record<string, string> = {
+      epl: 'premier-league',
+      'premier-league': 'premier-league',
+      laliga: 'la-liga',
+      'la-liga': 'la-liga',
+      seriea: 'serie-a',
+      'serie-a': 'serie-a',
+      bundesliga: 'bundesliga',
+      ucl: 'ucl',
+      uel: 'uel',
+      'ligue-1': 'ligue-1',
+      eredivisie: 'eredivisie',
+      'primeira-liga': 'primeira-liga',
+      'bulgaria-first': 'bulgaria-first',
+    };
+    if (initialLeagueTarget.leagueKey && keyAliases[initialLeagueTarget.leagueKey]) {
+      setSelectedLeagueKey(keyAliases[initialLeagueTarget.leagueKey]);
+      return;
+    }
+    if (initialLeagueTarget.leagueId) {
+      const foundById = Object.values(LEAGUES_DATABASE).find(
+        (l) => l.apiLeagueId === initialLeagueTarget.leagueId
+      );
+      if (foundById) {
+        setSelectedLeagueKey(foundById.id);
+        return;
+      }
+    }
+    if (initialLeagueTarget.leagueName) {
+      const norm = initialLeagueTarget.leagueName.toLowerCase();
+      const foundByName = Object.values(LEAGUES_DATABASE).find(
+        (l) =>
+          l.name.toLowerCase().includes(norm) ||
+          norm.includes(l.name.toLowerCase())
+      );
+      if (foundByName) {
+        setSelectedLeagueKey(foundByName.id);
+      }
+    }
+  }, [initialLeagueTarget]);
+
   const baseLeague = LEAGUES_DATABASE[selectedLeagueKey] || LEAGUES_DATABASE['premier-league'];
   const [liveLeagueIntel, setLiveLeagueIntel] = useState<{
     leagueId: number;
@@ -523,6 +654,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
     standings: StandingRow[];
     topScorers: TopScorerRow[];
     upcomingFixtures: UpcomingFixtureRow[];
+    recentResults: RecentResultRow[];
     glance: LeagueGlanceData | null;
   } | null>(null);
 
@@ -560,7 +692,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
               });
             }
           }
-          for (const fx of data.upcomingFixtures || []) {
+          for (const fx of [...(data.upcomingFixtures || []), ...(data.recentResults || [])]) {
             if (fx.homeTeam && fx.homeLogo) {
               logoRegistrations.push({
                 homeTeam: fx.homeTeam,
@@ -587,6 +719,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
             standings: Array.isArray(data.standings) ? data.standings : [],
             topScorers: Array.isArray(data.topScorers) ? data.topScorers : [],
             upcomingFixtures: Array.isArray(data.upcomingFixtures) ? data.upcomingFixtures : [],
+            recentResults: Array.isArray(data.recentResults) ? data.recentResults : [],
             glance: data.glance || null,
           });
         }
@@ -617,6 +750,10 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       isLiveIntelReady
         ? liveLeagueIntel.upcomingFixtures
         : baseLeague.upcomingFixtures,
+    recentResults:
+      isLiveIntelReady
+        ? liveLeagueIntel.recentResults
+        : [],
     glance: isLiveIntelReady ? liveLeagueIntel.glance : baseLeague.glance,
   };
 
@@ -686,10 +823,35 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       badgeBorder: 'border-indigo-400/40',
       logoUrl: '/api/football/media/leagues/88.png',
     },
+    {
+      key: 'bulgaria-first',
+      name: 'Първа лига',
+      country: 'Bulgaria',
+      badgeBg: 'from-[#0f291e] to-[#071510]',
+      badgeBorder: 'border-emerald-400/40',
+      logoUrl: '/api/football/media/leagues/172.png',
+    },
+    {
+      key: 'uel',
+      name: 'UEFA Europa League',
+      country: 'Europe',
+      badgeBg: 'from-[#7c2d12] to-[#1c0a03]',
+      badgeBorder: 'border-orange-400/40',
+      logoUrl: '/api/football/media/leagues/3.png',
+    },
   ];
 
   // Popular Leagues by Region cards with Official API-Sports League Emblems
-  const regionalLeagues = [
+  const allRegionalLeagues = [
+    {
+      key: 'bulgaria-first',
+      name: 'Първа лига (efbet)',
+      country: 'Bulgaria',
+      season: '2025/26',
+      region: 'europe',
+      crestBg: 'from-emerald-800 to-slate-950',
+      logoUrl: '/api/football/media/leagues/172.png',
+    },
     {
       key: 'primeira-liga',
       name: 'Primeira Liga',
@@ -718,6 +880,33 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       logoUrl: '/api/football/media/leagues/88.png',
     },
     {
+      key: 'super-lig',
+      name: 'Süper Lig',
+      country: 'Turkey',
+      season: '2025/26',
+      region: 'europe',
+      crestBg: 'from-red-800 to-slate-950',
+      logoUrl: '/api/football/media/leagues/203.png',
+    },
+    {
+      key: 'uel',
+      name: 'Europa League',
+      country: 'Europe',
+      season: '2025/26',
+      region: 'europe',
+      crestBg: 'from-orange-700 to-slate-950',
+      logoUrl: '/api/football/media/leagues/3.png',
+    },
+    {
+      key: 'copa-libertadores',
+      name: 'Copa Libertadores',
+      country: 'South America',
+      season: '2025',
+      region: 'south_america',
+      crestBg: 'from-amber-700 to-slate-950',
+      logoUrl: '/api/football/media/leagues/13.png',
+    },
+    {
       key: 'argentina-primera',
       name: 'Liga Profesional',
       country: 'Argentina',
@@ -744,7 +933,27 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       crestBg: 'from-red-700 to-blue-950',
       logoUrl: '/api/football/media/leagues/253.png',
     },
+    {
+      key: 'saudi-pro',
+      name: 'Saudi Pro League',
+      country: 'Saudi Arabia',
+      season: '2025/26',
+      region: 'asia',
+      crestBg: 'from-emerald-700 to-slate-950',
+      logoUrl: '/api/football/media/leagues/307.png',
+    },
+    {
+      key: 'egypt-premier',
+      name: 'Egyptian Premier League',
+      country: 'Egypt',
+      season: '2025/26',
+      region: 'africa',
+      crestBg: 'from-red-700 to-slate-950',
+      logoUrl: '/api/football/media/leagues/233.png',
+    },
   ];
+
+  const regionalLeagues = allRegionalLeagues.filter((rl) => rl.region === activeRegion);
 
   const handleOpenFixtureMatch = (fixture: UpcomingFixtureRow) => {
     if (!onOpenMatch) return;
@@ -867,8 +1076,8 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
             {[
               { val: '88+', label: t.kpi1, icon: '🌐' },
               { val: '42', label: t.kpi2, icon: '🏳️' },
-              { val: '112', label: t.kpi3, icon: '📈' },
-              { val: '6', label: t.kpi4, icon: '🔥' },
+              { val: String(matches.length || 45), label: t.kpi3, icon: '📈' },
+              { val: String(Object.keys(LEAGUES_DATABASE).length), label: t.kpi4, icon: '🔥' },
             ].map((kpi, idx) => (
               <div
                 key={idx}
@@ -923,26 +1132,40 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
             onChange={(e) => {
               const val = e.target.value;
               setCountryFilter(val);
+              if (val === 'Bulgaria') setSelectedLeagueKey('bulgaria-first');
               if (val === 'England') setSelectedLeagueKey('premier-league');
               if (val === 'Spain') setSelectedLeagueKey('la-liga');
               if (val === 'Italy') setSelectedLeagueKey('serie-a');
               if (val === 'Germany') setSelectedLeagueKey('bundesliga');
+              if (val === 'France') setSelectedLeagueKey('ligue-1');
+              if (val === 'Turkey') setSelectedLeagueKey('super-lig');
               if (val === 'Europe') setSelectedLeagueKey('ucl');
             }}
             className="rounded-xl border border-[#1c2a3b] bg-[#0d1520] px-3.5 py-2 text-xs text-neutral-200 focus:border-[#43f08a] focus:outline-none cursor-pointer"
           >
             <option value="all">🌐 {t.allCountries}</option>
+            <option value="Bulgaria">🇧🇬 Bulgaria (Първа лига)</option>
             <option value="England">🏴󠁧󠁢󠁥󠁮󠁧󠁿 England</option>
             <option value="Spain">🇪🇸 Spain</option>
             <option value="Italy">🇮🇹 Italy</option>
             <option value="Germany">🇩🇪 Germany</option>
+            <option value="France">🇫🇷 France</option>
+            <option value="Turkey">🇹🇷 Turkey</option>
             <option value="Europe">🇪🇺 Europe (UEFA)</option>
           </select>
 
           {/* All Competition Types */}
           <select
             value={compTypeFilter}
-            onChange={(e) => setCompTypeFilter(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setCompTypeFilter(val);
+              if (val === 'continental' && LEAGUES_DATABASE[selectedLeagueKey]?.type !== 'continental') {
+                setSelectedLeagueKey('ucl');
+              } else if (val === 'domestic' && LEAGUES_DATABASE[selectedLeagueKey]?.type !== 'domestic') {
+                setSelectedLeagueKey('premier-league');
+              }
+            }}
             className="rounded-xl border border-[#1c2a3b] bg-[#0d1520] px-3.5 py-2 text-xs text-neutral-200 focus:border-[#43f08a] focus:outline-none cursor-pointer"
           >
             <option value="all">🏆 {t.allCompTypes}</option>
@@ -1021,14 +1244,19 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-11 gap-2.5">
           {featuredLeaguesList
-            .filter((item) =>
-              searchQuery.trim()
-                ? item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            .filter((item) => {
+              const dbLg = LEAGUES_DATABASE[item.key];
+              if (compTypeFilter !== 'all' && dbLg && dbLg.type !== compTypeFilter) return false;
+              if (searchQuery.trim()) {
+                return (
+                  item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                   item.country.toLowerCase().includes(searchQuery.toLowerCase())
-                : true
-            )
+                );
+              }
+              return true;
+            })
             .map((lg, idx) => {
               const isSelected = selectedLeagueKey === lg.key;
               return (
@@ -1036,14 +1264,14 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                   key={`${lg.name}-${idx}`}
                   type="button"
                   onClick={() => setSelectedLeagueKey(lg.key)}
-                  className={`rounded-xl border p-3 text-left transition-all cursor-pointer flex items-center gap-2.5 ${
+                  className={`rounded-xl border p-2.5 text-left transition-all cursor-pointer flex items-center gap-2 ${
                     isSelected
                       ? 'border-[#43f08a] bg-[#0e231b] shadow-md shadow-[#22c55e]/10'
                       : 'border-[#1a2636] bg-[#0d1520] hover:border-[#2c4059]'
                   }`}
                 >
                   <div
-                    className={`w-9 h-9 rounded-xl bg-white/95 border ${lg.badgeBorder} flex items-center justify-center p-1.5 shadow-sm shrink-0`}
+                    className={`w-8 h-8 rounded-xl bg-white/95 border ${lg.badgeBorder} flex items-center justify-center p-1 shadow-sm shrink-0`}
                   >
                     <img
                       src={lg.logoUrl}
@@ -1064,11 +1292,11 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
               );
             })}
 
-          {/* 9th Card: View all leagues */}
+          {/* View all leagues card */}
           <button
             type="button"
             onClick={() => setShowFullTable(!showFullTable)}
-            className="rounded-xl border border-[#1a2636] bg-[#0d1520] hover:border-[#43f08a]/50 p-3 flex flex-col items-center justify-center gap-1.5 text-center cursor-pointer transition-all"
+            className="rounded-xl border border-[#1a2636] bg-[#0d1520] hover:border-[#43f08a]/50 p-2.5 flex flex-col items-center justify-center gap-1 text-center cursor-pointer transition-all"
           >
             <span className="text-base text-neutral-300">⊞</span>
             <span className="text-[11px] font-bold text-white">{t.viewAllLeagues} ›</span>
@@ -1077,10 +1305,10 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       </div>
 
       {/* =================================================================== */}
-      {/* ROW 4: MAIN 4-PANEL LEAGUE HUB (Standings 5 | Top Scorers 2.5 | Upcoming 2.5 | Glance 2) */}
+      {/* ROW 4: MAIN 4-PANEL LEAGUE HUB (Standings 5 | Top Scorers 2 | Upcoming 3 | Glance 2) */}
       {/* =================================================================== */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-stretch">
-        {/* PANEL 1 (Left 5 cols): Active League Standings & Sub-Tabs */}
+        {/* PANEL 1 (Left 5 cols): Active League Standings & 6 Sub-Tabs */}
         <div className="xl:col-span-5 rounded-2xl border border-[#182434] bg-[#0a1018] p-5 flex flex-col justify-between shadow-xl space-y-4">
           <div className="space-y-3">
             {/* League Header + Change League Dropdown */}
@@ -1107,18 +1335,23 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                 onChange={(e) => setSelectedLeagueKey(e.target.value)}
                 className="rounded-xl border border-[#1c2a3b] bg-[#0d1520] px-3 py-1.5 text-xs text-neutral-200 focus:border-[#43f08a] focus:outline-none cursor-pointer"
               >
-                <option value="premier-league">Premier League</option>
-                <option value="la-liga">La Liga</option>
-                <option value="serie-a">Serie A</option>
-                <option value="bundesliga">Bundesliga</option>
-                <option value="ucl">Champions League</option>
-                <option value="ligue-1">Ligue 1</option>
-                <option value="eredivisie">Eredivisie</option>
-                <option value="primeira-liga">Primeira Liga</option>
-                <option value="copa-libertadores">Copa Libertadores</option>
-                <option value="argentina-primera">Liga Profesional (ARG)</option>
-                <option value="brasileirao">Brasileirão Série A</option>
-                <option value="mls">MLS</option>
+                <option value="bulgaria-first">🇧🇬 Първа лига (България)</option>
+                <option value="premier-league">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League</option>
+                <option value="la-liga">🇪🇸 La Liga</option>
+                <option value="serie-a">🇮🇹 Serie A</option>
+                <option value="bundesliga">🇩🇪 Bundesliga</option>
+                <option value="ucl">🇪🇺 Champions League</option>
+                <option value="uel">🇪🇺 Europa League</option>
+                <option value="ligue-1">🇫🇷 Ligue 1</option>
+                <option value="eredivisie">🇳🇱 Eredivisie</option>
+                <option value="primeira-liga">🇵🇹 Primeira Liga</option>
+                <option value="super-lig">🇹🇷 Süper Lig</option>
+                <option value="copa-libertadores">🌎 Copa Libertadores</option>
+                <option value="argentina-primera">🇦🇷 Liga Profesional (ARG)</option>
+                <option value="brasileirao">🇧🇷 Brasileirão Série A</option>
+                <option value="mls">🇺🇸 MLS</option>
+                <option value="saudi-pro">🇸🇦 Saudi Pro League</option>
+                <option value="egypt-premier">🇪🇬 Egyptian Premier League</option>
               </select>
             </div>
 
@@ -1151,91 +1384,444 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
               })}
             </div>
 
-            {/* Standings Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="text-[10px] font-mono uppercase text-[#64748b] border-b border-[#162232]">
-                    <th className="py-2 pr-2">#</th>
-                    <th className="py-2 pr-3">{t.clubCol}</th>
-                    <th className="py-2 px-1.5 text-center">P</th>
-                    <th className="py-2 px-1.5 text-center">W</th>
-                    <th className="py-2 px-1.5 text-center">D</th>
-                    <th className="py-2 px-1.5 text-center">L</th>
-                    <th className="py-2 px-1.5 text-center">GF</th>
-                    <th className="py-2 px-1.5 text-center">GA</th>
-                    <th className="py-2 px-1.5 text-center">GD</th>
-                    <th className="py-2 px-2 text-center text-white">Pts</th>
-                    <th className="py-2 pl-2 text-right">{t.formCol}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#141f2e] font-mono text-[11px]">
-                  {displayedStandings.map((row) => (
-                    <tr
-                      key={row.rank}
+            {/* SUB-TAB 1: STANDINGS */}
+            {hubSubTab === 'standings' && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="text-[10px] font-mono uppercase text-[#64748b] border-b border-[#162232]">
+                      <th className="py-2 pr-2">#</th>
+                      <th className="py-2 pr-3">{t.clubCol}</th>
+                      <th className="py-2 px-1.5 text-center">P</th>
+                      <th className="py-2 px-1.5 text-center">W</th>
+                      <th className="py-2 px-1.5 text-center">D</th>
+                      <th className="py-2 px-1.5 text-center">L</th>
+                      <th className="py-2 px-1.5 text-center">GF</th>
+                      <th className="py-2 px-1.5 text-center">GA</th>
+                      <th className="py-2 px-1.5 text-center">GD</th>
+                      <th className="py-2 px-2 text-center text-white">Pts</th>
+                      <th className="py-2 pl-2 text-right">{t.formCol}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#141f2e] font-mono text-[11px]">
+                    {displayedStandings.map((row) => (
+                      <tr
+                        key={row.rank}
+                        onClick={() =>
+                          openTeamProfile({
+                            teamId: row.teamId,
+                            teamName: row.club,
+                            teamLogo: row.clubLogo,
+                            leagueId: activeLeague.apiLeagueId,
+                            leagueName: activeLeague.name,
+                          })
+                        }
+                        className="hover:bg-[#0e1622] transition-colors cursor-pointer group"
+                        title={`${row.club} — Отвори профила на отбора`}
+                      >
+                        <td className="py-2.5 pr-2 font-bold text-neutral-300">
+                          <span className="inline-flex items-center gap-1">
+                            <span className="w-0.5 h-3.5 rounded-full bg-[#43f08a]" />
+                            {row.rank}
+                          </span>
+                        </td>
+                        <td className="py-2.5 pr-3 font-sans">
+                          <div className="flex items-center gap-2">
+                            <TeamBadge
+                              name={row.club}
+                              logoUrl={row.clubLogo}
+                              teamId={row.teamId}
+                              size="sm"
+                              className="w-5 h-5 text-[8px]"
+                            />
+                            <span className="font-bold text-white group-hover:text-[#43f08a] group-hover:underline truncate max-w-[125px] transition-colors">
+                              {row.club}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.p}</td>
+                        <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.w}</td>
+                        <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.d}</td>
+                        <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.l}</td>
+                        <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.gf}</td>
+                        <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.ga}</td>
+                        <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.gd}</td>
+                        <td className="py-2.5 px-2 text-center font-black text-white">{row.pts}</td>
+                        <td className="py-2.5 pl-2">
+                          <div className="flex items-center justify-end gap-1">
+                            {row.form.map((f, i) => (
+                              <span
+                                key={i}
+                                className={`w-4 h-4 rounded text-[9px] font-black flex items-center justify-center ${
+                                  f === 'W'
+                                    ? 'bg-[#10b981] text-[#04130b]'
+                                    : f === 'D'
+                                    ? 'bg-[#334155] text-white'
+                                    : 'bg-[#ef4444] text-white'
+                                }`}
+                              >
+                                {f}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* SUB-TAB 2: UPCOMING FIXTURES */}
+            {hubSubTab === 'fixtures' && (
+              <div className="divide-y divide-[#141f2e] max-h-96 overflow-y-auto pr-1">
+                {activeLeague.upcomingFixtures.length > 0 ? (
+                  activeLeague.upcomingFixtures.map((fx) => (
+                    <div
+                      key={fx.id}
+                      onClick={() => handleOpenFixtureMatch(fx)}
+                      className="py-2.5 px-2 hover:bg-[#0e1622] rounded-xl transition-colors cursor-pointer flex items-center justify-between gap-2"
+                    >
+                      <div
+                        onClick={(e) =>
+                          openTeamProfile(
+                            {
+                              teamId: fx.homeTeamId,
+                              teamName: fx.homeTeam,
+                              teamLogo: fx.homeLogo,
+                              leagueId: activeLeague.apiLeagueId,
+                              leagueName: activeLeague.name,
+                            },
+                            e
+                          )
+                        }
+                        className="flex items-center gap-2 flex-1 min-w-0"
+                      >
+                        <TeamBadge
+                          name={fx.homeTeam}
+                          logoUrl={fx.homeLogo}
+                          teamId={fx.homeTeamId}
+                          size="sm"
+                        />
+                        <span className="text-xs font-bold text-white hover:text-[#43f08a] hover:underline truncate">
+                          {fx.homeTeam}
+                        </span>
+                      </div>
+
+                      <div className="text-center shrink-0 px-2">
+                        <span className="px-2 py-0.5 rounded bg-[#131d2a] border border-[#1f2e42] font-mono text-[11px] font-bold text-[#43f08a] block">
+                          {fx.time}
+                        </span>
+                        <span className="text-[9px] text-[#8f9cae] block mt-0.5">{fx.dayLabel}</span>
+                      </div>
+
+                      <div
+                        onClick={(e) =>
+                          openTeamProfile(
+                            {
+                              teamId: fx.awayTeamId,
+                              teamName: fx.awayTeam,
+                              teamLogo: fx.awayLogo,
+                              leagueId: activeLeague.apiLeagueId,
+                              leagueName: activeLeague.name,
+                            },
+                            e
+                          )
+                        }
+                        className="flex items-center justify-end gap-2 flex-1 min-w-0"
+                      >
+                        <span className="text-xs font-bold text-white hover:text-[#43f08a] hover:underline truncate">
+                          {fx.awayTeam}
+                        </span>
+                        <TeamBadge
+                          name={fx.awayTeam}
+                          logoUrl={fx.awayLogo}
+                          teamId={fx.awayTeamId}
+                          size="sm"
+                        />
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-8 text-center text-xs text-[#8f9cae]">
+                    Няма предстоящи мачове за този период в API-Football.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* SUB-TAB 3: RECENT RESULTS */}
+            {hubSubTab === 'results' && (
+              <div className="divide-y divide-[#141f2e] max-h-96 overflow-y-auto pr-1">
+                {activeLeague.recentResults && activeLeague.recentResults.length > 0 ? (
+                  activeLeague.recentResults.map((res) => (
+                    <div
+                      key={res.id}
                       onClick={() =>
-                        openTeamProfile({
-                          teamId: row.teamId,
-                          teamName: row.club,
-                          teamLogo: row.clubLogo,
-                          leagueId: activeLeague.apiLeagueId,
-                          leagueName: activeLeague.name,
+                        handleOpenFixtureMatch({
+                          id: res.id,
+                          dayLabel: res.dayLabel,
+                          homeTeamId: res.homeTeamId,
+                          homeTeam: res.homeTeam,
+                          homeLogo: res.homeLogo,
+                          awayTeamId: res.awayTeamId,
+                          awayTeam: res.awayTeam,
+                          awayLogo: res.awayLogo,
+                          time: `${res.homeGoals} - ${res.awayGoals}`,
                         })
                       }
-                      className="hover:bg-[#0e1622] transition-colors cursor-pointer group"
-                      title={`${row.club} — Отвори профила на отбора`}
+                      className="py-2.5 px-2 hover:bg-[#0e1622] rounded-xl transition-colors cursor-pointer flex items-center justify-between gap-2"
                     >
-                      <td className="py-2.5 pr-2 font-bold text-neutral-300">
-                        <span className="inline-flex items-center gap-1">
-                          <span className="w-0.5 h-3.5 rounded-full bg-[#43f08a]" />
-                          {row.rank}
+                      <div
+                        onClick={(e) =>
+                          openTeamProfile(
+                            {
+                              teamId: res.homeTeamId,
+                              teamName: res.homeTeam,
+                              teamLogo: res.homeLogo,
+                              leagueId: activeLeague.apiLeagueId,
+                              leagueName: activeLeague.name,
+                            },
+                            e
+                          )
+                        }
+                        className="flex items-center gap-2 flex-1 min-w-0"
+                      >
+                        <TeamBadge
+                          name={res.homeTeam}
+                          logoUrl={res.homeLogo}
+                          teamId={res.homeTeamId}
+                          size="sm"
+                        />
+                        <span className="text-xs font-bold text-white hover:text-[#43f08a] hover:underline truncate">
+                          {res.homeTeam}
                         </span>
-                      </td>
-                      <td className="py-2.5 pr-3 font-sans">
-                        <div className="flex items-center gap-2">
-                          <TeamBadge
-                            name={row.club}
-                            logoUrl={row.clubLogo}
-                            teamId={row.teamId}
-                            size="sm"
-                            className="w-5 h-5 text-[8px]"
-                          />
-                          <span className="font-bold text-white group-hover:text-[#43f08a] group-hover:underline truncate max-w-[125px] transition-colors">
-                            {row.club}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.p}</td>
-                      <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.w}</td>
-                      <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.d}</td>
-                      <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.l}</td>
-                      <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.gf}</td>
-                      <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.ga}</td>
-                      <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.gd}</td>
-                      <td className="py-2.5 px-2 text-center font-black text-white">{row.pts}</td>
-                      <td className="py-2.5 pl-2">
-                        <div className="flex items-center justify-end gap-1">
-                          {row.form.map((f, i) => (
-                            <span
-                              key={i}
-                              className={`w-4 h-4 rounded text-[9px] font-black flex items-center justify-center ${
-                                f === 'W'
-                                  ? 'bg-[#10b981] text-[#04130b]'
-                                  : f === 'D'
-                                  ? 'bg-[#334155] text-white'
-                                  : 'bg-[#ef4444] text-white'
-                              }`}
-                            >
-                              {f}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
+                      </div>
+
+                      <div className="text-center shrink-0 px-2">
+                        <span className="px-2.5 py-0.5 rounded bg-[#131d2a] border border-emerald-500/30 font-mono text-xs font-black text-white block">
+                          {res.homeGoals} - {res.awayGoals}
+                        </span>
+                        <span className="text-[9px] text-[#8f9cae] block mt-0.5">{res.dayLabel}</span>
+                      </div>
+
+                      <div
+                        onClick={(e) =>
+                          openTeamProfile(
+                            {
+                              teamId: res.awayTeamId,
+                              teamName: res.awayTeam,
+                              teamLogo: res.awayLogo,
+                              leagueId: activeLeague.apiLeagueId,
+                              leagueName: activeLeague.name,
+                            },
+                            e
+                          )
+                        }
+                        className="flex items-center justify-end gap-2 flex-1 min-w-0"
+                      >
+                        <span className="text-xs font-bold text-white hover:text-[#43f08a] hover:underline truncate">
+                          {res.awayTeam}
+                        </span>
+                        <TeamBadge
+                          name={res.awayTeam}
+                          logoUrl={res.awayLogo}
+                          teamId={res.awayTeamId}
+                          size="sm"
+                        />
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-8 text-center text-xs text-[#8f9cae]">
+                    Зареждане на последните официални резултати от API-Football...
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* SUB-TAB 4: FORM TABLE (Sorted by Last 5 Form Points) */}
+            {hubSubTab === 'form' && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="text-[10px] font-mono uppercase text-[#64748b] border-b border-[#162232]">
+                      <th className="py-2 pr-2">#</th>
+                      <th className="py-2 pr-3">{t.clubCol}</th>
+                      <th className="py-2 px-2 text-center">Форма (5 мача)</th>
+                      <th className="py-2 pl-2 text-right">Точки (Форма)</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-[#141f2e] font-mono text-[11px]">
+                    {[...activeLeague.standings]
+                      .map((r) => ({
+                        ...r,
+                        formPts: r.form.reduce((acc, f) => acc + (f === 'W' ? 3 : f === 'D' ? 1 : 0), 0),
+                      }))
+                      .sort((a, b) => b.formPts - a.formPts || b.pts - a.pts)
+                      .slice(0, showFullTable ? 25 : 8)
+                      .map((row, idx) => (
+                        <tr
+                          key={row.club}
+                          onClick={() =>
+                            openTeamProfile({
+                              teamId: row.teamId,
+                              teamName: row.club,
+                              teamLogo: row.clubLogo,
+                              leagueId: activeLeague.apiLeagueId,
+                              leagueName: activeLeague.name,
+                            })
+                          }
+                          className="hover:bg-[#0e1622] transition-colors cursor-pointer group"
+                        >
+                          <td className="py-2.5 pr-2 font-bold text-neutral-400">{idx + 1}</td>
+                          <td className="py-2.5 pr-3 font-sans">
+                            <div className="flex items-center gap-2">
+                              <TeamBadge
+                                name={row.club}
+                                logoUrl={row.clubLogo}
+                                teamId={row.teamId}
+                                size="sm"
+                                className="w-5 h-5"
+                              />
+                              <span className="font-bold text-white group-hover:text-[#43f08a] group-hover:underline truncate">
+                                {row.club}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-2">
+                            <div className="flex items-center justify-center gap-1">
+                              {row.form.map((f, i) => (
+                                <span
+                                  key={i}
+                                  className={`w-4 h-4 rounded text-[9px] font-black flex items-center justify-center ${
+                                    f === 'W'
+                                      ? 'bg-[#10b981] text-[#04130b]'
+                                      : f === 'D'
+                                      ? 'bg-[#334155] text-white'
+                                      : 'bg-[#ef4444] text-white'
+                                  }`}
+                                >
+                                  {f}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="py-2.5 pl-2 text-right font-black text-[#43f08a]">
+                            {row.formPts} / 15 т.
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* SUB-TAB 5: TEAM OFFENSIVE & DEFENSIVE STATS */}
+            {hubSubTab === 'stats' && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="text-[10px] font-mono uppercase text-[#64748b] border-b border-[#162232]">
+                      <th className="py-2 pr-3">{t.clubCol}</th>
+                      <th className="py-2 px-1.5 text-center">Голове/Мач</th>
+                      <th className="py-2 px-1.5 text-center">Допуснати/Мач</th>
+                      <th className="py-2 pl-2 text-right">% Победи</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#141f2e] font-mono text-[11px]">
+                    {[...activeLeague.standings]
+                      .sort((a, b) => b.gf / Math.max(1, b.p) - a.gf / Math.max(1, a.p))
+                      .slice(0, showFullTable ? 25 : 8)
+                      .map((row) => {
+                        const gpm = (row.gf / Math.max(1, row.p)).toFixed(2);
+                        const gapm = (row.ga / Math.max(1, row.p)).toFixed(2);
+                        const winPct = Math.round((row.w / Math.max(1, row.p)) * 100);
+                        return (
+                          <tr
+                            key={row.club}
+                            onClick={() =>
+                              openTeamProfile({
+                                teamId: row.teamId,
+                                teamName: row.club,
+                                teamLogo: row.clubLogo,
+                                leagueId: activeLeague.apiLeagueId,
+                                leagueName: activeLeague.name,
+                              })
+                            }
+                            className="hover:bg-[#0e1622] transition-colors cursor-pointer group"
+                          >
+                            <td className="py-2.5 pr-3 font-sans">
+                              <div className="flex items-center gap-2">
+                                <TeamBadge
+                                  name={row.club}
+                                  logoUrl={row.clubLogo}
+                                  teamId={row.teamId}
+                                  size="sm"
+                                  className="w-5 h-5"
+                                />
+                                <span className="font-bold text-white group-hover:text-[#43f08a] group-hover:underline truncate">
+                                  {row.club}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-1.5 text-center font-bold text-[#43f08a]">
+                              {gpm}
+                            </td>
+                            <td className="py-2.5 px-1.5 text-center text-neutral-300">{gapm}</td>
+                            <td className="py-2.5 pl-2 text-right font-bold text-white">
+                              {winPct}%
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* SUB-TAB 6: +EV QUANTITATIVE INSIGHTS */}
+            {hubSubTab === 'insights' && (
+              <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1">
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs space-y-1">
+                  <div className="font-bold text-emerald-300 flex items-center justify-between">
+                    <span>Stochastic League Edge — {activeLeague.name}</span>
+                    <span className="font-mono">{activeLeague.glance?.goalsPerMatch || '2.72'} гола/мач</span>
+                  </div>
+                  <p className="text-[11px] text-neutral-300">
+                    Математически анализ на база официалното класиране и голова ефективност от API-Football v3.
+                  </p>
+                </div>
+
+                {activeLeague.upcomingFixtures.slice(0, 4).map((fx) => {
+                  const homeRow = activeLeague.standings.find((s) => s.club === fx.homeTeam);
+                  const awayRow = activeLeague.standings.find((s) => s.club === fx.awayTeam);
+                  const homeGpm = homeRow ? homeRow.gf / Math.max(1, homeRow.p) : 1.45;
+                  const awayGpm = awayRow ? awayRow.gf / Math.max(1, awayRow.p) : 1.2;
+                  const projTotal = (homeGpm + awayGpm).toFixed(2);
+                  return (
+                    <div
+                      key={fx.id}
+                      onClick={() => handleOpenFixtureMatch(fx)}
+                      className="p-3 rounded-xl border border-[#1a2636] bg-[#0d1520] hover:border-emerald-500/40 transition-colors cursor-pointer flex items-center justify-between gap-2"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-white truncate">
+                          {fx.homeTeam} vs {fx.awayTeam}
+                        </div>
+                        <div className="text-[10px] text-[#8f9cae] mt-0.5">
+                          {fx.dayLabel} · Прогнозни голове (λ):{' '}
+                          <span className="text-emerald-400 font-mono font-bold">{projTotal}</span>
+                        </div>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-[10px] font-mono font-bold text-emerald-300 shrink-0">
+                        Poisson Анализ →
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Bottom View Full Standings Link */}

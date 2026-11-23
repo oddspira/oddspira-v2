@@ -44,6 +44,14 @@ export default function AppView() {
   });
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<SelectedTeamTarget | null>(null);
+  const [initialLeagueTarget, setInitialLeagueTarget] = useState<{
+    leagueKey?: string;
+    leagueId?: number;
+    leagueName?: string;
+  } | null>(null);
+  const [initialTool, setInitialTool] = useState<
+    'ev' | 'poisson' | 'novig' | 'kelly' | 'dutching'
+  >('ev');
   const [isArchitectureOpen, setIsArchitectureOpen] = useState<boolean>(false);
   const [isAdminOpen, setIsAdminOpen] = useState<boolean>(false);
   const [legalModalTab, setLegalModalTab] = useState<LegalTab | null>(null);
@@ -98,7 +106,7 @@ export default function AppView() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  // Global listener for opening a dedicated Team Profile page from any team name/badge click
+  // Global listeners for opening a dedicated Team Profile page, Competition League, or Calculator Tool
   useEffect(() => {
     const onOpenTeamEvent = (e: Event) => {
       const custom = e as CustomEvent<SelectedTeamTarget>;
@@ -107,8 +115,47 @@ export default function AppView() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     };
+    const onOpenLeagueEvent = (e: Event) => {
+      const custom = e as CustomEvent<{
+        leagueKey?: string;
+        leagueId?: number;
+        leagueName?: string;
+      }>;
+      if (custom.detail) {
+        setInitialLeagueTarget({ ...custom.detail });
+        setSelectedTeam(null);
+        setSelectedMatchId(null);
+        setActiveTab('competitions');
+        if (window.location.pathname !== '/leagues') {
+          window.history.pushState({}, '', '/leagues');
+        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    };
+    const onOpenToolEvent = (e: Event) => {
+      const custom = e as CustomEvent<{
+        toolKey: 'ev' | 'poisson' | 'novig' | 'kelly' | 'dutching';
+      }>;
+      if (custom.detail?.toolKey) {
+        setInitialTool(custom.detail.toolKey);
+        setSelectedTeam(null);
+        setSelectedMatchId(null);
+        setActiveTab('tools');
+        if (window.location.pathname !== '/tools') {
+          window.history.pushState({}, '', '/tools');
+        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    };
+
     window.addEventListener('oddspira:open-team', onOpenTeamEvent);
-    return () => window.removeEventListener('oddspira:open-team', onOpenTeamEvent);
+    window.addEventListener('oddspira:open-league', onOpenLeagueEvent);
+    window.addEventListener('oddspira:open-tool', onOpenToolEvent);
+    return () => {
+      window.removeEventListener('oddspira:open-team', onOpenTeamEvent);
+      window.removeEventListener('oddspira:open-league', onOpenLeagueEvent);
+      window.removeEventListener('oddspira:open-tool', onOpenToolEvent);
+    };
   }, []);
 
   // Hydrate Live & Today's Matches from API-Football v3 when FOOTBALL_API_KEY is configured on server
@@ -421,6 +468,7 @@ export default function AppView() {
                 <HomeBentoGrid
                   language={language}
                   matches={matches}
+                  bets={bets}
                   setActiveTab={handleTabChange}
                   onLogBet={handleLogBetFromMatch}
                   onViewAllMatches={() => handleTabChange('live')}
@@ -450,6 +498,7 @@ export default function AppView() {
                   matches={matches}
                   setActiveTab={handleTabChange}
                   onOpenMatch={handleOpenMatchPage}
+                  initialLeagueTarget={initialLeagueTarget}
                 />
               )}
 
@@ -478,7 +527,7 @@ export default function AppView() {
 
               {/* 5. Инструменти */}
               {(activeTab === 'tools' || activeTab === 'calculators') && (
-                <CalculatorsHub language={language} />
+                <CalculatorsHub language={language} initialTool={initialTool} />
               )}
 
               {/* 6. Научи */}

@@ -183,6 +183,34 @@ export function openTeamProfile(payload: OpenTeamPayload, e?: React.MouseEvent):
   );
 }
 
+export function openCompetitionLeague(
+  target: { leagueKey?: string; leagueId?: number; leagueName?: string },
+  e?: React.MouseEvent
+): void {
+  if (e) {
+    e.stopPropagation();
+  }
+  window.dispatchEvent(
+    new CustomEvent('oddspira:open-league', {
+      detail: target,
+    })
+  );
+}
+
+export function openCalculatorTool(
+  toolKey: 'ev' | 'poisson' | 'novig' | 'kelly' | 'dutching',
+  e?: React.MouseEvent
+): void {
+  if (e) {
+    e.stopPropagation();
+  }
+  window.dispatchEvent(
+    new CustomEvent('oddspira:open-tool', {
+      detail: { toolKey },
+    })
+  );
+}
+
 interface LeagueBadgeProps {
   name: string;
   logoUrl?: string;

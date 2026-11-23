@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { ActiveTab, Language, Match } from '../types';
-import { TeamBadge, LeagueBadge, openTeamProfile } from './TeamBadge';
+import React, { useState, useEffect } from 'react';
+import { ActiveTab, BetRecord, Language, Match } from '../types';
+import { TeamBadge, LeagueBadge, openTeamProfile, openCompetitionLeague, openCalculatorTool } from './TeamBadge';
 
 interface TopMatchesSectionProps {
   language: Language;
   matches: Match[];
+  bets?: BetRecord[];
   setActiveTab: (tab: ActiveTab) => void;
   onLogBet?: (match: Match, selection: string, odds: number, ev: number) => void;
   onViewAllMatches?: () => void;
@@ -19,6 +20,7 @@ interface NewsItem {
   time: string;
   summary: string;
   category: 'epl' | 'laliga' | 'bundesliga' | 'ucl';
+  link?: string;
 }
 
 interface GuideCardItem {
@@ -34,6 +36,7 @@ interface GuideCardItem {
 export function TopMatchesSection({
   language,
   matches,
+  bets = [],
   setActiveTab,
   onLogBet,
   onViewAllMatches,
@@ -45,6 +48,40 @@ export function TopMatchesSection({
   const [selectedGuide, setSelectedGuide] = useState<GuideCardItem | null>(null);
   const [activeLeagueDot, setActiveLeagueDot] = useState<number>(0);
   const [emailInput, setEmailInput] = useState<string>('');
+  const [liveRssNews, setLiveRssNews] = useState<NewsItem[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/live/news')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (!active || !json?.ok || !Array.isArray(json.items)) return;
+        const mapped: NewsItem[] = json.items.slice(0, 4).map((it: any, i: number) => {
+          const cats: Array<'epl' | 'laliga' | 'bundesliga' | 'ucl'> = ['epl', 'laliga', 'bundesliga', 'ucl'];
+          let timeLabel = 'LIVE RSS';
+          if (it.pubDate) {
+            const diffMin = Math.max(1, Math.round((Date.now() - new Date(it.pubDate).getTime()) / 60000));
+            if (!Number.isNaN(diffMin)) {
+              timeLabel = diffMin < 60 ? `${diffMin}m` : `${Math.round(diffMin / 60)}h`;
+            }
+          }
+          return {
+            id: `rss-${i}`,
+            title: String(it.title || ''),
+            source: String(it.source || 'BBC Sport'),
+            time: timeLabel,
+            summary: String(it.description || it.title || ''),
+            category: cats[i % cats.length],
+            link: it.link ? String(it.link) : undefined,
+          };
+        });
+        if (mapped.length > 0) setLiveRssNews(mapped);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Select the 4 highest-profile matches today (prioritizing major 1st-division leagues over reserve/2nd-tier matches)
   const homeMatchIds = [
@@ -627,9 +664,10 @@ export function TopMatchesSection({
   const popularLeaguesData = [
     {
       id: 'epl',
+      apiLeagueId: 39,
       name: 'Premier League',
       matches: 380,
-      avgGoals: '1.96',
+      avgGoals: '2.85',
       renderCrest: () => (
         <div className="w-12 h-12 rounded-2xl bg-white/95 border border-purple-400/50 p-1.5 flex items-center justify-center shadow-[0_0_20px_rgba(147,51,234,0.25)]">
           <img
@@ -643,9 +681,10 @@ export function TopMatchesSection({
     },
     {
       id: 'laliga',
+      apiLeagueId: 140,
       name: 'La Liga',
       matches: 380,
-      avgGoals: '2.45',
+      avgGoals: '2.64',
       renderCrest: () => (
         <div className="w-12 h-12 rounded-2xl bg-white/95 border border-[#ff4b4b]/50 p-1.5 flex items-center justify-center shadow-[0_0_20px_rgba(239,68,68,0.2)]">
           <img
@@ -659,9 +698,10 @@ export function TopMatchesSection({
     },
     {
       id: 'seriea',
+      apiLeagueId: 135,
       name: 'Serie A',
       matches: 380,
-      avgGoals: '2.22',
+      avgGoals: '2.61',
       renderCrest: () => (
         <div className="w-12 h-12 rounded-2xl bg-white/95 border border-sky-400/50 p-1.5 flex items-center justify-center shadow-[0_0_20px_rgba(14,165,233,0.25)]">
           <img
@@ -675,9 +715,10 @@ export function TopMatchesSection({
     },
     {
       id: 'bundesliga',
+      apiLeagueId: 78,
       name: 'Bundesliga',
       matches: 306,
-      avgGoals: '2.78',
+      avgGoals: '3.14',
       renderCrest: () => (
         <div className="w-12 h-12 rounded-2xl bg-white/95 border border-red-400/50 p-1.5 flex items-center justify-center shadow-[0_0_20px_rgba(220,38,38,0.3)]">
           <img
@@ -691,9 +732,10 @@ export function TopMatchesSection({
     },
     {
       id: 'ucl',
+      apiLeagueId: 2,
       name: 'Champions League',
-      matches: 125,
-      avgGoals: '2.66',
+      matches: 189,
+      avgGoals: '2.96',
       renderCrest: () => (
         <div className="w-12 h-12 rounded-2xl bg-white/95 border border-slate-400/50 p-1.5 flex items-center justify-center shadow-[0_0_20px_rgba(148,163,184,0.2)]">
           <img
@@ -706,6 +748,46 @@ export function TopMatchesSection({
       ),
     },
   ];
+
+  // Real quantitative aggregations from live matches and SQLite Bet Tracker
+  const liveMatchesCount = matches.filter((m) => m.status === 'LIVE').length;
+  const valueSignalsCount = matches.filter((m) => Boolean(m.valueBetDetected)).length;
+
+  const activeBetsList = bets.filter((b) => b.status === 'PENDING');
+  const wonBetsList = bets.filter((b) => b.status === 'WON');
+  const lostBetsList = bets.filter((b) => b.status === 'LOST');
+
+  const wonProfitEur = wonBetsList.reduce((acc, b) => acc + (b.pnl || b.stake * (b.odds - 1)), 0);
+  const lostLossEur = lostBetsList.reduce((acc, b) => acc + Math.abs(b.pnl || -b.stake), 0);
+  const netProfitEur = bets
+    .filter((b) => b.status === 'WON' || b.status === 'LOST')
+    .reduce((acc, b) => acc + (b.pnl || 0), 0);
+  const settledStakedEur = bets
+    .filter((b) => b.status === 'WON' || b.status === 'LOST')
+    .reduce((acc, b) => acc + (b.stake || 0), 0);
+  const realRoiPct = settledStakedEur > 0 ? (netProfitEur / settledStakedEur) * 100 : 0;
+
+  const avgOver25Pct =
+    matches.length > 0
+      ? (matches.reduce((acc, m) => acc + (m.fairOdds?.over25Prob || 0.55), 0) / matches.length) * 100
+      : 56.4;
+  const avgHomeWinPct =
+    matches.length > 0
+      ? (matches.reduce((acc, m) => acc + (m.fairOdds?.homeProb || 0.45), 0) / matches.length) * 100
+      : 46.2;
+  const avgBttsPct =
+    matches.length > 0
+      ? (matches.reduce((acc, m) => acc + (m.fairOdds?.bttsProb || 0.52), 0) / matches.length) * 100
+      : 52.8;
+  const valueMatches = matches.filter((m) => m.valueBetDetected);
+  const avgEvEdgePct =
+    valueMatches.length > 0
+      ? valueMatches.reduce((acc, m) => acc + (m.valueBetDetected?.evPercent || 0), 0) / valueMatches.length
+      : bets.length > 0
+      ? bets.reduce((acc, b) => acc + (b.evPercent || 0), 0) / bets.length
+      : 4.8;
+
+  const displayedNewsItems = liveRssNews.length > 0 ? liveRssNews : t.newsItems;
 
   // Handle Newsletter Submit
   const handleNewsletterSubmit = (e: React.FormEvent) => {
@@ -888,7 +970,7 @@ export function TopMatchesSection({
               {/* 1. EV Calculator */}
               <button
                 type="button"
-                onClick={() => setActiveTab('tools')}
+                onClick={(e) => openCalculatorTool('ev', e)}
                 className="p-2 rounded-xl border border-emerald-500/40 bg-[#0d1917] hover:bg-[#11221f] transition-all flex flex-col items-center justify-center text-center gap-1 cursor-pointer group shadow-[0_0_15px_rgba(16,185,129,0.1)]"
               >
                 <span className="w-5 h-5 rounded-full border border-emerald-400/60 text-emerald-400 text-[10px] flex items-center justify-center font-bold font-mono">
@@ -902,7 +984,7 @@ export function TopMatchesSection({
               {/* 2. Poisson Calculator */}
               <button
                 type="button"
-                onClick={() => setActiveTab('analysis')}
+                onClick={(e) => openCalculatorTool('poisson', e)}
                 className="p-2 rounded-xl border border-[#1b2637] bg-[#0c131d] hover:border-emerald-500/50 hover:bg-[#111a28] transition-all flex flex-col items-center justify-center text-center gap-1 cursor-pointer group"
               >
                 <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -916,7 +998,7 @@ export function TopMatchesSection({
               {/* 3. No Margin Calculator */}
               <button
                 type="button"
-                onClick={() => setActiveTab('tools')}
+                onClick={(e) => openCalculatorTool('novig', e)}
                 className="p-2 rounded-xl border border-[#1b2637] bg-[#0c131d] hover:border-emerald-500/50 hover:bg-[#111a28] transition-all flex flex-col items-center justify-center text-center gap-1 cursor-pointer group"
               >
                 <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -931,7 +1013,7 @@ export function TopMatchesSection({
               {/* 4. Dutching Calculator */}
               <button
                 type="button"
-                onClick={() => setActiveTab('tools')}
+                onClick={(e) => openCalculatorTool('dutching', e)}
                 className="p-2 rounded-xl border border-[#1b2637] bg-[#0c131d] hover:border-emerald-500/50 hover:bg-[#111a28] transition-all flex flex-col items-center justify-center text-center gap-1 cursor-pointer group"
               >
                 <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -943,10 +1025,10 @@ export function TopMatchesSection({
                 </span>
               </button>
 
-              {/* 5. Bankroll Calculator */}
+              {/* 5. Bankroll / Kelly Calculator */}
               <button
                 type="button"
-                onClick={() => setActiveTab('bets')}
+                onClick={(e) => openCalculatorTool('kelly', e)}
                 className="p-2 rounded-xl border border-[#1b2637] bg-[#0c131d] hover:border-emerald-500/50 hover:bg-[#111a28] transition-all flex flex-col items-center justify-center text-center gap-1 cursor-pointer group"
               >
                 <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1010,7 +1092,7 @@ export function TopMatchesSection({
                 <div className="flex items-center gap-1.5 shrink-0 text-right">
                   <div>
                     <span className="block text-xs font-mono font-bold text-emerald-400 px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-center tabular-nums">
-                      23
+                      {liveMatchesCount || matches.length}
                     </span>
                     <span className="block text-[9px] text-neutral-400 mt-0.5">{t.liveAlerts}</span>
                   </div>
@@ -1020,7 +1102,7 @@ export function TopMatchesSection({
 
               {/* Item 2 */}
               <div
-                onClick={() => setActiveTab('competitions')}
+                onClick={() => setActiveTab('analysis')}
                 className="p-3 rounded-xl border border-[#182334] bg-[#0c131d] hover:border-emerald-500/40 hover:bg-[#101b28] transition-all cursor-pointer flex items-center justify-between gap-2.5 group"
               >
                 <div className="flex items-center gap-3 min-w-0">
@@ -1041,7 +1123,7 @@ export function TopMatchesSection({
                 <div className="flex items-center gap-1.5 shrink-0 text-right">
                   <div>
                     <span className="block text-xs font-mono font-bold text-emerald-400 px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-center tabular-nums">
-                      17
+                      {valueSignalsCount}
                     </span>
                     <span className="block text-[9px] text-neutral-400 mt-0.5">{t.newSignals}</span>
                   </div>
@@ -1072,7 +1154,7 @@ export function TopMatchesSection({
                 <div className="flex items-center gap-1.5 shrink-0 text-right">
                   <div>
                     <span className="block text-xs font-mono font-bold text-emerald-400 px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-center tabular-nums">
-                      6
+                      5
                     </span>
                     <span className="block text-[9px] text-neutral-400 mt-0.5">{t.toolsReady}</span>
                   </div>
@@ -1111,45 +1193,60 @@ export function TopMatchesSection({
                 className="p-3 rounded-xl border border-[#182334] bg-[#0c131d] hover:border-emerald-500/30 transition-colors text-center cursor-pointer"
               >
                 <span className="text-[11px] text-neutral-400 font-medium block">{t.activeBets}</span>
-                <span className="text-2xl font-black font-mono text-white block my-0.5 tabular-nums">14</span>
+                <span className="text-2xl font-black font-mono text-white block my-0.5 tabular-nums">
+                  {activeBetsList.length}
+                </span>
                 <span className="text-[10px] text-sky-400 block font-medium">{t.viewOpenBets}</span>
               </div>
 
-              {/* Won Today */}
+              {/* Won Bets */}
               <div
                 onClick={() => setActiveTab('bets')}
                 className="p-3 rounded-xl border border-[#182334] bg-[#0c131d] hover:border-emerald-500/30 transition-colors text-center cursor-pointer"
               >
                 <span className="text-[11px] text-neutral-400 font-medium block">{t.wonToday}</span>
-                <span className="text-2xl font-black font-mono text-emerald-400 block my-0.5 tabular-nums">7</span>
+                <span className="text-2xl font-black font-mono text-emerald-400 block my-0.5 tabular-nums">
+                  {wonBetsList.length}
+                </span>
                 <span className="text-[10px] text-emerald-400 block font-mono font-bold tabular-nums">
-                  +2.35 {t.units}
+                  +€{wonProfitEur.toFixed(0)}
                 </span>
               </div>
 
-              {/* Lost Today */}
+              {/* Lost Bets */}
               <div
                 onClick={() => setActiveTab('bets')}
                 className="p-3 rounded-xl border border-[#182334] bg-[#0c131d] hover:border-emerald-500/30 transition-colors text-center cursor-pointer"
               >
                 <span className="text-[11px] text-neutral-400 font-medium block">{t.lostToday}</span>
-                <span className="text-2xl font-black font-mono text-red-400 block my-0.5 tabular-nums">3</span>
+                <span className="text-2xl font-black font-mono text-red-400 block my-0.5 tabular-nums">
+                  {lostBetsList.length}
+                </span>
                 <span className="text-[10px] text-red-400/80 block font-mono tabular-nums">
-                  -0.80 {t.units}
+                  -€{lostLossEur.toFixed(0)}
                 </span>
               </div>
 
-              {/* Profit Today */}
+              {/* Net Profit */}
               <div
                 onClick={() => setActiveTab('bets')}
                 className="p-3 rounded-xl border border-[#182334] bg-[#0c131d] hover:border-emerald-500/30 transition-colors text-center cursor-pointer"
               >
                 <span className="text-[11px] text-neutral-400 font-medium block">{t.profitToday}</span>
-                <span className="text-2xl font-black font-mono text-emerald-400 block my-0.5 tabular-nums">
-                  +1.55
+                <span
+                  className={`text-xl sm:text-2xl font-black font-mono block my-0.5 tabular-nums ${
+                    netProfitEur >= 0 ? 'text-emerald-400' : 'text-red-400'
+                  }`}
+                >
+                  {netProfitEur >= 0 ? '+' : '-'}€{Math.abs(netProfitEur).toFixed(0)}
                 </span>
-                <span className="text-[10px] text-emerald-400 block font-mono font-bold tabular-nums">
-                  +3.21% ROI
+                <span
+                  className={`text-[10px] block font-mono font-bold tabular-nums ${
+                    realRoiPct >= 0 ? 'text-emerald-400' : 'text-red-400'
+                  }`}
+                >
+                  {realRoiPct >= 0 ? '+' : ''}
+                  {realRoiPct.toFixed(1)}% ROI
                 </span>
               </div>
             </div>
@@ -1216,7 +1313,9 @@ export function TopMatchesSection({
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
-                <span className="text-xs sm:text-sm font-bold font-mono text-white tabular-nums">61.3%</span>
+                <span className="text-xs sm:text-sm font-bold font-mono text-white tabular-nums">
+                  {avgOver25Pct.toFixed(1)}%
+                </span>
                 <span className="text-neutral-500 text-xs">›</span>
               </div>
             </div>
@@ -1242,7 +1341,9 @@ export function TopMatchesSection({
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
-                <span className="text-xs sm:text-sm font-bold font-mono text-white tabular-nums">47.8%</span>
+                <span className="text-xs sm:text-sm font-bold font-mono text-white tabular-nums">
+                  {avgHomeWinPct.toFixed(1)}%
+                </span>
                 <span className="text-neutral-500 text-xs">›</span>
               </div>
             </div>
@@ -1269,7 +1370,9 @@ export function TopMatchesSection({
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
-                <span className="text-xs sm:text-sm font-bold font-mono text-white tabular-nums">52.1%</span>
+                <span className="text-xs sm:text-sm font-bold font-mono text-white tabular-nums">
+                  {avgBttsPct.toFixed(1)}%
+                </span>
                 <span className="text-neutral-500 text-xs">›</span>
               </div>
             </div>
@@ -1295,7 +1398,9 @@ export function TopMatchesSection({
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
-                <span className="text-xs sm:text-sm font-bold font-mono text-emerald-400 tabular-nums">+7.6%</span>
+                <span className="text-xs sm:text-sm font-bold font-mono text-emerald-400 tabular-nums">
+                  +{avgEvEdgePct.toFixed(1)}%
+                </span>
                 <span className="text-neutral-500 text-xs">›</span>
               </div>
             </div>
@@ -1328,9 +1433,12 @@ export function TopMatchesSection({
             {popularLeaguesData.map((lg, idx) => (
               <div
                 key={lg.id}
-                onClick={() => {
+                onClick={(e) => {
                   setActiveLeagueDot(idx);
-                  setActiveTab('competitions');
+                  openCompetitionLeague(
+                    { leagueKey: lg.id, leagueId: lg.apiLeagueId, leagueName: lg.name },
+                    e
+                  );
                 }}
                 className="rounded-xl border border-[#1a2537] bg-[#0c131d] hover:border-emerald-500/40 hover:bg-[#101926] p-3 flex flex-col items-center justify-between text-center cursor-pointer transition-all group"
               >
@@ -1361,7 +1469,16 @@ export function TopMatchesSection({
                 key={dotIdx}
                 type="button"
                 aria-label={`League page ${dotIdx + 1}`}
-                onClick={() => setActiveLeagueDot(dotIdx)}
+                onClick={(e) => {
+                  setActiveLeagueDot(dotIdx);
+                  const lg = popularLeaguesData[dotIdx];
+                  if (lg) {
+                    openCompetitionLeague(
+                      { leagueKey: lg.id, leagueId: lg.apiLeagueId, leagueName: lg.name },
+                      e
+                    );
+                  }
+                }}
                 className={`h-1.5 rounded-full transition-all cursor-pointer ${
                   activeLeagueDot === dotIdx
                     ? 'w-3 bg-emerald-400'
@@ -1385,7 +1502,7 @@ export function TopMatchesSection({
             </div>
             <button
               type="button"
-              onClick={() => setSelectedNews(t.newsItems[0])}
+              onClick={() => setSelectedNews(displayedNewsItems[0])}
               className="text-xs font-semibold text-sky-400 hover:text-sky-300 transition-colors cursor-pointer"
             >
               {t.viewAll} ›
@@ -1393,7 +1510,7 @@ export function TopMatchesSection({
           </div>
 
           <div className="divide-y divide-[#152030]">
-            {t.newsItems.map((item, idx) => (
+            {displayedNewsItems.map((item, idx) => (
               <div
                 key={item.id}
                 onClick={() => setSelectedNews(item)}
@@ -1801,7 +1918,19 @@ export function TopMatchesSection({
             <p className="text-xs text-neutral-300 leading-relaxed">
               {selectedNews.summary}
             </p>
-            <div className="pt-2 flex justify-end">
+            <div className="pt-2 flex items-center justify-between gap-2">
+              {selectedNews.link ? (
+                <a
+                  href={selectedNews.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/10 transition-colors"
+                >
+                  {language === 'bg' ? 'Отвори източника (BBC Sport) ↗' : 'Read on BBC Sport ↗'}
+                </a>
+              ) : (
+                <span />
+              )}
               <button
                 type="button"
                 onClick={() => setSelectedNews(null)}
