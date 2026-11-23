@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ActiveTab, Language, Match } from '../types';
-import { TeamBadge, LeagueBadge } from './TeamBadge';
+import { TeamBadge, LeagueBadge, openTeamProfile } from './TeamBadge';
 
 interface TopMatchesSectionProps {
   language: Language;
@@ -785,14 +785,30 @@ export function TopMatchesSection({
                   <div className="space-y-1.5 mb-3">
                     {/* Home Team */}
                     <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 min-w-0">
+                      <div
+                        onClick={(e) =>
+                          openTeamProfile(
+                            {
+                              teamId: m.homeTeamId,
+                              teamName: m.homeTeam,
+                              teamLogo: m.homeLogo,
+                              leagueId: m.leagueId,
+                              leagueName: m.league,
+                            },
+                            e
+                          )
+                        }
+                        className="flex items-center gap-1.5 min-w-0 cursor-pointer hover:text-emerald-300"
+                        title={`${m.homeTeam} — Профил на отбора`}
+                      >
                         <TeamBadge
                           name={m.homeTeam}
                           logoUrl={m.homeLogo}
+                          teamId={m.homeTeamId}
                           size="sm"
                           className="w-5 h-5 text-[9px]"
                         />
-                        <span className="text-xs sm:text-[13px] font-semibold text-white group-hover:text-emerald-300 transition-colors truncate">
+                        <span className="text-xs sm:text-[13px] font-semibold text-white hover:text-emerald-300 hover:underline transition-colors truncate">
                           {m.homeTeam}
                         </span>
                       </div>
@@ -805,14 +821,30 @@ export function TopMatchesSection({
 
                     {/* Away Team */}
                     <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 min-w-0">
+                      <div
+                        onClick={(e) =>
+                          openTeamProfile(
+                            {
+                              teamId: m.awayTeamId,
+                              teamName: m.awayTeam,
+                              teamLogo: m.awayLogo,
+                              leagueId: m.leagueId,
+                              leagueName: m.league,
+                            },
+                            e
+                          )
+                        }
+                        className="flex items-center gap-1.5 min-w-0 cursor-pointer hover:text-emerald-300"
+                        title={`${m.awayTeam} — Профил на отбора`}
+                      >
                         <TeamBadge
                           name={m.awayTeam}
                           logoUrl={m.awayLogo}
+                          teamId={m.awayTeamId}
                           size="sm"
                           className="w-5 h-5 text-[9px]"
                         />
-                        <span className="text-xs sm:text-[13px] font-semibold text-white group-hover:text-emerald-300 transition-colors truncate">
+                        <span className="text-xs sm:text-[13px] font-semibold text-white hover:text-emerald-300 hover:underline transition-colors truncate">
                           {m.awayTeam}
                         </span>
                       </div>

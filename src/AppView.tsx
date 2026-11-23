@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { ActiveTab, BetRecord, Language, Match } from './types';
+import { ActiveTab, BetRecord, Language, Match, SelectedTeamTarget } from './types';
 import { initialBets, initialMatches } from './data/mockMatches';
 import { Header } from './components/Header';
 import { registerMatchLogos } from './components/TeamBadge';
@@ -28,6 +28,7 @@ import {
   LegalTab,
 } from './components/LegalComplianceModal';
 import { MatchDetailPage } from './components/MatchDetailPage';
+import { TeamDetailPage } from './components/TeamDetailPage';
 import { Footer } from './components/Footer';
 
 export default function AppView() {
@@ -42,6 +43,7 @@ export default function AppView() {
     return 'home';
   });
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+  const [selectedTeam, setSelectedTeam] = useState<SelectedTeamTarget | null>(null);
   const [isArchitectureOpen, setIsArchitectureOpen] = useState<boolean>(false);
   const [isAdminOpen, setIsAdminOpen] = useState<boolean>(false);
   const [legalModalTab, setLegalModalTab] = useState<LegalTab | null>(null);
@@ -94,6 +96,19 @@ export default function AppView() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  // Global listener for opening a dedicated Team Profile page from any team name/badge click
+  useEffect(() => {
+    const onOpenTeamEvent = (e: Event) => {
+      const custom = e as CustomEvent<SelectedTeamTarget>;
+      if (custom.detail && custom.detail.teamName) {
+        setSelectedTeam(custom.detail);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    };
+    window.addEventListener('oddspira:open-team', onOpenTeamEvent);
+    return () => window.removeEventListener('oddspira:open-team', onOpenTeamEvent);
   }, []);
 
   // Hydrate Live & Today's Matches from API-Football v3 when FOOTBALL_API_KEY is configured on server
@@ -217,6 +232,7 @@ export default function AppView() {
 
   const handleTabChange = (tab: ActiveTab) => {
     setSelectedMatchId(null);
+    setSelectedTeam(null);
     setActiveTab(tab);
     const routeMap: Partial<Record<ActiveTab, string>> = {
       home: '/',
@@ -235,6 +251,7 @@ export default function AppView() {
   };
 
   const handleOpenMatchPage = (match: Match) => {
+    setSelectedTeam(null);
     setSelectedMatchId(match.id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -255,7 +272,9 @@ export default function AppView() {
       learn: 'Quant Академия: Научи +EV, Модела на Поасон, Dixon-Coles & CLV | Oddspira',
     };
 
-    const nextTitle = activeDetailMatch
+    const nextTitle = selectedTeam
+      ? `${selectedTeam.teamName} — Официален Профил, Класиране, Играчи & Статистика | Oddspira`
+      : activeDetailMatch
       ? `${activeDetailMatch.homeTeam} vs ${activeDetailMatch.awayTeam} — Математически +EV Анализ & Поасон Прогноза | Oddspira`
       : seoTitles[activeTab] || seoTitles.home!;
 
@@ -272,7 +291,7 @@ export default function AppView() {
     if (canonical) {
       canonical.setAttribute('href', window.location.origin + window.location.pathname);
     }
-  }, [activeTab, activeDetailMatch, language]);
+  }, [activeTab, activeDetailMatch, selectedTeam, language]);
 
   const handleLogBetFromMatch = (
     match: Match,
@@ -362,8 +381,8 @@ export default function AppView() {
         onOpenMatch={handleOpenMatchPage}
       />
 
-      {/* Hero Showcase (displayed ONLY on the Main Homepage 'home' when no match page is open) */}
-      {isHomeTab && !activeDetailMatch && (
+      {/* Hero Showcase (displayed ONLY on the Main Homepage 'home' when no match or team page is open) */}
+      {isHomeTab && !activeDetailMatch && !selectedTeam && (
         <HeroShowcase
           language={language}
           setActiveTab={handleTabChange}
@@ -375,8 +394,17 @@ export default function AppView() {
       <main className="flex-1 max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
         {/* Main Section Content */}
         <div>
-          {/* Dedicated Match Detail Page when a match is clicked */}
-          {activeDetailMatch ? (
+          {/* Dedicated Team Detail Page when any team name or emblem is clicked */}
+          {selectedTeam ? (
+            <TeamDetailPage
+              language={language}
+              target={selectedTeam}
+              allMatches={matches}
+              onBack={() => setSelectedTeam(null)}
+              onSelectMatch={handleOpenMatchPage}
+              setActiveTab={handleTabChange}
+            />
+          ) : activeDetailMatch ? (
             <MatchDetailPage
               language={language}
               match={activeDetailMatch}

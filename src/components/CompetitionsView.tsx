@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ActiveTab, Language, Match } from '../types';
-import { registerMatchLogos, TeamBadge } from './TeamBadge';
+import { registerMatchLogos, TeamBadge, openTeamProfile } from './TeamBadge';
 
 interface CompetitionsViewProps {
   language?: Language;
@@ -12,6 +12,7 @@ interface CompetitionsViewProps {
 
 interface StandingRow {
   rank: number;
+  teamId?: number;
   club: string;
   clubLogo?: string;
   p: number;
@@ -29,6 +30,7 @@ interface TopScorerRow {
   rank: number;
   name: string;
   photo?: string;
+  teamId?: number;
   club: string;
   clubLogo?: string;
   goals: number;
@@ -41,8 +43,10 @@ interface TopScorerRow {
 interface UpcomingFixtureRow {
   id: string;
   dayLabel: string;
+  homeTeamId?: number;
   homeTeam: string;
   homeLogo?: string;
+  awayTeamId?: number;
   awayTeam: string;
   awayLogo?: string;
   time: string;
@@ -1169,7 +1173,17 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                   {displayedStandings.map((row) => (
                     <tr
                       key={row.rank}
-                      className="hover:bg-[#0e1622] transition-colors"
+                      onClick={() =>
+                        openTeamProfile({
+                          teamId: row.teamId,
+                          teamName: row.club,
+                          teamLogo: row.clubLogo,
+                          leagueId: activeLeague.apiLeagueId,
+                          leagueName: activeLeague.name,
+                        })
+                      }
+                      className="hover:bg-[#0e1622] transition-colors cursor-pointer group"
+                      title={`${row.club} — Отвори профила на отбора`}
                     >
                       <td className="py-2.5 pr-2 font-bold text-neutral-300">
                         <span className="inline-flex items-center gap-1">
@@ -1182,10 +1196,11 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                           <TeamBadge
                             name={row.club}
                             logoUrl={row.clubLogo}
+                            teamId={row.teamId}
                             size="sm"
                             className="w-5 h-5 text-[8px]"
                           />
-                          <span className="font-bold text-white truncate max-w-[125px]">
+                          <span className="font-bold text-white group-hover:text-[#43f08a] group-hover:underline truncate max-w-[125px] transition-colors">
                             {row.club}
                           </span>
                         </div>
@@ -1268,7 +1283,24 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                   <div className="min-w-0">
                     <div className="text-xs font-bold text-white truncate">{sc.name}</div>
                     <div className="text-[10px] text-[#8f9cae] truncate">
-                      {sc.club}
+                      <button
+                        type="button"
+                        onClick={(e) =>
+                          openTeamProfile(
+                            {
+                              teamId: sc.teamId,
+                              teamName: sc.club,
+                              teamLogo: sc.clubLogo,
+                              leagueId: activeLeague.apiLeagueId,
+                              leagueName: activeLeague.name,
+                            },
+                            e
+                          )
+                        }
+                        className="hover:text-[#43f08a] hover:underline cursor-pointer"
+                      >
+                        {sc.club}
+                      </button>
                       {typeof sc.assists === 'number' && sc.assists > 0
                         ? ` · ${sc.assists} асист.`
                         : ''}
@@ -1313,13 +1345,28 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                 >
                   <span className="text-[10px] text-[#8f9cae] block">{fx.dayLabel}</span>
                   <div className="flex items-center justify-between gap-2 text-xs">
-                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                      <span className="font-bold text-white group-hover:text-[#43f08a] truncate">
+                    <div
+                      onClick={(e) =>
+                        openTeamProfile(
+                          {
+                            teamId: fx.homeTeamId,
+                            teamName: fx.homeTeam,
+                            teamLogo: fx.homeLogo,
+                            leagueId: activeLeague.apiLeagueId,
+                            leagueName: activeLeague.name,
+                          },
+                          e
+                        )
+                      }
+                      className="flex items-center gap-1.5 flex-1 min-w-0 cursor-pointer"
+                    >
+                      <span className="font-bold text-white hover:text-[#43f08a] hover:underline truncate">
                         {fx.homeTeam}
                       </span>
                       <TeamBadge
                         name={fx.homeTeam}
                         logoUrl={fx.homeLogo}
+                        teamId={fx.homeTeamId}
                         size="sm"
                         className="w-5 h-5 text-[8px]"
                       />
@@ -1329,14 +1376,29 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                       {fx.time}
                     </span>
 
-                    <div className="flex items-center justify-end gap-1.5 flex-1 min-w-0">
+                    <div
+                      onClick={(e) =>
+                        openTeamProfile(
+                          {
+                            teamId: fx.awayTeamId,
+                            teamName: fx.awayTeam,
+                            teamLogo: fx.awayLogo,
+                            leagueId: activeLeague.apiLeagueId,
+                            leagueName: activeLeague.name,
+                          },
+                          e
+                        )
+                      }
+                      className="flex items-center justify-end gap-1.5 flex-1 min-w-0 cursor-pointer"
+                    >
                       <TeamBadge
                         name={fx.awayTeam}
                         logoUrl={fx.awayLogo}
+                        teamId={fx.awayTeamId}
                         size="sm"
                         className="w-5 h-5 text-[8px]"
                       />
-                      <span className="font-bold text-white group-hover:text-[#43f08a] truncate">
+                      <span className="font-bold text-white hover:text-[#43f08a] hover:underline truncate">
                         {fx.awayTeam}
                       </span>
                     </div>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActiveTab, BetRecord, Language, Match } from '../types';
 import { computePoissonMatrix } from '../utils/mathModels';
-import { TeamBadge, LeagueBadge } from './TeamBadge';
+import { TeamBadge, LeagueBadge, openTeamProfile } from './TeamBadge';
 
 interface LiveMatchesBoardProps {
   language: Language;
@@ -1076,10 +1076,26 @@ export function LiveMatchesBoard({
                       <TeamBadge
                         name={featuredMatch.homeTeam}
                         logoUrl={featuredMatch.homeLogo}
+                        teamId={featuredMatch.homeTeamId}
                         size="md"
                       />
                       <div>
-                        <div className="text-sm sm:text-base font-extrabold text-white group-hover:text-[#43f08a] transition-colors leading-tight">
+                        <div
+                          onClick={(e) =>
+                            openTeamProfile(
+                              {
+                                teamId: featuredMatch.homeTeamId,
+                                teamName: featuredMatch.homeTeam,
+                                teamLogo: featuredMatch.homeLogo,
+                                leagueId: featuredMatch.leagueId,
+                                leagueName: featuredMatch.league,
+                              },
+                              e
+                            )
+                          }
+                          className="text-sm sm:text-base font-extrabold text-white hover:text-[#43f08a] hover:underline transition-colors leading-tight cursor-pointer"
+                          title={`${featuredMatch.homeTeam} — Профил на отбора`}
+                        >
                           {featuredMatch.homeTeam}
                         </div>
                         <div className="mt-1">{renderFormBadges(featuredMatch.homeTeam)}</div>
@@ -1102,7 +1118,22 @@ export function LiveMatchesBoard({
                     {/* Away Team */}
                     <div className="flex items-center gap-2.5 text-right">
                       <div>
-                        <div className="text-sm sm:text-base font-extrabold text-white group-hover:text-[#43f08a] transition-colors leading-tight">
+                        <div
+                          onClick={(e) =>
+                            openTeamProfile(
+                              {
+                                teamId: featuredMatch.awayTeamId,
+                                teamName: featuredMatch.awayTeam,
+                                teamLogo: featuredMatch.awayLogo,
+                                leagueId: featuredMatch.leagueId,
+                                leagueName: featuredMatch.league,
+                              },
+                              e
+                            )
+                          }
+                          className="text-sm sm:text-base font-extrabold text-white hover:text-[#43f08a] hover:underline transition-colors leading-tight cursor-pointer"
+                          title={`${featuredMatch.awayTeam} — Профил на отбора`}
+                        >
                           {featuredMatch.awayTeam}
                         </div>
                         <div className="mt-1 flex justify-end">
@@ -1112,6 +1143,7 @@ export function LiveMatchesBoard({
                       <TeamBadge
                         name={featuredMatch.awayTeam}
                         logoUrl={featuredMatch.awayLogo}
+                        teamId={featuredMatch.awayTeamId}
                         size="md"
                       />
                     </div>
@@ -1344,9 +1376,29 @@ export function LiveMatchesBoard({
 
                         {/* Home Team Row */}
                         <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <TeamBadge name={match.homeTeam} logoUrl={match.homeLogo} size="sm" />
-                            <span className="text-xs sm:text-sm font-bold text-white group-hover:text-[#43f08a] transition-colors truncate">
+                          <div
+                            onClick={(e) =>
+                              openTeamProfile(
+                                {
+                                  teamId: match.homeTeamId,
+                                  teamName: match.homeTeam,
+                                  teamLogo: match.homeLogo,
+                                  leagueId: match.leagueId,
+                                  leagueName: match.league,
+                                },
+                                e
+                              )
+                            }
+                            className="flex items-center gap-2 min-w-0 cursor-pointer"
+                            title={`${match.homeTeam} — Профил на отбора`}
+                          >
+                            <TeamBadge
+                              name={match.homeTeam}
+                              logoUrl={match.homeLogo}
+                              teamId={match.homeTeamId}
+                              size="sm"
+                            />
+                            <span className="text-xs sm:text-sm font-bold text-white hover:text-[#43f08a] hover:underline transition-colors truncate">
                               {match.homeTeam}
                             </span>
                           </div>
@@ -1355,9 +1407,29 @@ export function LiveMatchesBoard({
 
                         {/* Away Team Row */}
                         <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <TeamBadge name={match.awayTeam} logoUrl={match.awayLogo} size="sm" />
-                            <span className="text-xs sm:text-sm font-bold text-white group-hover:text-[#43f08a] transition-colors truncate">
+                          <div
+                            onClick={(e) =>
+                              openTeamProfile(
+                                {
+                                  teamId: match.awayTeamId,
+                                  teamName: match.awayTeam,
+                                  teamLogo: match.awayLogo,
+                                  leagueId: match.leagueId,
+                                  leagueName: match.league,
+                                },
+                                e
+                              )
+                            }
+                            className="flex items-center gap-2 min-w-0 cursor-pointer"
+                            title={`${match.awayTeam} — Профил на отбора`}
+                          >
+                            <TeamBadge
+                              name={match.awayTeam}
+                              logoUrl={match.awayLogo}
+                              teamId={match.awayTeamId}
+                              size="sm"
+                            />
+                            <span className="text-xs sm:text-sm font-bold text-white hover:text-[#43f08a] hover:underline transition-colors truncate">
                               {match.awayTeam}
                             </span>
                           </div>

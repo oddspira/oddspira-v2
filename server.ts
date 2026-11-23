@@ -1114,7 +1114,7 @@ async function startServer() {
       return;
     }
 
-    const cacheKey = 'football:normalized_live_feed_v8';
+    const cacheKey = 'football:normalized_live_feed_v9';
     const ttlMs = 2 * 60 * 1000; // 2 minutes SQLite cache
 
     try {
@@ -1467,11 +1467,14 @@ async function startServer() {
 
         return {
           id: `api-${fixId}`,
+          leagueId: leagueId ? Number(leagueId) : undefined,
           league,
           leagueCountry,
           leagueRound,
           leagueLogo,
           leagueFlag,
+          homeTeamId: homeTeamId ? Number(homeTeamId) : undefined,
+          awayTeamId: awayTeamId ? Number(awayTeamId) : undefined,
           homeTeam,
           awayTeam,
           homeLogo,
@@ -1576,7 +1579,7 @@ async function startServer() {
       return;
     }
 
-    const cacheKey = `football:match_intel_v4:${rawId}`;
+    const cacheKey = `football:match_intel_v5:${rawId}`;
     const ttlMs = 45 * 1000; // 45-second cache for live match telemetry
 
     const getCachedHelper = async (subKey: string, subTtlMs: number, url: string) => {
@@ -2075,9 +2078,12 @@ async function startServer() {
         found: true,
         fixtureId: `api-${rawId}`,
         date: fixtureDateFormatted,
+        leagueId: leagueId ? Number(leagueId) : undefined,
         league: leagueName,
         leagueCountry,
         leagueRound,
+        homeTeamId: homeTeamId ? Number(homeTeamId) : undefined,
+        awayTeamId: awayTeamId ? Number(awayTeamId) : undefined,
         homeTeam: homeTeamName,
         awayTeam: awayTeamName,
         homeLogo,
@@ -2133,7 +2139,7 @@ async function startServer() {
       return;
     }
 
-    const cacheKey = `football:league_intel_v4:${leagueId}:${requestedSeasonParam}`;
+    const cacheKey = `football:league_intel_v5:${leagueId}:${requestedSeasonParam}`;
     const ttlMs = 30 * 60 * 1000; // 30 minutes SQLite cache for fresh standings & fixtures
 
     try {
@@ -2225,6 +2231,7 @@ async function startServer() {
         const formStr = String(row?.form || '').slice(-5);
         return {
           rank: Number(row?.rank || 1),
+          teamId: row?.team?.id ? Number(row.team.id) : undefined,
           club: String(row?.team?.name || 'Club'),
           clubLogo: proxyMediaUrl(row?.team?.logo, 'teams', row?.team?.id),
           p: Number(row?.all?.played || 0),
@@ -2253,6 +2260,7 @@ async function startServer() {
           rank: idx + 1,
           name,
           photo: proxyMediaUrl(player?.photo, 'players', player?.id),
+          teamId: stat?.team?.id ? Number(stat.team.id) : undefined,
           club: String(stat?.team?.name || 'Club'),
           clubLogo: proxyMediaUrl(stat?.team?.logo, 'teams', stat?.team?.id),
           goals: Number(stat?.goals?.total || 0),
@@ -2326,8 +2334,10 @@ async function startServer() {
         return {
           id: `api-${fxId}`,
           dayLabel: rawRound ? `${dateStr} · ${rawRound}` : dateStr,
+          homeTeamId: fx?.teams?.home?.id ? Number(fx.teams.home.id) : undefined,
           homeTeam: String(fx?.teams?.home?.name || 'Home'),
           homeLogo: proxyMediaUrl(fx?.teams?.home?.logo, 'teams', fx?.teams?.home?.id),
+          awayTeamId: fx?.teams?.away?.id ? Number(fx.teams.away.id) : undefined,
           awayTeam: String(fx?.teams?.away?.name || 'Away'),
           awayLogo: proxyMediaUrl(fx?.teams?.away?.logo, 'teams', fx?.teams?.away?.id),
           time: isFinished
@@ -2392,6 +2402,584 @@ async function startServer() {
         upcomingFixtures: [],
         glance: null,
       });
+    }
+  });
+
+  // =========================================================================
+  // 4B. DEDICATED TEAM INTELLIGENCE ENDPOINT (100% REAL API-FOOTBALL v3 DATA)
+  //     Fetches Club Profile, Stadium, Active Coach, Official Squad/Players,
+  //     League Standings (with Home/Away split), Recent Results & Upcoming Fixtures.
+  //     Zero fabricated data: sections without real API data return null/[].
+  // =========================================================================
+  const KNOWN_TEAM_IDS: Record<string, number> = {
+    'manchester city': 50,
+    'man city': 50,
+    'manchester united': 33,
+    'man united': 33,
+    'man utd': 33,
+    'newcastle united': 34,
+    newcastle: 34,
+    arsenal: 42,
+    chelsea: 49,
+    liverpool: 40,
+    tottenham: 47,
+    'aston villa': 66,
+    'real madrid': 541,
+    barcelona: 529,
+    'atletico madrid': 530,
+    'athletic club': 531,
+    villarreal: 533,
+    'bayern munich': 157,
+    dortmund: 165,
+    'borussia dortmund': 165,
+    'bayer leverkusen': 168,
+    leverkusen: 168,
+    'inter milan': 505,
+    inter: 505,
+    'ac milan': 489,
+    juventus: 496,
+    'as roma': 497,
+    roma: 497,
+    atalanta: 499,
+    napoli: 492,
+    psg: 85,
+    'paris saint germain': 85,
+    lyon: 80,
+    'sporting cp': 228,
+    benfica: 211,
+    'young boys': 565,
+    'sturm graz': 637,
+  };
+
+  app.get('/api/football/team-intel', async (req: Request, res: Response) => {
+    const apiKey = (process.env.FOOTBALL_API_KEY || '').trim();
+    if (!apiKey) {
+      res.json({ configured: false, found: false });
+      return;
+    }
+
+    let resolvedTeamId = Number(req.query.teamId || 0);
+    const rawName = String(req.query.name || '').trim();
+    const hintLeagueId = Number(req.query.leagueId || 0);
+
+    if ((!resolvedTeamId || !Number.isFinite(resolvedTeamId)) && rawName) {
+      const lower = rawName.toLowerCase();
+      if (KNOWN_TEAM_IDS[lower]) {
+        resolvedTeamId = KNOWN_TEAM_IDS[lower];
+      }
+    }
+
+    const getCachedSub = async (subKey: string, subTtlMs: number, url: string) => {
+      try {
+        const row = db
+          .prepare('SELECT payload, updated_at FROM api_cache WHERE cache_key = ?')
+          .get(subKey) as { payload: string; updated_at: number } | undefined;
+        if (row && Date.now() - row.updated_at < subTtlMs) {
+          return JSON.parse(row.payload);
+        }
+        const r = await fetch(url, { headers: { 'x-apisports-key': apiKey } });
+        const j = (await r.json()) as { response?: Array<Record<string, any>> };
+        db.prepare(
+          'INSERT OR REPLACE INTO api_cache (cache_key, payload, updated_at) VALUES (?, ?, ?)'
+        ).run(subKey, JSON.stringify(j), Date.now());
+        return j;
+      } catch {
+        return null;
+      }
+    };
+
+    try {
+      // If we still don't have a numeric teamId, resolve it via API-Football /teams?name= or /teams?search=
+      if (!resolvedTeamId && rawName) {
+        const exactJson = await getCachedSub(
+          `football:team_lookup_exact_v1:${rawName.toLowerCase()}`,
+          24 * 60 * 60 * 1000,
+          `https://v3.football.api-sports.io/teams?name=${encodeURIComponent(rawName)}`
+        );
+        if (Array.isArray(exactJson?.response) && exactJson.response.length > 0) {
+          resolvedTeamId = Number(exactJson.response[0]?.team?.id || 0);
+        } else {
+          const cleanQuery = rawName.replace(/[^a-zA-Z0-9\s-]/g, ' ').trim();
+          if (cleanQuery.length >= 3) {
+            const searchJson = await getCachedSub(
+              `football:team_lookup_search_v1:${cleanQuery.toLowerCase()}`,
+              24 * 60 * 60 * 1000,
+              `https://v3.football.api-sports.io/teams?search=${encodeURIComponent(cleanQuery)}`
+            );
+            if (Array.isArray(searchJson?.response) && searchJson.response.length > 0) {
+              const best =
+                searchJson.response.find(
+                  (item: any) =>
+                    String(item?.team?.name || '').toLowerCase() === rawName.toLowerCase()
+                ) || searchJson.response[0];
+              resolvedTeamId = Number(best?.team?.id || 0);
+            }
+          }
+        }
+      }
+
+      if (!resolvedTeamId || !Number.isFinite(resolvedTeamId)) {
+        res.json({ configured: true, found: false });
+        return;
+      }
+
+      const mainCacheKey = `football:team_intel_v1:${resolvedTeamId}:${hintLeagueId || 'auto'}`;
+      const mainTtlMs = 15 * 60 * 1000; // 15 minutes cache for team profile & live standings
+      const cachedMain = db
+        .prepare('SELECT payload, updated_at FROM api_cache WHERE cache_key = ?')
+        .get(mainCacheKey) as { payload: string; updated_at: number } | undefined;
+
+      if (cachedMain && Date.now() - cachedMain.updated_at < mainTtlMs) {
+        res.json(JSON.parse(cachedMain.payload));
+        return;
+      }
+
+      // 1. Fetch Club Profile + Squad + Coach + Recent/Next Fixtures in parallel
+      const [teamInfoJson, squadJson, coachJson, lastFixturesJson, nextFixturesJson] =
+        await Promise.all([
+          getCachedSub(
+            `football:team_info_v1:${resolvedTeamId}`,
+            24 * 60 * 60 * 1000,
+            `https://v3.football.api-sports.io/teams?id=${resolvedTeamId}`
+          ),
+          getCachedSub(
+            `football:team_squad_v1:${resolvedTeamId}`,
+            12 * 60 * 60 * 1000,
+            `https://v3.football.api-sports.io/players/squads?team=${resolvedTeamId}`
+          ),
+          getCachedSub(
+            `football:team_coach_v1:${resolvedTeamId}`,
+            12 * 60 * 60 * 1000,
+            `https://v3.football.api-sports.io/coachs?team=${resolvedTeamId}`
+          ),
+          getCachedSub(
+            `football:team_fx_last10_v1:${resolvedTeamId}`,
+            30 * 60 * 1000,
+            `https://v3.football.api-sports.io/fixtures?team=${resolvedTeamId}&last=10`
+          ),
+          getCachedSub(
+            `football:team_fx_next8_v1:${resolvedTeamId}`,
+            30 * 60 * 1000,
+            `https://v3.football.api-sports.io/fixtures?team=${resolvedTeamId}&next=8`
+          ),
+        ]);
+
+      const rawTeamEntry = teamInfoJson?.response?.[0];
+      const teamData = rawTeamEntry?.team || {};
+      const venueData = rawTeamEntry?.venue || {};
+
+      const teamName = String(teamData?.name || rawName || `Team #${resolvedTeamId}`);
+      const teamLogo = proxyMediaUrl(teamData?.logo, 'teams', resolvedTeamId);
+
+      // Venue (ONLY if real venue name exists)
+      const venue =
+        venueData && venueData.name
+          ? {
+              id: venueData.id ? Number(venueData.id) : null,
+              name: String(venueData.name),
+              city: venueData.city ? String(venueData.city) : null,
+              address: venueData.address ? String(venueData.address) : null,
+              capacity:
+                venueData.capacity && Number(venueData.capacity) > 0
+                  ? Number(venueData.capacity)
+                  : null,
+              surface: venueData.surface ? String(venueData.surface) : null,
+              image: venueData.image
+                ? proxyMediaUrl(venueData.image, 'venues', venueData.id)
+                : null,
+            }
+          : null;
+
+      // Active Coach (ONLY if returned by API-Football)
+      let coach: {
+        id: number;
+        name: string;
+        age: number | null;
+        nationality: string | null;
+        photo: string;
+      } | null = null;
+      if (Array.isArray(coachJson?.response) && coachJson.response.length > 0) {
+        const activeCoach =
+          coachJson.response.find(
+            (c: any) =>
+              Array.isArray(c?.career) &&
+              c.career.some(
+                (car: any) => Number(car?.team?.id) === resolvedTeamId && car?.end === null
+              )
+          ) || coachJson.response[coachJson.response.length - 1];
+
+        if (activeCoach?.name) {
+          coach = {
+            id: Number(activeCoach.id || 0),
+            name: String(activeCoach.name),
+            age: activeCoach.age ? Number(activeCoach.age) : null,
+            nationality: activeCoach.nationality ? String(activeCoach.nationality) : null,
+            photo: proxyMediaUrl(activeCoach.photo, 'coachs', activeCoach.id),
+          };
+        }
+      }
+
+      // Official Squad / Players (ONLY if returned by API-Football)
+      const rawPlayers: Array<Record<string, any>> = Array.isArray(
+        squadJson?.response?.[0]?.players
+      )
+        ? squadJson.response[0].players
+        : [];
+      const squad = rawPlayers
+        .filter((p) => p?.name)
+        .map((p) => ({
+          id: Number(p.id || 0),
+          name: String(p.name),
+          age: p.age ? Number(p.age) : null,
+          number: p.number ? Number(p.number) : null,
+          position: String(p.position || 'Midfielder'),
+          photo: proxyMediaUrl(p.photo, 'players', p.id),
+        }));
+
+      // Combine fixtures (and if last=10 / next=8 returned nothing, fetch season fixtures for 2025 or 2024)
+      let allRawFixtures: Array<Record<string, any>> = [
+        ...(Array.isArray(lastFixturesJson?.response) ? lastFixturesJson.response : []),
+        ...(Array.isArray(nextFixturesJson?.response) ? nextFixturesJson.response : []),
+      ];
+
+      if (allRawFixtures.length === 0) {
+        const season2025Fx = await getCachedSub(
+          `football:team_fx_season_v1:${resolvedTeamId}:2025`,
+          2 * 60 * 60 * 1000,
+          `https://v3.football.api-sports.io/fixtures?team=${resolvedTeamId}&season=2025`
+        );
+        if (Array.isArray(season2025Fx?.response) && season2025Fx.response.length > 0) {
+          allRawFixtures = season2025Fx.response;
+        } else {
+          const season2024Fx = await getCachedSub(
+            `football:team_fx_season_v1:${resolvedTeamId}:2024`,
+            6 * 60 * 60 * 1000,
+            `https://v3.football.api-sports.io/fixtures?team=${resolvedTeamId}&season=2024`
+          );
+          if (Array.isArray(season2024Fx?.response)) {
+            allRawFixtures = season2024Fx.response;
+          }
+        }
+      }
+
+      // Deduplicate fixtures by ID
+      const fixtureById = new Map<number, Record<string, any>>();
+      for (const fx of allRawFixtures) {
+        const fid = Number(fx?.fixture?.id || 0);
+        if (fid > 0) fixtureById.set(fid, fx);
+      }
+      const uniqueFixtures = Array.from(fixtureById.values());
+
+      // Determine primary domestic league & active season from fixtures (or hintLeagueId)
+      let primaryLeagueId = hintLeagueId || 0;
+      let primaryLeagueName = '';
+      let primaryLeagueCountry = String(teamData?.country || '');
+      let primaryLeagueLogo = '';
+      let activeSeason = 2025;
+
+      if (uniqueFixtures.length > 0) {
+        // Sort newest fixtures first to inspect current season & league
+        const sortedByDateDesc = [...uniqueFixtures].sort(
+          (a, b) =>
+            new Date(b?.fixture?.date || 0).getTime() -
+            new Date(a?.fixture?.date || 0).getTime()
+        );
+        const domesticCandidate =
+          sortedByDateDesc.find(
+            (f) =>
+              !/(cup|friendly|trofeo|supercup|qualification)/i.test(
+                String(f?.league?.name || '')
+              )
+          ) || sortedByDateDesc[0];
+
+        if (domesticCandidate?.league) {
+          if (!primaryLeagueId) {
+            primaryLeagueId = Number(domesticCandidate.league.id || 0);
+          }
+          primaryLeagueName = String(domesticCandidate.league.name || '');
+          primaryLeagueCountry = String(
+            domesticCandidate.league.country || primaryLeagueCountry
+          );
+          primaryLeagueLogo = proxyMediaUrl(
+            domesticCandidate.league.logo,
+            'leagues',
+            domesticCandidate.league.id
+          );
+          if (domesticCandidate.league.season) {
+            activeSeason = Number(domesticCandidate.league.season);
+          }
+        }
+      }
+
+      const formatFixtureItem = (f: Record<string, any>) => {
+        const fid = Number(f?.fixture?.id || 0);
+        const fDate = f?.fixture?.date ? new Date(f.fixture.date) : null;
+        const shortSt = String(f?.fixture?.status?.short || 'NS');
+        const isFin = ['FT', 'AET', 'PEN'].includes(shortSt);
+        const isLv = ['1H', '2H', 'HT', 'ET', 'LIVE'].includes(shortSt);
+        const hId = Number(f?.teams?.home?.id || 0);
+        const aId = Number(f?.teams?.away?.id || 0);
+        const hName = String(f?.teams?.home?.name || 'Home');
+        const aName = String(f?.teams?.away?.name || 'Away');
+        const hGoals = Number(f?.goals?.home ?? 0);
+        const aGoals = Number(f?.goals?.away ?? 0);
+        const isTeamHome =
+          hId === resolvedTeamId || hName.toLowerCase() === teamName.toLowerCase();
+        const teamGoals = isTeamHome ? hGoals : aGoals;
+        const oppGoals = isTeamHome ? aGoals : hGoals;
+        const resChar: 'W' | 'D' | 'L' =
+          teamGoals > oppGoals ? 'W' : teamGoals === oppGoals ? 'D' : 'L';
+
+        const dateStr = fDate
+          ? fDate.toLocaleDateString('bg-BG', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+            })
+          : '';
+        const timeStr = fDate
+          ? fDate.toLocaleTimeString('bg-BG', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          : '';
+
+        return {
+          fixtureId: `api-${fid}`,
+          timestamp: fDate ? fDate.getTime() : 0,
+          date: dateStr,
+          time: timeStr,
+          status: isLv ? 'LIVE' : isFin ? 'FINISHED' : 'SCHEDULED',
+          minute: isLv ? Number(f?.fixture?.status?.elapsed || 1) : undefined,
+          leagueId: f?.league?.id ? Number(f.league.id) : undefined,
+          league: String(f?.league?.name || primaryLeagueName),
+          leagueLogo: proxyMediaUrl(f?.league?.logo, 'leagues', f?.league?.id),
+          round: String(f?.league?.round || '').replace(/Regular Season - (\d+)/i, 'Кръг $1'),
+          homeTeamId: hId || undefined,
+          homeTeam: hName,
+          homeLogo: proxyMediaUrl(f?.teams?.home?.logo, 'teams', hId),
+          awayTeamId: aId || undefined,
+          awayTeam: aName,
+          awayLogo: proxyMediaUrl(f?.teams?.away?.logo, 'teams', aId),
+          homeScore: hGoals,
+          awayScore: aGoals,
+          isHome: isTeamHome,
+          result: isFin ? resChar : undefined,
+        };
+      };
+
+      const mappedAllFixtures = uniqueFixtures.map(formatFixtureItem);
+      const recentMatches = mappedAllFixtures
+        .filter((m) => m.status === 'FINISHED')
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, 10);
+
+      const nowMinus3h = Date.now() - 3 * 60 * 60 * 1000;
+      const upcomingMatches = mappedAllFixtures
+        .filter((m) => m.status !== 'FINISHED' && m.timestamp >= nowMinus3h)
+        .sort((a, b) => a.timestamp - b.timestamp)
+        .slice(0, 8);
+
+      // 2. Fetch Official League Standings Table for this team
+      let standings: Array<Record<string, any>> = [];
+      let teamStanding: Record<string, any> | null = null;
+      let seasonLabel = `${activeSeason}/${String(activeSeason + 1).slice(-2)}`;
+
+      const loadLeagueStandingsForSeason = async (lId: number, yr: number) => {
+        if (!lId) return [];
+        const stJson = await getCachedSub(
+          `football:standings_v1:${lId}:${yr}`,
+          2 * 60 * 60 * 1000,
+          `https://v3.football.api-sports.io/standings?league=${lId}&season=${yr}`
+        );
+        const groups: Array<Array<Record<string, any>>> =
+          stJson?.response?.[0]?.league?.standings || [];
+        if (groups.length === 0) return [];
+        if (!primaryLeagueName && stJson?.response?.[0]?.league?.name) {
+          primaryLeagueName = String(stJson.response[0].league.name);
+          primaryLeagueLogo = proxyMediaUrl(
+            stJson.response[0].league.logo,
+            'leagues',
+            stJson.response[0].league.id
+          );
+        }
+        for (const grp of groups) {
+          if (
+            Array.isArray(grp) &&
+            grp.some((r) => Number(r?.team?.id) === resolvedTeamId)
+          ) {
+            return grp;
+          }
+        }
+        return groups[0] || [];
+      };
+
+      let rawStandingGroup = await loadLeagueStandingsForSeason(primaryLeagueId, activeSeason);
+      if (rawStandingGroup.length === 0 && primaryLeagueId) {
+        const prevYr = activeSeason - 1;
+        rawStandingGroup = await loadLeagueStandingsForSeason(primaryLeagueId, prevYr);
+        if (rawStandingGroup.length > 0) {
+          activeSeason = prevYr;
+          seasonLabel = `${prevYr}/${String(prevYr + 1).slice(-2)}`;
+        }
+      }
+
+      // If primaryLeagueId wasn't known or had no table, try /standings?team={teamId}&season=2025 (then 2024)
+      if (rawStandingGroup.length === 0) {
+        for (const yr of [2025, 2024]) {
+          const teamStJson = await getCachedSub(
+            `football:team_standings_direct_v1:${resolvedTeamId}:${yr}`,
+            2 * 60 * 60 * 1000,
+            `https://v3.football.api-sports.io/standings?team=${resolvedTeamId}&season=${yr}`
+          );
+          const foundLeagueId = Number(teamStJson?.response?.[0]?.league?.id || 0);
+          if (foundLeagueId > 0) {
+            primaryLeagueId = foundLeagueId;
+            activeSeason = yr;
+            seasonLabel = `${yr}/${String(yr + 1).slice(-2)}`;
+            rawStandingGroup = await loadLeagueStandingsForSeason(foundLeagueId, yr);
+            if (rawStandingGroup.length > 0) break;
+          }
+        }
+      }
+
+      if (rawStandingGroup.length > 0) {
+        standings = rawStandingGroup.map((row) => {
+          const gdNum = Number(row?.goalsDiff || 0);
+          const formStr = String(row?.form || '').slice(-5);
+          const rowTeamId = Number(row?.team?.id || 0);
+          const mappedRow = {
+            rank: Number(row?.rank || 1),
+            teamId: rowTeamId || undefined,
+            club: String(row?.team?.name || 'Club'),
+            clubLogo: proxyMediaUrl(row?.team?.logo, 'teams', rowTeamId),
+            description: row?.description ? String(row.description) : null,
+            p: Number(row?.all?.played || 0),
+            w: Number(row?.all?.win || 0),
+            d: Number(row?.all?.draw || 0),
+            l: Number(row?.all?.lose || 0),
+            gf: Number(row?.all?.goals?.for || 0),
+            ga: Number(row?.all?.goals?.against || 0),
+            gd: gdNum > 0 ? `+${gdNum}` : String(gdNum),
+            pts: Number(row?.points || 0),
+            form: formStr.split('').filter((c) => c === 'W' || c === 'D' || c === 'L'),
+            home: {
+              p: Number(row?.home?.played || 0),
+              w: Number(row?.home?.win || 0),
+              d: Number(row?.home?.draw || 0),
+              l: Number(row?.home?.lose || 0),
+              gf: Number(row?.home?.goals?.for || 0),
+              ga: Number(row?.home?.goals?.against || 0),
+            },
+            away: {
+              p: Number(row?.away?.played || 0),
+              w: Number(row?.away?.win || 0),
+              d: Number(row?.away?.draw || 0),
+              l: Number(row?.away?.lose || 0),
+              gf: Number(row?.away?.goals?.for || 0),
+              ga: Number(row?.away?.goals?.against || 0),
+            },
+          };
+          return mappedRow;
+        });
+
+        teamStanding =
+          standings.find(
+            (r) =>
+              r.teamId === resolvedTeamId ||
+              String(r.club || '').toLowerCase() === teamName.toLowerCase()
+          ) || null;
+      }
+
+      // 3. Compute 100% Real Analytical Summary strictly from real matches & official standings
+      let realStatsSummary: Record<string, any> | null = null;
+      if (teamStanding || recentMatches.length > 0) {
+        const sampleCount = recentMatches.length;
+        let cleanSheets = 0;
+        let failedToScore = 0;
+        let bttsCount = 0;
+        let over25Count = 0;
+        let sampleGoalsFor = 0;
+        let sampleGoalsAgainst = 0;
+
+        for (const m of recentMatches) {
+          const gf = m.isHome ? m.homeScore : m.awayScore;
+          const ga = m.isHome ? m.awayScore : m.homeScore;
+          sampleGoalsFor += gf;
+          sampleGoalsAgainst += ga;
+          if (ga === 0) cleanSheets++;
+          if (gf === 0) failedToScore++;
+          if (gf > 0 && ga > 0) bttsCount++;
+          if (gf + ga >= 3) over25Count++;
+        }
+
+        const totalPlayed = teamStanding ? teamStanding.p : sampleCount;
+        const totalGf = teamStanding ? teamStanding.gf : sampleGoalsFor;
+        const totalGa = teamStanding ? teamStanding.ga : sampleGoalsAgainst;
+
+        realStatsSummary = {
+          played: totalPlayed,
+          wins: teamStanding ? teamStanding.w : recentMatches.filter((m) => m.result === 'W').length,
+          draws: teamStanding ? teamStanding.d : recentMatches.filter((m) => m.result === 'D').length,
+          losses: teamStanding ? teamStanding.l : recentMatches.filter((m) => m.result === 'L').length,
+          goalsFor: totalGf,
+          goalsAgainst: totalGa,
+          avgGoalsFor: totalPlayed > 0 ? Number((totalGf / totalPlayed).toFixed(2)) : 0,
+          avgGoalsAgainst: totalPlayed > 0 ? Number((totalGa / totalPlayed).toFixed(2)) : 0,
+          sampleMatchesCount: sampleCount,
+          cleanSheets,
+          failedToScore,
+          bttsCount,
+          over25Count,
+          bttsPercent: sampleCount > 0 ? Math.round((bttsCount / sampleCount) * 100) : null,
+          over25Percent: sampleCount > 0 ? Math.round((over25Count / sampleCount) * 100) : null,
+          cleanSheetPercent:
+            sampleCount > 0 ? Math.round((cleanSheets / sampleCount) * 100) : null,
+        };
+      }
+
+      const payload = {
+        configured: true,
+        found: true,
+        team: {
+          id: resolvedTeamId,
+          name: teamName,
+          code: teamData?.code ? String(teamData.code) : null,
+          country: teamData?.country ? String(teamData.country) : primaryLeagueCountry || null,
+          founded:
+            teamData?.founded && Number(teamData.founded) > 1800
+              ? Number(teamData.founded)
+              : null,
+          national: Boolean(teamData?.national),
+          logo: teamLogo,
+        },
+        league: primaryLeagueName
+          ? {
+              id: primaryLeagueId || null,
+              name: primaryLeagueName,
+              country: primaryLeagueCountry || null,
+              logo: primaryLeagueLogo || null,
+              seasonLabel,
+            }
+          : null,
+        venue,
+        coach,
+        squad,
+        standings,
+        teamStanding,
+        recentMatches,
+        upcomingMatches,
+        realStatsSummary,
+      };
+
+      db.prepare(
+        'INSERT OR REPLACE INTO api_cache (cache_key, payload, updated_at) VALUES (?, ?, ?)'
+      ).run(mainCacheKey, JSON.stringify(payload), Date.now());
+
+      res.json(payload);
+    } catch (err) {
+      console.error('Team intel error:', err);
+      res.json({ configured: true, found: false });
     }
   });
 

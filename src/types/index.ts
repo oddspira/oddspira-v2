@@ -42,13 +42,24 @@ export interface MatchEvent {
   description: string;
 }
 
+export interface SelectedTeamTarget {
+  teamId?: number;
+  teamName: string;
+  teamLogo?: string;
+  leagueId?: number;
+  leagueName?: string;
+}
+
 export interface Match {
   id: string;
+  leagueId?: number;
   league: string;
   leagueCountry: string;
   leagueRound?: string;
   leagueLogo?: string;
   leagueFlag?: string;
+  homeTeamId?: number;
+  awayTeamId?: number;
   homeTeam: string;
   awayTeam: string;
   homeLogo?: string;

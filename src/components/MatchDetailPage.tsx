@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActiveTab, Language, Match } from '../types';
 import { computePoissonMatrix } from '../utils/mathModels';
-import { TeamBadge, LeagueBadge, registerMatchLogos } from './TeamBadge';
+import { TeamBadge, LeagueBadge, openTeamProfile, registerMatchLogos } from './TeamBadge';
 
 export interface FormMatchItem {
   fixtureId?: string | number;
@@ -1159,21 +1159,30 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
               return (
                 <tr
                   key={`${row.rank}-${row.club}`}
-                  className={`transition-colors ${
+                  onClick={() =>
+                    openTeamProfile({
+                      teamId: row.teamId,
+                      teamName: row.club,
+                      teamLogo: row.clubLogo,
+                      leagueName: liveIntel?.league || match.league,
+                    })
+                  }
+                  className={`transition-colors cursor-pointer group ${
                     isMatchTeam
                       ? 'bg-[#0f291e]/90 border-l-2 border-l-[#43f08a]'
                       : 'hover:bg-[#0e1622]'
                   }`}
+                  title={`${row.club} — Отвори профила на отбора`}
                 >
                   <td className="py-2 pl-2 pr-1 font-mono text-[11px] font-bold text-[#8f9cae]">
                     {row.rank}
                   </td>
                   <td className="py-2 px-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <TeamBadge name={row.club} logoUrl={row.clubLogo} size="sm" />
+                      <TeamBadge name={row.club} logoUrl={row.clubLogo} teamId={row.teamId} size="sm" />
                       <span
-                        className={`truncate ${
-                          isMatchTeam ? 'font-extrabold text-[#43f08a]' : 'font-semibold text-white'
+                        className={`truncate group-hover:underline ${
+                          isMatchTeam ? 'font-extrabold text-[#43f08a]' : 'font-semibold text-white group-hover:text-[#43f08a]'
                         }`}
                       >
                         {row.club}
@@ -1347,11 +1356,27 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
               <TeamBadge
                 name={match.homeTeam}
                 logoUrl={liveIntel?.homeLogo || match.homeLogo}
+                teamId={match.homeTeamId}
                 size="lg"
                 className="w-16 h-16 text-base rounded-2xl"
               />
               <div className="space-y-1.5">
-                <h1 className="text-lg sm:text-2xl font-extrabold text-white tracking-tight leading-tight">
+                <h1
+                  onClick={(e) =>
+                    openTeamProfile(
+                      {
+                        teamId: match.homeTeamId,
+                        teamName: match.homeTeam,
+                        teamLogo: liveIntel?.homeLogo || match.homeLogo,
+                        leagueId: match.leagueId,
+                        leagueName: liveIntel?.league || match.league,
+                      },
+                      e
+                    )
+                  }
+                  className="text-lg sm:text-2xl font-extrabold text-white hover:text-[#43f08a] hover:underline tracking-tight leading-tight cursor-pointer transition-colors"
+                  title={`${match.homeTeam} — Отвори профила на отбора`}
+                >
                   {match.homeTeam}
                 </h1>
                 {renderInteractiveFormPills(meta.homeFormMatches)}
@@ -1387,7 +1412,22 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
             {/* Away Team (4 cols) */}
             <div className="sm:col-span-4 flex items-center justify-center sm:justify-end gap-4 text-right">
               <div className="space-y-1.5 flex flex-col items-end">
-                <h2 className="text-lg sm:text-2xl font-extrabold text-white tracking-tight leading-tight">
+                <h2
+                  onClick={(e) =>
+                    openTeamProfile(
+                      {
+                        teamId: match.awayTeamId,
+                        teamName: match.awayTeam,
+                        teamLogo: liveIntel?.awayLogo || match.awayLogo,
+                        leagueId: match.leagueId,
+                        leagueName: liveIntel?.league || match.league,
+                      },
+                      e
+                    )
+                  }
+                  className="text-lg sm:text-2xl font-extrabold text-white hover:text-[#43f08a] hover:underline tracking-tight leading-tight cursor-pointer transition-colors"
+                  title={`${match.awayTeam} — Отвори профила на отбора`}
+                >
                   {match.awayTeam}
                 </h2>
                 {renderInteractiveFormPills(meta.awayFormMatches)}
@@ -1401,6 +1441,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
               <TeamBadge
                 name={match.awayTeam}
                 logoUrl={liveIntel?.awayLogo || match.awayLogo}
+                teamId={match.awayTeamId}
                 size="lg"
                 className="w-16 h-16 text-base rounded-2xl"
               />

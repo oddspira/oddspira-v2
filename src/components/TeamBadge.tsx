@@ -140,6 +140,49 @@ export function getLeagueLogoUrl(leagueName: string, explicitLogo?: string): str
   return null;
 }
 
+export function extractTeamIdFromLogoUrl(
+  teamName: string,
+  explicitLogo?: string
+): number | undefined {
+  const url = getTeamLogoUrl(teamName, explicitLogo) || explicitLogo || '';
+  const m = String(url).match(/\/teams\/(\d+)\./i);
+  if (m && m[1]) {
+    const parsed = Number(m[1]);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  return undefined;
+}
+
+export interface OpenTeamPayload {
+  teamId?: number;
+  teamName: string;
+  teamLogo?: string;
+  leagueId?: number;
+  leagueName?: string;
+}
+
+export function openTeamProfile(payload: OpenTeamPayload, e?: React.MouseEvent): void {
+  if (e) {
+    e.stopPropagation();
+  }
+  if (!payload.teamName) return;
+  const resolvedLogo = getTeamLogoUrl(payload.teamName, payload.teamLogo) || payload.teamLogo;
+  const resolvedId =
+    payload.teamId || extractTeamIdFromLogoUrl(payload.teamName, resolvedLogo || undefined);
+
+  window.dispatchEvent(
+    new CustomEvent('oddspira:open-team', {
+      detail: {
+        teamId: resolvedId,
+        teamName: payload.teamName,
+        teamLogo: resolvedLogo || undefined,
+        leagueId: payload.leagueId,
+        leagueName: payload.leagueName,
+      },
+    })
+  );
+}
+
 interface LeagueBadgeProps {
   name: string;
   logoUrl?: string;
@@ -198,6 +241,10 @@ export const LeagueBadge: React.FC<LeagueBadgeProps> = ({
 interface TeamBadgeProps {
   name: string;
   logoUrl?: string;
+  teamId?: number;
+  leagueId?: number;
+  leagueName?: string;
+  clickable?: boolean;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
@@ -205,11 +252,30 @@ interface TeamBadgeProps {
 export const TeamBadge: React.FC<TeamBadgeProps> = ({
   name,
   logoUrl,
+  teamId,
+  leagueId,
+  leagueName,
+  clickable = true,
   size = 'md',
   className = '',
 }) => {
   const [imgError, setImgError] = useState(false);
   const resolvedLogo = getTeamLogoUrl(name, logoUrl);
+
+  const handleBadgeClick = clickable
+    ? (e: React.MouseEvent) => {
+        openTeamProfile(
+          {
+            teamId,
+            teamName: name,
+            teamLogo: resolvedLogo || logoUrl,
+            leagueId,
+            leagueName,
+          },
+          e
+        );
+      }
+    : undefined;
 
   useEffect(() => {
     setImgError(false);
@@ -597,8 +663,11 @@ export const TeamBadge: React.FC<TeamBadgeProps> = ({
   if (resolvedLogo && !imgError) {
     return (
       <div
-        className={`relative inline-flex items-center justify-center rounded-xl bg-[#0e1624] border border-[#223049] ${sizeMap[size]} shadow-sm shrink-0 overflow-hidden select-none p-0.5 ${className}`}
-        title={name}
+        onClick={handleBadgeClick}
+        className={`relative inline-flex items-center justify-center rounded-xl bg-[#0e1624] border border-[#223049] ${sizeMap[size]} shadow-sm shrink-0 overflow-hidden select-none p-0.5 ${
+          clickable ? 'cursor-pointer hover:border-[#43f08a]/60 transition-colors' : ''
+        } ${className}`}
+        title={clickable ? `${name} — Профил на отбора` : name}
         aria-label={name}
       >
         <img
@@ -614,8 +683,11 @@ export const TeamBadge: React.FC<TeamBadgeProps> = ({
 
   return (
     <div
-      className={`relative inline-flex items-center justify-center rounded-xl bg-gradient-to-br ${visuals.bg} border ${visuals.border} ${sizeMap[size]} shadow-md ${visuals.glow} shrink-0 overflow-hidden select-none font-mono tracking-tighter ${className}`}
-      title={name}
+      onClick={handleBadgeClick}
+      className={`relative inline-flex items-center justify-center rounded-xl bg-gradient-to-br ${visuals.bg} border ${visuals.border} ${sizeMap[size]} shadow-md ${visuals.glow} shrink-0 overflow-hidden select-none font-mono tracking-tighter ${
+        clickable ? 'cursor-pointer hover:border-[#43f08a]/60 transition-colors' : ''
+      } ${className}`}
+      title={clickable ? `${name} — Профил на отбора` : name}
       aria-label={name}
     >
       {/* Subtle glass reflex */}

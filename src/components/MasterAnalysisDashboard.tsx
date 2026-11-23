@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Language, Match } from '../types';
-import { TeamBadge } from './TeamBadge';
+import { TeamBadge, openTeamProfile } from './TeamBadge';
 import { computePoissonMatrix } from '../utils/mathModels';
 import { ANALYSIS_I18N } from '../utils/analysisI18n';
 
@@ -700,9 +700,28 @@ export function MasterAnalysisDashboard({
                 {/* Home Team */}
                 <div className="flex flex-col items-center sm:items-start text-center sm:text-left gap-2">
                   <div className="flex items-center gap-3">
-                    <TeamBadge name={activeMatch.homeTeam} logoUrl={activeMatch.homeLogo} size="lg" />
+                    <TeamBadge
+                      name={activeMatch.homeTeam}
+                      logoUrl={activeMatch.homeLogo}
+                      teamId={activeMatch.homeTeamId}
+                      size="lg"
+                    />
                     <div>
-                      <div className="text-base sm:text-lg font-extrabold text-white">
+                      <div
+                        onClick={(e) =>
+                          openTeamProfile(
+                            {
+                              teamId: activeMatch.homeTeamId,
+                              teamName: activeMatch.homeTeam,
+                              teamLogo: activeMatch.homeLogo,
+                              leagueId: activeMatch.leagueId,
+                              leagueName: activeMatch.league,
+                            },
+                            e
+                          )
+                        }
+                        className="text-base sm:text-lg font-extrabold text-white hover:text-[#43f08a] hover:underline cursor-pointer transition-colors"
+                      >
                         {activeMatch.homeTeam}
                       </div>
                       <div className="text-xs font-mono text-[#43f08a]">
@@ -732,9 +751,28 @@ export function MasterAnalysisDashboard({
                 {/* Away Team */}
                 <div className="flex flex-col items-center sm:items-end text-center sm:text-right gap-2">
                   <div className="flex items-center sm:flex-row-reverse gap-3">
-                    <TeamBadge name={activeMatch.awayTeam} logoUrl={activeMatch.awayLogo} size="lg" />
+                    <TeamBadge
+                      name={activeMatch.awayTeam}
+                      logoUrl={activeMatch.awayLogo}
+                      teamId={activeMatch.awayTeamId}
+                      size="lg"
+                    />
                     <div>
-                      <div className="text-base sm:text-lg font-extrabold text-white">
+                      <div
+                        onClick={(e) =>
+                          openTeamProfile(
+                            {
+                              teamId: activeMatch.awayTeamId,
+                              teamName: activeMatch.awayTeam,
+                              teamLogo: activeMatch.awayLogo,
+                              leagueId: activeMatch.leagueId,
+                              leagueName: activeMatch.league,
+                            },
+                            e
+                          )
+                        }
+                        className="text-base sm:text-lg font-extrabold text-white hover:text-[#43f08a] hover:underline cursor-pointer transition-colors"
+                      >
                         {activeMatch.awayTeam}
                       </div>
                       <div className="text-xs font-mono text-cyan-400">
