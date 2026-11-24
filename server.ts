@@ -2128,6 +2128,151 @@ async function startServer() {
     }
   });
 
+  // =========================================================================
+  // GLOBAL PROFESSIONAL LEAGUES CATALOG (24-HOUR SQLITE CACHE = 1 API CALL/DAY)
+  // Returns all active senior professional football leagues & cups worldwide
+  // =========================================================================
+  app.get('/api/football/leagues-catalog', async (_req: Request, res: Response) => {
+    const apiKey = (process.env.FOOTBALL_API_KEY || '').trim();
+    if (!apiKey) {
+      res.json({ configured: false, leagues: [], countries: [], totalLeagues: 0, totalCountries: 0 });
+      return;
+    }
+
+    const cacheKey = 'football:leagues_catalog_v1';
+    const ttlMs = 24 * 60 * 60 * 1000; // 24 hours cache (1 request/day)
+
+    try {
+      const cached = db
+        .prepare('SELECT payload, updated_at FROM api_cache WHERE cache_key = ?')
+        .get(cacheKey) as { payload: string; updated_at: number } | undefined;
+
+      if (cached && Date.now() - cached.updated_at < ttlMs) {
+        res.json(JSON.parse(cached.payload));
+        return;
+      }
+
+      const upstream = await fetch('https://v3.football.api-sports.io/leagues?current=true', {
+        headers: { 'x-apisports-key': apiKey },
+      });
+      const json = (await upstream.json()) as { response?: Array<Record<string, any>> };
+      const rawList = Array.isArray(json?.response) ? json.response : [];
+
+      const youthOrFriendlyRegex =
+        /\b(U1[4-9]|U2[0-3]|Under\s?\d+|Youth|Reserve|Reserves|Friendly|Friendlies|Amateur|Regional|Oberliga|Tercera|National\s?[23]|Serie\s?D|Non\s?League|State|Provincial|Women|Feminine|Femenina|Frauen)\b/i;
+
+      const seenIds = new Set<number>();
+      const catalog: Array<{
+        apiLeagueId: number;
+        name: string;
+        country: string;
+        countryCode: string | null;
+        type: 'domestic' | 'continental';
+        rawType: 'League' | 'Cup';
+        logo: string;
+        season: string;
+      }> = [];
+
+      for (const item of rawList) {
+        const lid = Number(item?.league?.id || 0);
+        const lname = String(item?.league?.name || '').trim();
+        const cname = String(item?.country?.name || 'World').trim();
+        if (!lid || !lname || seenIds.has(lid)) continue;
+
+        if (youthOrFriendlyRegex.test(`${lname} ${cname}`)) continue;
+
+        seenIds.add(lid);
+        const rawType: 'League' | 'Cup' =
+          String(item?.league?.type || 'League').toLowerCase() === 'cup' ? 'Cup' : 'League';
+        const isContinental =
+          cname === 'World' ||
+          cname === 'Europe' ||
+          rawType === 'Cup' ||
+          /\b(UEFA|Champions|Europa|Libertadores|Sudamericana|CONCACAF|AFC|CAF|World Cup|Euro|Copa America|Nations League)\b/i.test(
+            lname
+          );
+
+        const seasonsArr: Array<Record<string, any>> = Array.isArray(item?.seasons)
+          ? item.seasons
+          : [];
+        const currentS =
+          seasonsArr.find((s) => s?.current === true) || seasonsArr[seasonsArr.length - 1];
+        const yr = Number(currentS?.year || 2025);
+
+        catalog.push({
+          apiLeagueId: lid,
+          name: lname,
+          country: cname === 'World' ? 'International' : cname,
+          countryCode: item?.country?.code ? String(item.country.code) : null,
+          type: isContinental ? 'continental' : 'domestic',
+          rawType,
+          logo: proxyMediaUrl(item?.league?.logo, 'leagues', lid),
+          season: `${yr}/${String(yr + 1).slice(-2)}`,
+        });
+      }
+
+      const priorityCountriesOrder = [
+        'Bulgaria',
+        'England',
+        'Spain',
+        'Italy',
+        'Germany',
+        'France',
+        'International',
+        'Europe',
+        'Netherlands',
+        'Portugal',
+        'Turkey',
+        'Greece',
+        'Romania',
+        'Serbia',
+        'Croatia',
+        'Belgium',
+        'Scotland',
+        'Austria',
+        'Switzerland',
+        'Brazil',
+        'Argentina',
+        'USA',
+      ];
+      const prioMap = new Map<string, number>();
+      priorityCountriesOrder.forEach((c, i) => prioMap.set(c.toLowerCase(), i));
+
+      catalog.sort((a, b) => {
+        const pa = prioMap.get(a.country.toLowerCase()) ?? 999;
+        const pb = prioMap.get(b.country.toLowerCase()) ?? 999;
+        if (pa !== pb) return pa - pb;
+        if (a.country !== b.country) return a.country.localeCompare(b.country);
+        if (a.rawType !== b.rawType) return a.rawType === 'League' ? -1 : 1;
+        return a.apiLeagueId - b.apiLeagueId;
+      });
+
+      const countriesSet = new Set<string>();
+      for (const lg of catalog) {
+        countriesSet.add(lg.country);
+      }
+
+      const payload = {
+        configured: true,
+        totalLeagues: catalog.length,
+        totalCountries: countriesSet.size,
+        countries: Array.from(countriesSet),
+        leagues: catalog,
+      };
+
+      if (catalog.length > 0) {
+        db.prepare(
+          'INSERT OR REPLACE INTO api_cache (cache_key, payload, updated_at) VALUES (?, ?, ?)'
+        ).run(cacheKey, JSON.stringify(payload), Date.now());
+      }
+
+      res.json(payload);
+    } catch (err) {
+      console.error('Leagues catalog error:', err);
+      res.json({ configured: true, leagues: [], countries: [], totalLeagues: 0, totalCountries: 0 });
+    }
+  });
+
   // Real League Standings, Top Scorers, Upcoming Fixtures & Real League Stats via API-Football v3
   app.get('/api/football/league-intel/:leagueId', async (req: Request, res: Response) => {
     const leagueId = Number(req.params.leagueId || 39);

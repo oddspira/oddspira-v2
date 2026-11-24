@@ -111,245 +111,93 @@ interface LeagueHubData {
   glance: LeagueGlanceData | null;
 }
 
+interface GlobalCatalogLeague {
+  apiLeagueId: number;
+  name: string;
+  country: string;
+  countryCode: string | null;
+  type: 'domestic' | 'continental';
+  rawType: string;
+  logo: string;
+  season: number | string;
+}
+
+const createLeagueEntry = (
+  id: string,
+  apiLeagueId: number,
+  name: string,
+  country: string,
+  flag: string,
+  season: string,
+  region: LeagueHubData['region'],
+  type: LeagueHubData['type'] = 'domestic'
+): LeagueHubData => ({
+  id,
+  apiLeagueId,
+  name,
+  country,
+  flag,
+  season,
+  region,
+  type,
+  standings: [],
+  topScorers: [],
+  upcomingFixtures: [],
+  glance: null,
+});
+
+// Top 50 Most Popular Football Leagues & Tournaments Worldwide
 const LEAGUES_DATABASE: Record<string, LeagueHubData> = {
-  'premier-league': {
-    id: 'premier-league',
-    apiLeagueId: 39,
-    name: 'Premier League',
-    country: 'England',
-    flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
-    season: '2025/26',
-    region: 'europe',
-    type: 'domestic',
-    standings: [],
-    topScorers: [],
-    upcomingFixtures: [],
-    glance: null,
-  },
-  'la-liga': {
-    id: 'la-liga',
-    apiLeagueId: 140,
-    name: 'La Liga',
-    country: 'Spain',
-    flag: '🇪🇸',
-    season: '2025/26',
-    region: 'europe',
-    type: 'domestic',
-    standings: [],
-    topScorers: [],
-    upcomingFixtures: [],
-    glance: null,
-  },
-  'serie-a': {
-    id: 'serie-a',
-    apiLeagueId: 135,
-    name: 'Serie A',
-    country: 'Italy',
-    flag: '🇮🇹',
-    season: '2025/26',
-    region: 'europe',
-    type: 'domestic',
-    standings: [],
-    topScorers: [],
-    upcomingFixtures: [],
-    glance: null,
-  },
-  bundesliga: {
-    id: 'bundesliga',
-    apiLeagueId: 78,
-    name: 'Bundesliga',
-    country: 'Germany',
-    flag: '🇩🇪',
-    season: '2025/26',
-    region: 'europe',
-    type: 'domestic',
-    standings: [],
-    topScorers: [],
-    upcomingFixtures: [],
-    glance: null,
-  },
-  ucl: {
-    id: 'ucl',
-    apiLeagueId: 2,
-    name: 'UEFA Champions League',
-    country: 'Europe',
-    flag: '🇪🇺',
-    season: '2025/26',
-    region: 'europe',
-    type: 'continental',
-    standings: [],
-    topScorers: [],
-    upcomingFixtures: [],
-    glance: null,
-  },
-  'copa-libertadores': {
-    id: 'copa-libertadores',
-    apiLeagueId: 13,
-    name: 'Copa Libertadores',
-    country: 'South America',
-    flag: '🌎',
-    season: '2025',
-    region: 'south_america',
-    type: 'continental',
-    standings: [],
-    topScorers: [],
-    upcomingFixtures: [],
-    glance: null,
-  },
-  'ligue-1': {
-    id: 'ligue-1',
-    apiLeagueId: 61,
-    name: 'Ligue 1',
-    country: 'France',
-    flag: '🇫🇷',
-    season: '2025/26',
-    region: 'europe',
-    type: 'domestic',
-    standings: [],
-    topScorers: [],
-    upcomingFixtures: [],
-    glance: null,
-  },
-  eredivisie: {
-    id: 'eredivisie',
-    apiLeagueId: 88,
-    name: 'Eredivisie',
-    country: 'Netherlands',
-    flag: '🇳🇱',
-    season: '2025/26',
-    region: 'europe',
-    type: 'domestic',
-    standings: [],
-    topScorers: [],
-    upcomingFixtures: [],
-    glance: null,
-  },
-  'primeira-liga': {
-    id: 'primeira-liga',
-    apiLeagueId: 94,
-    name: 'Primeira Liga',
-    country: 'Portugal',
-    flag: '🇵🇹',
-    season: '2025/26',
-    region: 'europe',
-    type: 'domestic',
-    standings: [],
-    topScorers: [],
-    upcomingFixtures: [],
-    glance: null,
-  },
-  'argentina-primera': {
-    id: 'argentina-primera',
-    apiLeagueId: 128,
-    name: 'Liga Profesional',
-    country: 'Argentina',
-    flag: '🇦🇷',
-    season: '2025',
-    region: 'south_america',
-    type: 'domestic',
-    standings: [],
-    topScorers: [],
-    upcomingFixtures: [],
-    glance: null,
-  },
-  brasileirao: {
-    id: 'brasileirao',
-    apiLeagueId: 71,
-    name: 'Brasileirão Série A',
-    country: 'Brazil',
-    flag: '🇧🇷',
-    season: '2025',
-    region: 'south_america',
-    type: 'domestic',
-    standings: [],
-    topScorers: [],
-    upcomingFixtures: [],
-    glance: null,
-  },
-  mls: {
-    id: 'mls',
-    apiLeagueId: 253,
-    name: 'MLS',
-    country: 'United States',
-    flag: '🇺🇸',
-    season: '2025',
-    region: 'north_america',
-    type: 'domestic',
-    standings: [],
-    topScorers: [],
-    upcomingFixtures: [],
-    glance: null,
-  },
-  'bulgaria-first': {
-    id: 'bulgaria-first',
-    apiLeagueId: 172,
-    name: 'Първа лига (efbet Лига)',
-    country: 'Bulgaria',
-    flag: '🇧🇬',
-    season: '2025/26',
-    region: 'europe',
-    type: 'domestic',
-    standings: [],
-    topScorers: [],
-    upcomingFixtures: [],
-    glance: null,
-  },
-  uel: {
-    id: 'uel',
-    apiLeagueId: 3,
-    name: 'UEFA Europa League',
-    country: 'Europe',
-    flag: '🇪🇺',
-    season: '2025/26',
-    region: 'europe',
-    type: 'continental',
-    standings: [],
-    topScorers: [],
-    upcomingFixtures: [],
-    glance: null,
-  },
-  'super-lig': {
-    id: 'super-lig',
-    apiLeagueId: 203,
-    name: 'Süper Lig',
-    country: 'Turkey',
-    flag: '🇹🇷',
-    season: '2025/26',
-    region: 'europe',
-    type: 'domestic',
-    standings: [],
-    topScorers: [],
-    upcomingFixtures: [],
-    glance: null,
-  },
-  'saudi-pro': {
-    id: 'saudi-pro',
-    apiLeagueId: 307,
-    name: 'Saudi Pro League',
-    country: 'Saudi Arabia',
-    flag: '🇸🇦',
-    season: '2025/26',
-    region: 'asia',
-    type: 'domestic',
-    standings: [],
-    topScorers: [],
-    upcomingFixtures: [],
-    glance: null,
-  },
-  'egypt-premier': {
-    id: 'egypt-premier',
-    apiLeagueId: 233,
-    name: 'Egyptian Premier League',
-    country: 'Egypt',
-    flag: '🇪🇬',
-    season: '2025/26',
-    region: 'africa',
-    type: 'domestic',
-    standings: [],
-    topScorers: [],
-    upcomingFixtures: [],
-    glance: null,
-  },
+  'premier-league': createLeagueEntry('premier-league', 39, 'Premier League', 'England', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', '2025/26', 'europe', 'domestic'),
+  'la-liga': createLeagueEntry('la-liga', 140, 'La Liga', 'Spain', '🇪🇸', '2025/26', 'europe', 'domestic'),
+  'serie-a': createLeagueEntry('serie-a', 135, 'Serie A', 'Italy', '🇮🇹', '2025/26', 'europe', 'domestic'),
+  bundesliga: createLeagueEntry('bundesliga', 78, 'Bundesliga', 'Germany', '🇩🇪', '2025/26', 'europe', 'domestic'),
+  'ligue-1': createLeagueEntry('ligue-1', 61, 'Ligue 1', 'France', '🇫🇷', '2025/26', 'europe', 'domestic'),
+  ucl: createLeagueEntry('ucl', 2, 'UEFA Champions League', 'Europe', '🇪🇺', '2025/26', 'europe', 'continental'),
+  uel: createLeagueEntry('uel', 3, 'UEFA Europa League', 'Europe', '🇪🇺', '2025/26', 'europe', 'continental'),
+  uecl: createLeagueEntry('uecl', 848, 'UEFA Conference League', 'Europe', '🇪🇺', '2025/26', 'europe', 'continental'),
+  'bulgaria-first': createLeagueEntry('bulgaria-first', 172, 'Първа лига (efbet Лига)', 'Bulgaria', '🇧🇬', '2025/26', 'europe', 'domestic'),
+  'bulgaria-second': createLeagueEntry('bulgaria-second', 173, 'Втора лига (България)', 'Bulgaria', '🇧🇬', '2025/26', 'europe', 'domestic'),
+  'bulgaria-cup': createLeagueEntry('bulgaria-cup', 174, 'Купа на България', 'Bulgaria', '🇧🇬', '2025/26', 'europe', 'domestic'),
+  eredivisie: createLeagueEntry('eredivisie', 88, 'Eredivisie', 'Netherlands', '🇳🇱', '2025/26', 'europe', 'domestic'),
+  'primeira-liga': createLeagueEntry('primeira-liga', 94, 'Primeira Liga', 'Portugal', '🇵🇹', '2025/26', 'europe', 'domestic'),
+  'super-lig': createLeagueEntry('super-lig', 203, 'Süper Lig', 'Turkey', '🇹🇷', '2025/26', 'europe', 'domestic'),
+  championship: createLeagueEntry('championship', 40, 'Championship', 'England', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', '2025/26', 'europe', 'domestic'),
+  'fa-cup': createLeagueEntry('fa-cup', 45, 'FA Cup', 'England', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', '2025/26', 'europe', 'domestic'),
+  'la-liga-2': createLeagueEntry('la-liga-2', 141, 'LaLiga 2', 'Spain', '🇪🇸', '2025/26', 'europe', 'domestic'),
+  'serie-b': createLeagueEntry('serie-b', 136, 'Serie B', 'Italy', '🇮🇹', '2025/26', 'europe', 'domestic'),
+  '2-bundesliga': createLeagueEntry('2-bundesliga', 79, '2. Bundesliga', 'Germany', '🇩🇪', '2025/26', 'europe', 'domestic'),
+  'ligue-2': createLeagueEntry('ligue-2', 62, 'Ligue 2', 'France', '🇫🇷', '2025/26', 'europe', 'domestic'),
+  'belgium-pro': createLeagueEntry('belgium-pro', 144, 'Jupiler Pro League', 'Belgium', '🇧🇪', '2025/26', 'europe', 'domestic'),
+  'scotland-premiership': createLeagueEntry('scotland-premiership', 179, 'Premiership', 'Scotland', '🏴󠁧󠁢󠁳󠁣󠁴󠁿', '2025/26', 'europe', 'domestic'),
+  'greece-super-league': createLeagueEntry('greece-super-league', 197, 'Super League 1', 'Greece', '🇬🇷', '2025/26', 'europe', 'domestic'),
+  'austria-bundesliga': createLeagueEntry('austria-bundesliga', 218, 'Austrian Bundesliga', 'Austria', '🇦🇹', '2025/26', 'europe', 'domestic'),
+  'switzerland-super-league': createLeagueEntry('switzerland-super-league', 207, 'Swiss Super League', 'Switzerland', '🇨🇭', '2025/26', 'europe', 'domestic'),
+  'denmark-superliga': createLeagueEntry('denmark-superliga', 119, 'Superliga', 'Denmark', '🇩🇰', '2025/26', 'europe', 'domestic'),
+  'poland-ekstraklasa': createLeagueEntry('poland-ekstraklasa', 106, 'Ekstraklasa', 'Poland', '🇵🇱', '2025/26', 'europe', 'domestic'),
+  'czech-first-league': createLeagueEntry('czech-first-league', 345, 'Chance Liga', 'Czech-Republic', '🇨🇿', '2025/26', 'europe', 'domestic'),
+  'romania-liga-1': createLeagueEntry('romania-liga-1', 283, 'SuperLiga', 'Romania', '🇷🇴', '2025/26', 'europe', 'domestic'),
+  'serbia-super-liga': createLeagueEntry('serbia-super-liga', 286, 'Super Liga', 'Serbia', '🇷🇸', '2025/26', 'europe', 'domestic'),
+  'croatia-hnl': createLeagueEntry('croatia-hnl', 210, 'HNL', 'Croatia', '🇭🇷', '2025/26', 'europe', 'domestic'),
+  'norway-eliteserien': createLeagueEntry('norway-eliteserien', 103, 'Eliteserien', 'Norway', '🇳🇴', '2025', 'europe', 'domestic'),
+  'sweden-allsvenskan': createLeagueEntry('sweden-allsvenskan', 113, 'Allsvenskan', 'Sweden', '🇸🇪', '2025', 'europe', 'domestic'),
+  'ukraine-premier': createLeagueEntry('ukraine-premier', 333, 'Premier League', 'Ukraine', '🇺🇦', '2025/26', 'europe', 'domestic'),
+  'hungary-nb1': createLeagueEntry('hungary-nb1', 271, 'NB I', 'Hungary', '🇭🇺', '2025/26', 'europe', 'domestic'),
+  'cyprus-first': createLeagueEntry('cyprus-first', 318, '1. Division', 'Cyprus', '🇨🇾', '2025/26', 'europe', 'domestic'),
+  'copa-libertadores': createLeagueEntry('copa-libertadores', 13, 'Copa Libertadores', 'South America', '🌎', '2025', 'south_america', 'continental'),
+  'copa-sudamericana': createLeagueEntry('copa-sudamericana', 11, 'Copa Sudamericana', 'South America', '🌎', '2025', 'south_america', 'continental'),
+  brasileirao: createLeagueEntry('brasileirao', 71, 'Brasileirão Série A', 'Brazil', '🇧🇷', '2025', 'south_america', 'domestic'),
+  'argentina-primera': createLeagueEntry('argentina-primera', 128, 'Liga Profesional', 'Argentina', '🇦🇷', '2025', 'south_america', 'domestic'),
+  'colombia-primera-a': createLeagueEntry('colombia-primera-a', 239, 'Primera A', 'Colombia', '🇨🇴', '2025', 'south_america', 'domestic'),
+  'chile-primera': createLeagueEntry('chile-primera', 265, 'Primera División', 'Chile', '🇨🇱', '2025', 'south_america', 'domestic'),
+  mls: createLeagueEntry('mls', 253, 'MLS', 'USA', '🇺🇸', '2025', 'north_america', 'domestic'),
+  'liga-mx': createLeagueEntry('liga-mx', 262, 'Liga MX', 'Mexico', '🇲🇽', '2025/26', 'north_america', 'domestic'),
+  'saudi-pro': createLeagueEntry('saudi-pro', 307, 'Saudi Pro League', 'Saudi-Arabia', '🇸🇦', '2025/26', 'asia', 'domestic'),
+  'j1-league': createLeagueEntry('j1-league', 98, 'J1 League', 'Japan', '🇯🇵', '2025', 'asia', 'domestic'),
+  'k-league-1': createLeagueEntry('k-league-1', 292, 'K League 1', 'South-Korea', '🇰🇷', '2025', 'asia', 'domestic'),
+  'a-league': createLeagueEntry('a-league', 188, 'A-League', 'Australia', '🇦🇺', '2025/26', 'asia', 'domestic'),
+  'egypt-premier': createLeagueEntry('egypt-premier', 233, 'Egyptian Premier League', 'Egypt', '🇪🇬', '2025/26', 'africa', 'domestic'),
+  'morocco-botola': createLeagueEntry('morocco-botola', 200, 'Botola Pro', 'Morocco', '🇲🇦', '2025/26', 'africa', 'domestic'),
 };
 
 const DICT = {
@@ -627,12 +475,48 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
     'europe' | 'south_america' | 'north_america' | 'asia' | 'africa'
   >('europe');
 
-  // "Всички лиги" (All Leagues Directory Modal) state
+  // "Всички лиги" (All Leagues Directory Modal) & Full Global Catalog state
   const [showAllLeaguesModal, setShowAllLeaguesModal] = useState<boolean>(false);
   const [modalSearchQuery, setModalSearchQuery] = useState<string>('');
+  const [modalCountryFilter, setModalCountryFilter] = useState<string>('all');
+  const [modalVisibleLimit, setModalVisibleLimit] = useState<number>(90);
   const [modalRegionFilter, setModalRegionFilter] = useState<
-    'all' | 'europe' | 'south_america' | 'north_america' | 'asia' | 'africa' | 'today'
+    'all' | 'top50' | 'europe' | 'south_america' | 'north_america' | 'asia' | 'africa' | 'today'
   >('all');
+  const [featuredPage, setFeaturedPage] = useState<number>(0);
+
+  // Full Global Catalog of all active professional leagues & cups worldwide (cached 24h on backend)
+  const [globalCatalog, setGlobalCatalog] = useState<{
+    totalLeagues: number;
+    totalCountries: number;
+    countries: Array<{ name: string; count: number }>;
+    leagues: GlobalCatalogLeague[];
+  }>({
+    totalLeagues: 0,
+    totalCountries: 0,
+    countries: [],
+    leagues: [],
+  });
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/football/leagues-catalog')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (active && data && Array.isArray(data.leagues)) {
+          setGlobalCatalog({
+            totalLeagues: Number(data.totalLeagues) || data.leagues.length,
+            totalCountries: Number(data.totalCountries) || (data.countries?.length ?? 0),
+            countries: Array.isArray(data.countries) ? data.countries : [],
+            leagues: data.leagues,
+          });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Floating hover tooltip state for W/D/L form badges in Standings & Form tables
   const [hoveredFormBadge, setHoveredFormBadge] = useState<{
@@ -696,6 +580,27 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
     setSelectedLeagueKey(key);
   };
 
+  const selectAnyLeague = (info: {
+    apiLeagueId: number;
+    name: string;
+    country: string;
+    flag?: string;
+  }) => {
+    const builtIn = Object.values(LEAGUES_DATABASE).find(
+      (l) => l.apiLeagueId === info.apiLeagueId
+    );
+    if (builtIn) {
+      selectBuiltInLeague(builtIn.id);
+    } else {
+      setCustomLeagueOverride({
+        apiLeagueId: info.apiLeagueId,
+        name: info.name,
+        country: info.country,
+        flag: info.flag || '🌍',
+      });
+    }
+  };
+
   // Sync with initialLeagueTarget when navigated from Homepage Popular Leagues, TeamDetailPage, or MatchDetailPage
   useEffect(() => {
     if (!initialLeagueTarget) return;
@@ -709,6 +614,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       bundesliga: 'bundesliga',
       ucl: 'ucl',
       uel: 'uel',
+      uecl: 'uecl',
       'ligue-1': 'ligue-1',
       eredivisie: 'eredivisie',
       'primeira-liga': 'primeira-liga',
@@ -719,21 +625,13 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       return;
     }
     if (initialLeagueTarget.leagueId) {
-      const foundById = Object.values(LEAGUES_DATABASE).find(
-        (l) => l.apiLeagueId === initialLeagueTarget.leagueId
-      );
-      if (foundById) {
-        selectBuiltInLeague(foundById.id);
-        return;
-      } else {
-        setCustomLeagueOverride({
-          apiLeagueId: initialLeagueTarget.leagueId,
-          name: initialLeagueTarget.leagueName || `League #${initialLeagueTarget.leagueId}`,
-          country: 'International',
-          flag: '🏆',
-        });
-        return;
-      }
+      selectAnyLeague({
+        apiLeagueId: initialLeagueTarget.leagueId,
+        name: initialLeagueTarget.leagueName || `League #${initialLeagueTarget.leagueId}`,
+        country: 'International',
+        flag: '🏆',
+      });
+      return;
     }
     if (initialLeagueTarget.leagueName) {
       const norm = initialLeagueTarget.leagueName.toLowerCase();
@@ -873,203 +771,31 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
     glance: isLiveIntelReady ? liveLeagueIntel.glance : baseLeague.glance,
   };
 
-  // Featured Leagues Carousel Items with Official API-Sports League Emblems
-  const featuredLeaguesList = [
-    {
-      key: 'premier-league',
-      name: 'Premier League',
-      country: 'England',
-      badgeBg: 'from-[#3d0c52] to-[#20032c]',
-      badgeBorder: 'border-purple-400/40',
-      logoUrl: '/api/football/media/leagues/39.png',
-    },
-    {
-      key: 'la-liga',
-      name: 'La Liga',
-      country: 'Spain',
-      badgeBg: 'from-[#7f1d1d] to-[#310a0a]',
-      badgeBorder: 'border-red-500/40',
-      logoUrl: '/api/football/media/leagues/140.png',
-    },
-    {
-      key: 'serie-a',
-      name: 'Serie A',
-      country: 'Italy',
-      badgeBg: 'from-[#0369a1] to-[#082f49]',
-      badgeBorder: 'border-sky-400/40',
-      logoUrl: '/api/football/media/leagues/135.png',
-    },
-    {
-      key: 'bundesliga',
-      name: 'Bundesliga',
-      country: 'Germany',
-      badgeBg: 'from-[#b91c1c] to-[#450a0a]',
-      badgeBorder: 'border-red-500/40',
-      logoUrl: '/api/football/media/leagues/78.png',
-    },
-    {
-      key: 'ucl',
-      name: 'UEFA Champions League',
-      country: 'Europe',
-      badgeBg: 'from-[#1e3a8a] to-[#0f172a]',
-      badgeBorder: 'border-blue-400/40',
-      logoUrl: '/api/football/media/leagues/2.png',
-    },
-    {
-      key: 'copa-libertadores',
-      name: 'Copa Libertadores',
-      country: 'South America',
-      badgeBg: 'from-[#78350f] to-[#271003]',
-      badgeBorder: 'border-amber-400/40',
-      logoUrl: '/api/football/media/leagues/13.png',
-    },
-    {
-      key: 'ligue-1',
-      name: 'Ligue 1',
-      country: 'France',
-      badgeBg: 'from-[#1e293b] to-[#090d16]',
-      badgeBorder: 'border-emerald-400/40',
-      logoUrl: '/api/football/media/leagues/61.png',
-    },
-    {
-      key: 'eredivisie',
-      name: 'Eredivisie',
-      country: 'Netherlands',
-      badgeBg: 'from-[#1e1b4b] to-[#090a1a]',
-      badgeBorder: 'border-indigo-400/40',
-      logoUrl: '/api/football/media/leagues/88.png',
-    },
-    {
-      key: 'bulgaria-first',
-      name: 'Първа лига',
-      country: 'Bulgaria',
-      badgeBg: 'from-[#0f291e] to-[#071510]',
-      badgeBorder: 'border-emerald-400/40',
-      logoUrl: '/api/football/media/leagues/172.png',
-    },
-    {
-      key: 'uel',
-      name: 'UEFA Europa League',
-      country: 'Europe',
-      badgeBg: 'from-[#7c2d12] to-[#1c0a03]',
-      badgeBorder: 'border-orange-400/40',
-      logoUrl: '/api/football/media/leagues/3.png',
-    },
-  ];
+  // All 50 Popular Leagues derived directly from LEAGUES_DATABASE
+  const featuredLeaguesList = Object.values(LEAGUES_DATABASE).map((lg) => ({
+    key: lg.id,
+    apiLeagueId: lg.apiLeagueId,
+    name: lg.name,
+    country: lg.country,
+    flag: lg.flag,
+    type: lg.type,
+    region: lg.region,
+    season: lg.season,
+    badgeBorder: 'border-emerald-400/35',
+    logoUrl: `/api/football/media/leagues/${lg.apiLeagueId}.png`,
+  }));
 
-  // Popular Leagues by Region cards with Official API-Sports League Emblems
-  const allRegionalLeagues = [
-    {
-      key: 'bulgaria-first',
-      name: 'Първа лига (efbet)',
-      country: 'Bulgaria',
-      season: '2025/26',
-      region: 'europe',
-      crestBg: 'from-emerald-800 to-slate-950',
-      logoUrl: '/api/football/media/leagues/172.png',
-    },
-    {
-      key: 'primeira-liga',
-      name: 'Primeira Liga',
-      country: 'Portugal',
-      season: '2025/26',
-      region: 'europe',
-      crestBg: 'from-emerald-800 to-red-900',
-      logoUrl: '/api/football/media/leagues/94.png',
-    },
-    {
-      key: 'ligue-1',
-      name: 'Ligue 1',
-      country: 'France',
-      season: '2025/26',
-      region: 'europe',
-      crestBg: 'from-slate-800 to-slate-950',
-      logoUrl: '/api/football/media/leagues/61.png',
-    },
-    {
-      key: 'eredivisie',
-      name: 'Eredivisie',
-      country: 'Netherlands',
-      season: '2025/26',
-      region: 'europe',
-      crestBg: 'from-blue-900 to-indigo-950',
-      logoUrl: '/api/football/media/leagues/88.png',
-    },
-    {
-      key: 'super-lig',
-      name: 'Süper Lig',
-      country: 'Turkey',
-      season: '2025/26',
-      region: 'europe',
-      crestBg: 'from-red-800 to-slate-950',
-      logoUrl: '/api/football/media/leagues/203.png',
-    },
-    {
-      key: 'uel',
-      name: 'Europa League',
-      country: 'Europe',
-      season: '2025/26',
-      region: 'europe',
-      crestBg: 'from-orange-700 to-slate-950',
-      logoUrl: '/api/football/media/leagues/3.png',
-    },
-    {
-      key: 'copa-libertadores',
-      name: 'Copa Libertadores',
-      country: 'South America',
-      season: '2025',
-      region: 'south_america',
-      crestBg: 'from-amber-700 to-slate-950',
-      logoUrl: '/api/football/media/leagues/13.png',
-    },
-    {
-      key: 'argentina-primera',
-      name: 'Liga Profesional',
-      country: 'Argentina',
-      season: '2025',
-      region: 'south_america',
-      crestBg: 'from-sky-600 to-amber-700',
-      logoUrl: '/api/football/media/leagues/128.png',
-    },
-    {
-      key: 'brasileirao',
-      name: 'Brasileirão Série A',
-      country: 'Brazil',
-      season: '2025',
-      region: 'south_america',
-      crestBg: 'from-yellow-500 to-emerald-900',
-      logoUrl: '/api/football/media/leagues/71.png',
-    },
-    {
-      key: 'mls',
-      name: 'MLS',
-      country: 'United States',
-      season: '2025',
-      region: 'north_america',
-      crestBg: 'from-red-700 to-blue-950',
-      logoUrl: '/api/football/media/leagues/253.png',
-    },
-    {
-      key: 'saudi-pro',
-      name: 'Saudi Pro League',
-      country: 'Saudi Arabia',
-      season: '2025/26',
-      region: 'asia',
-      crestBg: 'from-emerald-700 to-slate-950',
-      logoUrl: '/api/football/media/leagues/307.png',
-    },
-    {
-      key: 'egypt-premier',
-      name: 'Egyptian Premier League',
-      country: 'Egypt',
-      season: '2025/26',
-      region: 'africa',
-      crestBg: 'from-red-700 to-slate-950',
-      logoUrl: '/api/football/media/leagues/233.png',
-    },
-  ];
+  // Popular Leagues by Region derived from the Top 50 leagues
+  const allRegionalLeagues = featuredLeaguesList.map((lg) => ({
+    key: lg.key,
+    name: lg.name,
+    country: lg.country,
+    season: lg.season,
+    region: lg.region,
+    logoUrl: lg.logoUrl,
+  }));
 
-  const regionalLeagues = allRegionalLeagues.filter((rl) => rl.region === activeRegion);
+  const regionalLeagues = allRegionalLeagues.filter((rl) => rl.region === activeRegion).slice(0, 6);
 
   const handleOpenFixtureMatch = (
     fixture: UpcomingFixtureRow & { homeGoals?: number; awayGoals?: number; status?: 'FINISHED' | 'SCHEDULED' }
@@ -1466,8 +1192,22 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
           {/* Right 4 Metric Cards (7 cols) */}
           <div className="xl:col-span-7 grid grid-cols-2 sm:grid-cols-4 gap-3.5">
             {[
-              { val: '88+', label: t.kpi1, icon: '🌐' },
-              { val: '42', label: t.kpi2, icon: '🏳️' },
+              {
+                val:
+                  globalCatalog.totalLeagues > 0
+                    ? `${globalCatalog.totalLeagues}+`
+                    : '750+',
+                label: t.kpi1,
+                icon: '🌐',
+              },
+              {
+                val:
+                  globalCatalog.totalCountries > 0
+                    ? String(globalCatalog.totalCountries)
+                    : '150+',
+                label: t.kpi2,
+                icon: '🏳️',
+              },
               { val: String(matches.length || 45), label: t.kpi3, icon: '📈' },
               { val: String(Object.keys(LEAGUES_DATABASE).length), label: t.kpi4, icon: '🔥' },
             ].map((kpi, idx) => (
@@ -1493,208 +1233,380 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       </div>
 
       {/* =================================================================== */}
-      {/* ROW 2: SEARCH & FILTER CONTROLS BAR */}
+      {/* ROW 2: SEARCH & FILTER CONTROLS BAR (CONNECTED TO FULL CATALOG)     */}
       {/* =================================================================== */}
-      <div className="rounded-2xl border border-[#172332] bg-[#0a1018] p-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2.5 flex-1">
-          {/* Search Input */}
-          <div className="relative min-w-[210px] flex-1 sm:flex-initial sm:w-64">
-            <svg
-              className="w-4 h-4 text-[#64748b] absolute left-3.5 top-1/2 -translate-y-1/2"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={t.searchPlaceholder}
-              className="w-full rounded-xl border border-[#1c2a3b] bg-[#0d1520] pl-9 pr-3.5 py-2 text-xs text-white placeholder-[#64748b] focus:border-[#43f08a] focus:outline-none"
-            />
-          </div>
-
-          {/* All Countries */}
-          <select
-            value={countryFilter}
-            onChange={(e) => {
-              const val = e.target.value;
-              setCountryFilter(val);
-              if (val === 'Bulgaria') setSelectedLeagueKey('bulgaria-first');
-              if (val === 'England') setSelectedLeagueKey('premier-league');
-              if (val === 'Spain') setSelectedLeagueKey('la-liga');
-              if (val === 'Italy') setSelectedLeagueKey('serie-a');
-              if (val === 'Germany') setSelectedLeagueKey('bundesliga');
-              if (val === 'France') setSelectedLeagueKey('ligue-1');
-              if (val === 'Turkey') setSelectedLeagueKey('super-lig');
-              if (val === 'Europe') setSelectedLeagueKey('ucl');
-            }}
-            className="rounded-xl border border-[#1c2a3b] bg-[#0d1520] px-3.5 py-2 text-xs text-neutral-200 focus:border-[#43f08a] focus:outline-none cursor-pointer"
-          >
-            <option value="all">🌐 {t.allCountries}</option>
-            <option value="Bulgaria">🇧🇬 Bulgaria (Първа лига)</option>
-            <option value="England">🏴󠁧󠁢󠁥󠁮󠁧󠁿 England</option>
-            <option value="Spain">🇪🇸 Spain</option>
-            <option value="Italy">🇮🇹 Italy</option>
-            <option value="Germany">🇩🇪 Germany</option>
-            <option value="France">🇫🇷 France</option>
-            <option value="Turkey">🇹🇷 Turkey</option>
-            <option value="Europe">🇪🇺 Europe (UEFA)</option>
-          </select>
-
-          {/* All Competition Types */}
-          <select
-            value={compTypeFilter}
-            onChange={(e) => {
-              const val = e.target.value;
-              setCompTypeFilter(val);
-              if (val === 'continental' && LEAGUES_DATABASE[selectedLeagueKey]?.type !== 'continental') {
-                setSelectedLeagueKey('ucl');
-              } else if (val === 'domestic' && LEAGUES_DATABASE[selectedLeagueKey]?.type !== 'domestic') {
-                setSelectedLeagueKey('premier-league');
-              }
-            }}
-            className="rounded-xl border border-[#1c2a3b] bg-[#0d1520] px-3.5 py-2 text-xs text-neutral-200 focus:border-[#43f08a] focus:outline-none cursor-pointer"
-          >
-            <option value="all">🏆 {t.allCompTypes}</option>
-            <option value="domestic">{t.domesticLeague}</option>
-            <option value="continental">{t.continentalCup}</option>
-          </select>
-
-          {/* Season Selector */}
-          <select
-            value={seasonFilter}
-            onChange={(e) => setSeasonFilter(e.target.value)}
-            className="rounded-xl border border-[#1c2a3b] bg-[#0d1520] px-3.5 py-2 text-xs text-neutral-200 focus:border-[#43f08a] focus:outline-none cursor-pointer"
-          >
-            <option value="auto">📅 Текущ сезон (Актуален)</option>
-            <option value="2025">📅 2025/26</option>
-            <option value="2024">📅 2024/25</option>
-            <option value="2023">📅 2023/24</option>
-          </select>
-
-          {/* More Filters */}
-          <button
-            type="button"
-            onClick={() => setShowFullTable(!showFullTable)}
-            className="px-3.5 py-2 rounded-xl border border-[#1c2a3b] bg-[#0d1520] hover:border-[#43f08a]/50 text-xs text-neutral-200 flex items-center gap-1.5 cursor-pointer"
-          >
-            <span>🎛️</span>
-            <span>{t.moreFilters}</span>
-          </button>
-        </div>
-
-        {/* Reset Filters */}
-        <button
-          type="button"
-          onClick={handleResetFilters}
-          className="text-xs text-[#8f9cae] hover:text-white flex items-center gap-1.5 px-2 py-1 cursor-pointer"
-        >
-          <span>↻</span>
-          <span>{t.resetFilters}</span>
-        </button>
-      </div>
-
-      {/* =================================================================== */}
-      {/* ROW 3: FEATURED LEAGUES HORIZONTAL RIBBON */}
-      {/* =================================================================== */}
-      <div className="rounded-2xl border border-[#172332] bg-[#0a1018] p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs font-extrabold text-white">
-            <span className="text-[#43f08a]">☆</span>
-            <span>{t.featuredLeagues}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => {
-                const keys = Object.keys(LEAGUES_DATABASE);
-                const idx = keys.indexOf(selectedLeagueKey);
-                const prev = keys[(idx - 1 + keys.length) % keys.length];
-                setSelectedLeagueKey(prev);
-              }}
-              className="w-6 h-6 rounded-lg border border-[#1c2a3b] bg-[#0e1622] hover:border-[#43f08a] text-xs text-neutral-300 flex items-center justify-center cursor-pointer"
-            >
-              ‹
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const keys = Object.keys(LEAGUES_DATABASE);
-                const idx = keys.indexOf(selectedLeagueKey);
-                const next = keys[(idx + 1) % keys.length];
-                setSelectedLeagueKey(next);
-              }}
-              className="w-6 h-6 rounded-lg border border-[#1c2a3b] bg-[#0e1622] hover:border-[#43f08a] text-xs text-neutral-300 flex items-center justify-center cursor-pointer"
-            >
-              ›
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 2xl:grid-cols-11 gap-2.5">
-          {featuredLeaguesList
-            .filter((item) => {
-              const dbLg = LEAGUES_DATABASE[item.key];
-              if (compTypeFilter !== 'all' && dbLg && dbLg.type !== compTypeFilter) return false;
-              if (searchQuery.trim()) {
-                return (
-                  item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                  item.country.toLowerCase().includes(searchQuery.toLowerCase())
-                );
-              }
-              return true;
-            })
-            .map((lg, idx) => {
-              const isSelected = !customLeagueOverride && selectedLeagueKey === lg.key;
-              return (
+      <div className="rounded-2xl border border-[#172332] bg-[#0a1018] p-3 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2.5 flex-1">
+            {/* Search Input across Top 50 + All Global Professional Leagues */}
+            <div className="relative min-w-[230px] flex-1 sm:flex-initial sm:w-72">
+              <svg
+                className="w-4 h-4 text-[#64748b] absolute left-3.5 top-1/2 -translate-y-1/2"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t.searchPlaceholder}
+                className="w-full rounded-xl border border-[#1c2a3b] bg-[#0d1520] pl-9 pr-7 py-2 text-xs text-white placeholder-[#64748b] focus:border-[#43f08a] focus:outline-none"
+              />
+              {searchQuery && (
                 <button
-                  key={`${lg.name}-${idx}`}
                   type="button"
-                  onClick={() => selectBuiltInLeague(lg.key)}
-                  className={`rounded-xl border p-2.5 text-left transition-all cursor-pointer flex items-center gap-2 ${
-                    isSelected
-                      ? 'border-[#43f08a] bg-[#0e231b] shadow-md shadow-[#22c55e]/10'
-                      : 'border-[#1a2636] bg-[#0d1520] hover:border-[#2c4059]'
-                  }`}
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-neutral-400 hover:text-white cursor-pointer"
                 >
-                  <div
-                    className={`w-8 h-8 rounded-xl bg-white/95 border ${lg.badgeBorder} flex items-center justify-center p-1 shadow-sm shrink-0`}
-                  >
-                    <img
-                      src={lg.logoUrl}
-                      alt={lg.name}
-                      className="w-full h-full object-contain"
-                      loading="lazy"
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-xs font-extrabold text-white truncate">{lg.name}</div>
-                    <div className="text-[10px] text-[#8f9cae] truncate">{lg.country}</div>
-                    <div className="inline-flex items-center gap-1 text-[10px] text-[#43f08a] font-semibold mt-0.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#43f08a]" />
-                      <span>Live</span>
-                    </div>
-                  </div>
+                  ✕
                 </button>
-              );
-            })}
+              )}
+            </div>
 
-          {/* View all leagues directory modal button */}
+            {/* All Countries Dropdown (Populated with all countries from Global Catalog) */}
+            <select
+              value={countryFilter}
+              onChange={(e) => {
+                const val = e.target.value;
+                setCountryFilter(val);
+                if (val === 'all') return;
+                const topMatch = Object.values(LEAGUES_DATABASE).find(
+                  (l) => l.country.toLowerCase() === val.toLowerCase()
+                );
+                if (topMatch) {
+                  selectBuiltInLeague(topMatch.id);
+                } else {
+                  const globalMatch = globalCatalog.leagues.find(
+                    (g) => g.country.toLowerCase() === val.toLowerCase()
+                  );
+                  if (globalMatch) {
+                    selectAnyLeague({
+                      apiLeagueId: globalMatch.apiLeagueId,
+                      name: globalMatch.name,
+                      country: globalMatch.country,
+                    });
+                  }
+                }
+              }}
+              className="rounded-xl border border-[#1c2a3b] bg-[#0d1520] px-3.5 py-2 text-xs text-neutral-200 focus:border-[#43f08a] focus:outline-none cursor-pointer max-w-[210px]"
+            >
+              <option value="all">
+                🌐 {t.allCountries}{' '}
+                {globalCatalog.totalCountries > 0 ? `(${globalCatalog.totalCountries})` : ''}
+              </option>
+              {globalCatalog.countries.length > 0 ? (
+                globalCatalog.countries.map((c) => (
+                  <option key={c.name} value={c.name}>
+                    {c.name} ({c.count})
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="Bulgaria">🇧🇬 Bulgaria</option>
+                  <option value="England">🏴󠁧󠁢󠁥󠁮󠁧󠁿 England</option>
+                  <option value="Spain">🇪🇸 Spain</option>
+                  <option value="Italy">🇮🇹 Italy</option>
+                  <option value="Germany">🇩🇪 Germany</option>
+                  <option value="France">🇫🇷 France</option>
+                  <option value="Turkey">🇹🇷 Turkey</option>
+                  <option value="Europe">🇪🇺 Europe</option>
+                </>
+              )}
+            </select>
+
+            {/* All Competition Types */}
+            <select
+              value={compTypeFilter}
+              onChange={(e) => {
+                const val = e.target.value;
+                setCompTypeFilter(val);
+                setFeaturedPage(0);
+                if (val === 'continental' && LEAGUES_DATABASE[selectedLeagueKey]?.type !== 'continental') {
+                  selectBuiltInLeague('ucl');
+                } else if (val === 'domestic' && LEAGUES_DATABASE[selectedLeagueKey]?.type !== 'domestic') {
+                  selectBuiltInLeague('premier-league');
+                }
+              }}
+              className="rounded-xl border border-[#1c2a3b] bg-[#0d1520] px-3.5 py-2 text-xs text-neutral-200 focus:border-[#43f08a] focus:outline-none cursor-pointer"
+            >
+              <option value="all">🏆 {t.allCompTypes}</option>
+              <option value="domestic">{t.domesticLeague}</option>
+              <option value="continental">{t.continentalCup}</option>
+            </select>
+
+            {/* Season Selector */}
+            <select
+              value={seasonFilter}
+              onChange={(e) => setSeasonFilter(e.target.value)}
+              className="rounded-xl border border-[#1c2a3b] bg-[#0d1520] px-3.5 py-2 text-xs text-neutral-200 focus:border-[#43f08a] focus:outline-none cursor-pointer"
+            >
+              <option value="auto">📅 Текущ сезон (Актуален)</option>
+              <option value="2025">📅 2025/26</option>
+              <option value="2024">📅 2024/25</option>
+              <option value="2023">📅 2023/24</option>
+            </select>
+
+            {/* Open Full Catalog Button */}
+            <button
+              type="button"
+              onClick={() => setShowAllLeaguesModal(true)}
+              className="px-3.5 py-2 rounded-xl border border-emerald-500/40 bg-[#0d1f18] hover:border-[#43f08a] text-xs font-bold text-[#43f08a] flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>⊞</span>
+              <span>
+                {t.viewAllLeagues} (
+                {globalCatalog.totalLeagues > 0 ? globalCatalog.totalLeagues : '750+'})
+              </span>
+            </button>
+          </div>
+
+          {/* Reset Filters */}
           <button
             type="button"
-            onClick={() => setShowAllLeaguesModal(true)}
-            className="rounded-xl border border-emerald-500/40 bg-[#0d1f18] hover:bg-[#122b22] hover:border-[#43f08a] p-2.5 flex flex-col items-center justify-center gap-1 text-center cursor-pointer transition-all shadow-[0_0_15px_rgba(16,185,129,0.12)]"
+            onClick={handleResetFilters}
+            className="text-xs text-[#8f9cae] hover:text-white flex items-center gap-1.5 px-2 py-1 cursor-pointer"
           >
-            <span className="text-base text-[#43f08a]">⊞</span>
-            <span className="text-[11px] font-extrabold text-[#43f08a]">{t.viewAllLeagues} ›</span>
+            <span>↻</span>
+            <span>{t.resetFilters}</span>
           </button>
         </div>
+
+        {/* INSTANT SEARCH & COUNTRY RESULTS FROM FULL GLOBAL CATALOG */}
+        {(searchQuery.trim().length > 0 || countryFilter !== 'all') && (() => {
+          const q = searchQuery.trim().toLowerCase();
+          const topIds = new Set(Object.values(LEAGUES_DATABASE).map((l) => l.apiLeagueId));
+
+          const matchingTop50 = Object.values(LEAGUES_DATABASE).filter((lg) => {
+            if (compTypeFilter !== 'all' && lg.type !== compTypeFilter) return false;
+            if (countryFilter !== 'all' && lg.country.toLowerCase() !== countryFilter.toLowerCase()) {
+              return false;
+            }
+            if (q) {
+              return (
+                lg.name.toLowerCase().includes(q) ||
+                lg.country.toLowerCase().includes(q)
+              );
+            }
+            return true;
+          });
+
+          const matchingGlobal = globalCatalog.leagues.filter((g) => {
+            if (topIds.has(g.apiLeagueId)) return false;
+            if (compTypeFilter !== 'all' && g.type !== compTypeFilter) return false;
+            if (countryFilter !== 'all' && g.country.toLowerCase() !== countryFilter.toLowerCase()) {
+              return false;
+            }
+            if (q) {
+              return (
+                g.name.toLowerCase().includes(q) ||
+                g.country.toLowerCase().includes(q)
+              );
+            }
+            return true;
+          });
+
+          const combinedResults = [
+            ...matchingTop50.map((lg) => ({
+              apiLeagueId: lg.apiLeagueId,
+              name: lg.name,
+              country: lg.country,
+              flag: lg.flag,
+              season: lg.season,
+              isTop50: true,
+              builtInKey: lg.id,
+            })),
+            ...matchingGlobal.map((g) => ({
+              apiLeagueId: g.apiLeagueId,
+              name: g.name,
+              country: g.country,
+              flag: '🌍',
+              season: String(g.season),
+              isTop50: false,
+              builtInKey: undefined,
+            })),
+          ];
+
+          return (
+            <div className="pt-2.5 border-t border-[#162232] space-y-2.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-mono text-emerald-400 font-bold">
+                  Намерени първенства в световния каталог: {combinedResults.length}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalSearchQuery(searchQuery);
+                    setModalCountryFilter(countryFilter);
+                    setShowAllLeaguesModal(true);
+                  }}
+                  className="text-[11px] font-bold text-[#43f08a] hover:underline cursor-pointer"
+                >
+                  Отвори всички в голям прозорец →
+                </button>
+              </div>
+
+              {combinedResults.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 max-h-60 overflow-y-auto pr-1">
+                  {combinedResults.slice(0, 36).map((item) => {
+                    const isSelected = activeLeague.apiLeagueId === item.apiLeagueId;
+                    return (
+                      <button
+                        key={item.apiLeagueId}
+                        type="button"
+                        onClick={() => {
+                          if (item.builtInKey) {
+                            selectBuiltInLeague(item.builtInKey);
+                          } else {
+                            selectAnyLeague({
+                              apiLeagueId: item.apiLeagueId,
+                              name: item.name,
+                              country: item.country,
+                              flag: item.flag,
+                            });
+                          }
+                        }}
+                        className={`p-2 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2 ${
+                          isSelected
+                            ? 'border-[#43f08a] bg-[#0e231b]'
+                            : 'border-[#1a2636] bg-[#0d1520] hover:border-emerald-500/40'
+                        }`}
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-white/95 p-1 flex items-center justify-center shrink-0">
+                          <img
+                            src={`/api/football/media/leagues/${item.apiLeagueId}.png`}
+                            alt={item.name}
+                            className="w-full h-full object-contain"
+                            loading="lazy"
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[11px] font-extrabold text-white truncate">
+                            {item.name}
+                          </div>
+                          <div className="text-[10px] text-[#8f9cae] truncate">
+                            {item.country} {item.isTop50 ? '· ★ Топ 50' : ''}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="py-3 text-xs text-[#8f9cae]">
+                  Няма намерени първенства за това търсене.
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
+
+      {/* =================================================================== */}
+      {/* ROW 3: TOP 50 FEATURED LEAGUES HORIZONTAL RIBBON                    */}
+      {/* =================================================================== */}
+      {(() => {
+        const filteredTop50 = featuredLeaguesList.filter((item) => {
+          if (compTypeFilter !== 'all' && item.type !== compTypeFilter) return false;
+          return true;
+        });
+        const pageSize = 10;
+        const totalPages = Math.max(1, Math.ceil(filteredTop50.length / pageSize));
+        const safePage = Math.min(featuredPage, totalPages - 1);
+        const visibleSlice = filteredTop50.slice(
+          safePage * pageSize,
+          safePage * pageSize + pageSize
+        );
+
+        return (
+          <div className="rounded-2xl border border-[#172332] bg-[#0a1018] p-4 space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2 text-xs font-extrabold text-white">
+                <span className="text-[#43f08a]">☆</span>
+                <span>
+                  {t.featuredLeagues} (Топ {Object.keys(LEAGUES_DATABASE).length} в света)
+                </span>
+                <span className="text-[11px] font-mono text-[#8f9cae] font-normal">
+                  · Страница {safePage + 1} от {totalPages}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFeaturedPage((p) => (p - 1 + totalPages) % totalPages)
+                  }
+                  title="Предишни 10 водещи лиги"
+                  className="px-2.5 h-6 rounded-lg border border-[#1c2a3b] bg-[#0e1622] hover:border-[#43f08a] text-xs text-neutral-300 flex items-center justify-center cursor-pointer"
+                >
+                  ‹ Предишни
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFeaturedPage((p) => (p + 1) % totalPages)}
+                  title="Следващи 10 водещи лиги"
+                  className="px-2.5 h-6 rounded-lg border border-[#1c2a3b] bg-[#0e1622] hover:border-[#43f08a] text-xs text-neutral-300 flex items-center justify-center cursor-pointer"
+                >
+                  Следващи ›
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 2xl:grid-cols-11 gap-2.5">
+              {visibleSlice.map((lg, idx) => {
+                const isSelected = !customLeagueOverride && selectedLeagueKey === lg.key;
+                return (
+                  <button
+                    key={`${lg.key}-${idx}`}
+                    type="button"
+                    onClick={() => selectBuiltInLeague(lg.key)}
+                    className={`rounded-xl border p-2.5 text-left transition-all cursor-pointer flex items-center gap-2 ${
+                      isSelected
+                        ? 'border-[#43f08a] bg-[#0e231b] shadow-md shadow-[#22c55e]/10'
+                        : 'border-[#1a2636] bg-[#0d1520] hover:border-[#2c4059]'
+                    }`}
+                  >
+                    <div
+                      className={`w-8 h-8 rounded-xl bg-white/95 border ${lg.badgeBorder} flex items-center justify-center p-1 shadow-sm shrink-0`}
+                    >
+                      <img
+                        src={lg.logoUrl}
+                        alt={lg.name}
+                        className="w-full h-full object-contain"
+                        loading="lazy"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-extrabold text-white truncate">{lg.name}</div>
+                      <div className="text-[10px] text-[#8f9cae] truncate">{lg.country}</div>
+                      <div className="inline-flex items-center gap-1 text-[10px] text-[#43f08a] font-semibold mt-0.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#43f08a]" />
+                        <span>Live</span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+
+              {/* View all leagues directory modal button */}
+              <button
+                type="button"
+                onClick={() => setShowAllLeaguesModal(true)}
+                className="rounded-xl border border-emerald-500/40 bg-[#0d1f18] hover:bg-[#122b22] hover:border-[#43f08a] p-2.5 flex flex-col items-center justify-center gap-1 text-center cursor-pointer transition-all shadow-[0_0_15px_rgba(16,185,129,0.12)]"
+              >
+                <span className="text-base text-[#43f08a]">⊞</span>
+                <span className="text-[11px] font-extrabold text-[#43f08a]">
+                  {t.viewAllLeagues} ›
+                </span>
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* =================================================================== */}
       {/* ROW 4: MAIN 4-PANEL LEAGUE HUB (Standings 5 | Top Scorers 2 | Upcoming 3 | Glance 2) */}
@@ -1723,27 +1635,24 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
               </div>
 
               <select
-                value={selectedLeagueKey}
-                onChange={(e) => setSelectedLeagueKey(e.target.value)}
-                className="rounded-xl border border-[#1c2a3b] bg-[#0d1520] px-3 py-1.5 text-xs text-neutral-200 focus:border-[#43f08a] focus:outline-none cursor-pointer"
+                value={customLeagueOverride ? `custom-${customLeagueOverride.apiLeagueId}` : selectedLeagueKey}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val.startsWith('custom-')) return;
+                  selectBuiltInLeague(val);
+                }}
+                className="rounded-xl border border-[#1c2a3b] bg-[#0d1520] px-3 py-1.5 text-xs text-neutral-200 focus:border-[#43f08a] focus:outline-none cursor-pointer max-w-[190px]"
               >
-                <option value="bulgaria-first">🇧🇬 Първа лига (България)</option>
-                <option value="premier-league">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League</option>
-                <option value="la-liga">🇪🇸 La Liga</option>
-                <option value="serie-a">🇮🇹 Serie A</option>
-                <option value="bundesliga">🇩🇪 Bundesliga</option>
-                <option value="ucl">🇪🇺 Champions League</option>
-                <option value="uel">🇪🇺 Europa League</option>
-                <option value="ligue-1">🇫🇷 Ligue 1</option>
-                <option value="eredivisie">🇳🇱 Eredivisie</option>
-                <option value="primeira-liga">🇵🇹 Primeira Liga</option>
-                <option value="super-lig">🇹🇷 Süper Lig</option>
-                <option value="copa-libertadores">🌎 Copa Libertadores</option>
-                <option value="argentina-primera">🇦🇷 Liga Profesional (ARG)</option>
-                <option value="brasileirao">🇧🇷 Brasileirão Série A</option>
-                <option value="mls">🇺🇸 MLS</option>
-                <option value="saudi-pro">🇸🇦 Saudi Pro League</option>
-                <option value="egypt-premier">🇪🇬 Egyptian Premier League</option>
+                {customLeagueOverride && (
+                  <option value={`custom-${customLeagueOverride.apiLeagueId}`}>
+                    {customLeagueOverride.flag} {customLeagueOverride.name} ({customLeagueOverride.country})
+                  </option>
+                )}
+                {Object.values(LEAGUES_DATABASE).map((lg) => (
+                  <option key={lg.id} value={lg.id}>
+                    {lg.flag} {lg.name} ({lg.country})
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -1779,73 +1688,101 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
             {/* SUB-TAB 1: STANDINGS */}
             {hubSubTab === 'standings' && (
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="text-[10px] font-mono uppercase text-[#64748b] border-b border-[#162232]">
-                      <th className="py-2 pr-2">#</th>
-                      <th className="py-2 pr-3">{t.clubCol}</th>
-                      <th className="py-2 px-1.5 text-center">P</th>
-                      <th className="py-2 px-1.5 text-center">W</th>
-                      <th className="py-2 px-1.5 text-center">D</th>
-                      <th className="py-2 px-1.5 text-center">L</th>
-                      <th className="py-2 px-1.5 text-center">GF</th>
-                      <th className="py-2 px-1.5 text-center">GA</th>
-                      <th className="py-2 px-1.5 text-center">GD</th>
-                      <th className="py-2 px-2 text-center text-white">Pts</th>
-                      <th className="py-2 pl-2 text-right">{t.formCol}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#141f2e] font-mono text-[11px]">
-                    {displayedStandings.map((row) => (
-                      <tr
-                        key={row.rank}
-                        onClick={() =>
-                          openTeamProfile({
-                            teamId: row.teamId,
-                            teamName: row.club,
-                            teamLogo: row.clubLogo,
-                            leagueId: activeLeague.apiLeagueId,
-                            leagueName: activeLeague.name,
-                          })
-                        }
-                        className="hover:bg-[#0e1622] transition-colors cursor-pointer group"
-                        title={`${row.club} — Отвори профила на отбора`}
-                      >
-                        <td className="py-2.5 pr-2 font-bold text-neutral-300">
-                          <span className="inline-flex items-center gap-1">
-                            <span className="w-0.5 h-3.5 rounded-full bg-[#43f08a]" />
-                            {row.rank}
-                          </span>
-                        </td>
-                        <td className="py-2.5 pr-3 font-sans">
-                          <div className="flex items-center gap-2">
-                            <TeamBadge
-                              name={row.club}
-                              logoUrl={row.clubLogo}
-                              teamId={row.teamId}
-                              size="sm"
-                              className="w-5 h-5 text-[8px]"
-                            />
-                            <span className="font-bold text-white group-hover:text-[#43f08a] group-hover:underline truncate max-w-[125px] transition-colors">
-                              {row.club}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.p}</td>
-                        <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.w}</td>
-                        <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.d}</td>
-                        <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.l}</td>
-                        <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.gf}</td>
-                        <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.ga}</td>
-                        <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.gd}</td>
-                        <td className="py-2.5 px-2 text-center font-black text-white">{row.pts}</td>
-                        <td className="py-2.5 pl-2">
-                          {renderInteractiveFormBadges(row, 'right')}
-                        </td>
+                {displayedStandings.length > 0 ? (
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="text-[10px] font-mono uppercase text-[#64748b] border-b border-[#162232]">
+                        <th className="py-2 pr-2">#</th>
+                        <th className="py-2 pr-3">{t.clubCol}</th>
+                        <th className="py-2 px-1.5 text-center">P</th>
+                        <th className="py-2 px-1.5 text-center">W</th>
+                        <th className="py-2 px-1.5 text-center">D</th>
+                        <th className="py-2 px-1.5 text-center">L</th>
+                        <th className="py-2 px-1.5 text-center">GF</th>
+                        <th className="py-2 px-1.5 text-center">GA</th>
+                        <th className="py-2 px-1.5 text-center">GD</th>
+                        <th className="py-2 px-2 text-center text-white">Pts</th>
+                        <th className="py-2 pl-2 text-right">{t.formCol}</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-[#141f2e] font-mono text-[11px]">
+                      {displayedStandings.map((row) => (
+                        <tr
+                          key={row.rank}
+                          onClick={() =>
+                            openTeamProfile({
+                              teamId: row.teamId,
+                              teamName: row.club,
+                              teamLogo: row.clubLogo,
+                              leagueId: activeLeague.apiLeagueId,
+                              leagueName: activeLeague.name,
+                            })
+                          }
+                          className="hover:bg-[#0e1622] transition-colors cursor-pointer group"
+                          title={`${row.club} — Отвори профила на отбора`}
+                        >
+                          <td className="py-2.5 pr-2 font-bold text-neutral-300">
+                            <span className="inline-flex items-center gap-1">
+                              <span className="w-0.5 h-3.5 rounded-full bg-[#43f08a]" />
+                              {row.rank}
+                            </span>
+                          </td>
+                          <td className="py-2.5 pr-3 font-sans">
+                            <div className="flex items-center gap-2">
+                              <TeamBadge
+                                name={row.club}
+                                logoUrl={row.clubLogo}
+                                teamId={row.teamId}
+                                size="sm"
+                                className="w-5 h-5 text-[8px]"
+                              />
+                              <span className="font-bold text-white group-hover:text-[#43f08a] group-hover:underline truncate max-w-[125px] transition-colors">
+                                {row.club}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.p}</td>
+                          <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.w}</td>
+                          <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.d}</td>
+                          <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.l}</td>
+                          <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.gf}</td>
+                          <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.ga}</td>
+                          <td className="py-2.5 px-1.5 text-center text-neutral-300">{row.gd}</td>
+                          <td className="py-2.5 px-2 text-center font-black text-white">{row.pts}</td>
+                          <td className="py-2.5 pl-2">
+                            {renderInteractiveFormBadges(row, 'right')}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : isLiveIntelReady ? (
+                  <div className="py-8 px-4 text-center space-y-3">
+                    <div className="text-xs text-neutral-300 font-semibold">
+                      Този турнир се провежда във фаза на директни елиминации или все още няма публикувано таблично класиране за избрания сезон.
+                    </div>
+                    <div className="flex items-center justify-center gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setHubSubTab('results')}
+                        className="px-3.5 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-xs font-bold text-[#43f08a] cursor-pointer"
+                      >
+                        Виж Резултати ({activeLeague.recentResults?.length || 0}) →
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setHubSubTab('fixtures')}
+                        className="px-3.5 py-1.5 rounded-xl bg-[#0e1622] border border-[#1e2d40] text-xs font-bold text-neutral-200 cursor-pointer"
+                      >
+                        Виж Програма ({activeLeague.upcomingFixtures.length}) →
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-8 text-center text-xs text-[#8f9cae] font-mono">
+                    Зареждане на официалното класиране за {activeLeague.name}...
+                  </div>
+                )}
               </div>
             )}
 
@@ -2666,7 +2603,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       )}
 
       {/* =================================================================== */}
-      {/* MODAL: ВСИЧКИ ЛИГИ И ПЪРВЕНСТВА (ALL LEAGUES DIRECTORY MODAL)       */}
+      {/* MODAL: ВСИЧКИ ЛИГИ И ПЪРВЕНСТВА (TOP 50 + FULL GLOBAL CATALOG)      */}
       {/* =================================================================== */}
       {showAllLeaguesModal && (
         <div
@@ -2677,7 +2614,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-4xl max-h-[85vh] rounded-2xl border border-[#1d2e42] bg-[#080e17] shadow-2xl flex flex-col overflow-hidden"
+            className="w-full max-w-5xl max-h-[88vh] rounded-2xl border border-[#1d2e42] bg-[#080e17] shadow-2xl flex flex-col overflow-hidden"
           >
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-[#182434] flex items-center justify-between gap-4 bg-[#0a121d]">
@@ -2687,10 +2624,13 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                 </div>
                 <div>
                   <h2 className="text-base sm:text-lg font-extrabold text-white">
-                    Всички лиги и турнири — Пълен каталог
+                    Всички лиги и турнири — Пълен световен каталог (
+                    {globalCatalog.totalLeagues > 0 ? `${globalCatalog.totalLeagues}+` : '750+'}{' '}
+                    първенства)
                   </h2>
                   <p className="text-xs text-[#8f9cae]">
-                    Избери първенство, за да заредиш официално класиране, голмайстори, програма, резултати и форма
+                    Топ 50 най-популярни лиги в света + всички професионални национални първенства и купи от{' '}
+                    {globalCatalog.totalCountries > 0 ? globalCatalog.totalCountries : 150}+ държави
                   </p>
                 </div>
               </div>
@@ -2703,20 +2643,55 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
               </button>
             </div>
 
-            {/* Modal Search & Region Filter Bar */}
-            <div className="px-6 py-3.5 border-b border-[#162232] bg-[#09101a] flex flex-wrap items-center justify-between gap-3">
-              <div className="relative flex-1 min-w-[220px]">
-                <input
-                  type="text"
-                  value={modalSearchQuery}
-                  onChange={(e) => setModalSearchQuery(e.target.value)}
-                  placeholder="Търсене на лига или държава (напр. Serie A, България, England, Brazil)..."
-                  className="w-full rounded-xl border border-[#1e2d42] bg-[#0d1624] px-3.5 py-2 text-xs text-white placeholder-[#64748b] focus:border-[#43f08a] focus:outline-none"
-                />
+            {/* Modal Search, Country Dropdown & Filter Tabs */}
+            <div className="px-6 py-3.5 border-b border-[#162232] bg-[#09101a] space-y-2.5">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <div className="relative flex-1 min-w-[230px]">
+                  <input
+                    type="text"
+                    value={modalSearchQuery}
+                    onChange={(e) => {
+                      setModalSearchQuery(e.target.value);
+                      setModalVisibleLimit(90);
+                    }}
+                    placeholder="Търси сред всички първенства и държави по света (напр. Serie A, България, Brazil, Segunda, Cup)..."
+                    className="w-full rounded-xl border border-[#1e2d42] bg-[#0d1624] px-3.5 py-2 text-xs text-white placeholder-[#64748b] focus:border-[#43f08a] focus:outline-none"
+                  />
+                  {modalSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setModalSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400 hover:text-white cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                {/* Modal Country Filter */}
+                <select
+                  value={modalCountryFilter}
+                  onChange={(e) => {
+                    setModalCountryFilter(e.target.value);
+                    setModalVisibleLimit(90);
+                  }}
+                  className="rounded-xl border border-[#1e2d42] bg-[#0d1624] px-3.5 py-2 text-xs text-neutral-200 focus:border-[#43f08a] focus:outline-none cursor-pointer"
+                >
+                  <option value="all">
+                    🌐 Всички държави ({globalCatalog.totalCountries || 150})
+                  </option>
+                  {globalCatalog.countries.map((c) => (
+                    <option key={c.name} value={c.name}>
+                      {c.name} ({c.count})
+                    </option>
+                  ))}
+                </select>
               </div>
+
               <div className="flex flex-wrap items-center gap-1.5 text-xs">
                 {[
-                  { key: 'all', label: 'Всички' },
+                  { key: 'all', label: '🌐 Всички първенства' },
+                  { key: 'top50', label: '★ Топ 50 Най-популярни' },
                   { key: 'europe', label: 'Европа' },
                   { key: 'south_america', label: 'Южна Америка' },
                   { key: 'north_america', label: 'Сев. Америка' },
@@ -2727,7 +2702,10 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                   <button
                     key={tab.key}
                     type="button"
-                    onClick={() => setModalRegionFilter(tab.key as typeof modalRegionFilter)}
+                    onClick={() => {
+                      setModalRegionFilter(tab.key as typeof modalRegionFilter);
+                      setModalVisibleLimit(90);
+                    }}
                     className={`px-3 py-1.5 rounded-xl font-bold transition-colors cursor-pointer ${
                       modalRegionFilter === tab.key
                         ? 'bg-[#0f291e] border border-[#22c55e]/60 text-[#43f08a]'
@@ -2740,174 +2718,248 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
               </div>
             </div>
 
-            {/* Modal Body: Grid of All Supported & Today's Active Leagues */}
+            {/* Modal Body: Section 1 (Top 50 Popular Leagues) + Section 2 (Full Global Catalog) */}
             <div className="p-6 overflow-y-auto space-y-6">
-              {/* Section 1: Main Supported Leagues in LEAGUES_DATABASE */}
-              <div>
-                <div className="text-xs font-mono uppercase tracking-wider text-emerald-400 mb-3 flex items-center justify-between">
-                  <span>Основни първенства и континентални турнири ({Object.keys(LEAGUES_DATABASE).length})</span>
-                  <span>Пълно класиране & статистика</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                  {Object.values(LEAGUES_DATABASE)
-                    .filter((lg) => {
-                      if (
-                        modalRegionFilter !== 'all' &&
-                        modalRegionFilter !== 'today' &&
-                        lg.region !== modalRegionFilter
-                      ) {
-                        return false;
-                      }
-                      if (modalSearchQuery.trim()) {
-                        const q = modalSearchQuery.toLowerCase();
-                        return (
-                          lg.name.toLowerCase().includes(q) ||
-                          lg.country.toLowerCase().includes(q)
-                        );
-                      }
-                      return true;
-                    })
-                    .map((lg) => {
-                      const isCurrent =
-                        !customLeagueOverride && selectedLeagueKey === lg.id;
-                      const todayCount = matches.filter(
-                        (m) =>
-                          m.leagueId === lg.apiLeagueId ||
-                          m.league.toLowerCase() === lg.name.toLowerCase()
-                      ).length;
-
-                      return (
-                        <button
-                          key={lg.id}
-                          type="button"
-                          onClick={() => {
-                            selectBuiltInLeague(lg.id);
-                            setShowAllLeaguesModal(false);
-                            window.scrollTo({ top: 260, behavior: 'smooth' });
-                          }}
-                          className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-3 group ${
-                            isCurrent
-                              ? 'border-[#43f08a] bg-[#0e231b] shadow-lg'
-                              : 'border-[#1a2636] bg-[#0c1420] hover:border-emerald-500/50 hover:bg-[#101b2b]'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-10 h-10 rounded-xl bg-white/95 border border-white/20 p-1.5 flex items-center justify-center shrink-0">
-                              <img
-                                src={`/api/football/media/leagues/${lg.apiLeagueId}.png`}
-                                alt={lg.name}
-                                className="w-full h-full object-contain"
-                                loading="lazy"
-                              />
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-xs sm:text-sm font-extrabold text-white group-hover:text-[#43f08a] transition-colors truncate">
-                                {lg.name}
-                              </div>
-                              <div className="text-[11px] text-[#8f9cae] truncate">
-                                {lg.flag} {lg.country} · {lg.season}
-                              </div>
-                              {todayCount > 0 && (
-                                <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-[9px] font-mono font-bold text-emerald-300">
-                                  {todayCount} мача днес
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <span className="text-xs font-mono font-bold text-[#43f08a] shrink-0">
-                            Отвори →
-                          </span>
-                        </button>
-                      );
-                    })}
-                </div>
-              </div>
-
-              {/* Section 2: Additional Active Leagues from Today's Live Feed */}
+              {/* Section 1: Top 50 Most Popular Leagues in LEAGUES_DATABASE */}
               {(() => {
-                const builtInIds = new Set(
-                  Object.values(LEAGUES_DATABASE).map((l) => l.apiLeagueId)
-                );
-                const extraMap = new Map<
-                  number,
-                  { apiLeagueId: number; name: string; country: string; count: number }
-                >();
-                for (const m of matches) {
-                  if (m.leagueId && !builtInIds.has(m.leagueId)) {
-                    const prev = extraMap.get(m.leagueId);
-                    if (prev) {
-                      prev.count += 1;
-                    } else {
-                      extraMap.set(m.leagueId, {
-                        apiLeagueId: m.leagueId,
-                        name: m.league,
-                        country: m.leagueCountry || 'International',
-                        count: 1,
-                      });
-                    }
+                const filteredTop50 = Object.values(LEAGUES_DATABASE).filter((lg) => {
+                  if (
+                    modalCountryFilter !== 'all' &&
+                    lg.country.toLowerCase() !== modalCountryFilter.toLowerCase()
+                  ) {
+                    return false;
                   }
-                }
-                const extraLeagues = Array.from(extraMap.values()).filter((lg) => {
-                  if (!modalSearchQuery.trim()) return true;
-                  const q = modalSearchQuery.toLowerCase();
-                  return (
-                    lg.name.toLowerCase().includes(q) ||
-                    lg.country.toLowerCase().includes(q)
-                  );
+                  if (modalRegionFilter === 'today') {
+                    const hasToday = matches.some(
+                      (m) =>
+                        m.leagueId === lg.apiLeagueId ||
+                        m.league.toLowerCase() === lg.name.toLowerCase()
+                    );
+                    if (!hasToday) return false;
+                  } else if (
+                    modalRegionFilter !== 'all' &&
+                    modalRegionFilter !== 'top50' &&
+                    lg.region !== modalRegionFilter
+                  ) {
+                    return false;
+                  }
+                  if (modalSearchQuery.trim()) {
+                    const q = modalSearchQuery.toLowerCase();
+                    return (
+                      lg.name.toLowerCase().includes(q) ||
+                      lg.country.toLowerCase().includes(q)
+                    );
+                  }
+                  return true;
                 });
 
-                if (extraLeagues.length === 0) return null;
+                if (filteredTop50.length === 0) return null;
 
                 return (
                   <div>
-                    <div className="text-xs font-mono uppercase tracking-wider text-sky-400 mb-3 flex items-center justify-between">
-                      <span>Още активни лиги с мачове днес ({extraLeagues.length})</span>
-                      <span>Официално класиране & статистика</span>
+                    <div className="text-xs font-mono uppercase tracking-wider text-emerald-400 mb-3 flex items-center justify-between">
+                      <span>
+                        ★ Топ {Object.keys(LEAGUES_DATABASE).length} най-популярни първенства в света ({filteredTop50.length})
+                      </span>
+                      <span>Пълно класиране, програма, резултати & статистика</span>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                      {extraLeagues.map((xlg) => (
-                        <button
-                          key={xlg.apiLeagueId}
-                          type="button"
-                          onClick={() => {
-                            setCustomLeagueOverride({
-                              apiLeagueId: xlg.apiLeagueId,
-                              name: xlg.name,
-                              country: xlg.country,
-                              flag: '🌍',
-                            });
-                            setShowAllLeaguesModal(false);
-                            window.scrollTo({ top: 260, behavior: 'smooth' });
-                          }}
-                          className="p-3 rounded-xl border border-[#1a2636] bg-[#0c1420] hover:border-sky-400/50 hover:bg-[#101b2b] text-left transition-all cursor-pointer flex items-center justify-between gap-2.5 group"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-8 h-8 rounded-lg bg-white/95 p-1 flex items-center justify-center shrink-0">
-                              <img
-                                src={`/api/football/media/leagues/${xlg.apiLeagueId}.png`}
-                                alt={xlg.name}
-                                className="w-full h-full object-contain"
-                                loading="lazy"
-                              />
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-xs font-bold text-white group-hover:text-sky-300 truncate">
-                                {xlg.name}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                      {filteredTop50.map((lg) => {
+                        const isCurrent =
+                          !customLeagueOverride && selectedLeagueKey === lg.id;
+                        const todayCount = matches.filter(
+                          (m) =>
+                            m.leagueId === lg.apiLeagueId ||
+                            m.league.toLowerCase() === lg.name.toLowerCase()
+                        ).length;
+
+                        return (
+                          <button
+                            key={lg.id}
+                            type="button"
+                            onClick={() => {
+                              selectBuiltInLeague(lg.id);
+                              setShowAllLeaguesModal(false);
+                              window.scrollTo({ top: 260, behavior: 'smooth' });
+                            }}
+                            className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-3 group ${
+                              isCurrent
+                                ? 'border-[#43f08a] bg-[#0e231b] shadow-lg'
+                                : 'border-[#1a2636] bg-[#0c1420] hover:border-emerald-500/50 hover:bg-[#101b2b]'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-9 h-9 rounded-xl bg-white/95 border border-white/20 p-1.5 flex items-center justify-center shrink-0">
+                                <img
+                                  src={`/api/football/media/leagues/${lg.apiLeagueId}.png`}
+                                  alt={lg.name}
+                                  className="w-full h-full object-contain"
+                                  loading="lazy"
+                                />
                               </div>
-                              <div className="text-[10px] text-[#8f9cae] truncate">
-                                {xlg.country} · {xlg.count} мача днес
+                              <div className="min-w-0">
+                                <div className="text-xs sm:text-sm font-extrabold text-white group-hover:text-[#43f08a] transition-colors truncate">
+                                  {lg.name}
+                                </div>
+                                <div className="text-[11px] text-[#8f9cae] truncate">
+                                  {lg.flag} {lg.country} · {lg.season}
+                                </div>
+                                {todayCount > 0 && (
+                                  <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-[9px] font-mono font-bold text-emerald-300">
+                                    {todayCount} мача днес
+                                  </span>
+                                )}
                               </div>
                             </div>
-                          </div>
-                          <span className="text-[11px] font-mono font-bold text-sky-400 shrink-0">
-                            Класиране →
-                          </span>
-                        </button>
-                      ))}
+                            <span className="text-xs font-mono font-bold text-[#43f08a] shrink-0">
+                              Отвори →
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 );
               })()}
+
+              {/* Section 2: Full Global Catalog of All Professional Leagues & Cups Worldwide */}
+              {modalRegionFilter !== 'top50' &&
+                (() => {
+                  const builtInIds = new Set(
+                    Object.values(LEAGUES_DATABASE).map((l) => l.apiLeagueId)
+                  );
+                  const todayCountByLeague = new Map<number, number>();
+                  for (const m of matches) {
+                    if (m.leagueId) {
+                      todayCountByLeague.set(
+                        m.leagueId,
+                        (todayCountByLeague.get(m.leagueId) || 0) + 1
+                      );
+                    }
+                  }
+
+                  // Merge globalCatalog.leagues with any active leagues from today's live feed
+                  const catalogList: GlobalCatalogLeague[] =
+                    globalCatalog.leagues.length > 0
+                      ? globalCatalog.leagues
+                      : Array.from(
+                          new Map(
+                            matches
+                              .filter((m) => m.leagueId)
+                              .map((m) => [
+                                m.leagueId!,
+                                {
+                                  apiLeagueId: m.leagueId!,
+                                  name: m.league,
+                                  country: m.leagueCountry || 'International',
+                                  countryCode: null,
+                                  type: 'domestic' as const,
+                                  rawType: 'League',
+                                  logo: `/api/football/media/leagues/${m.leagueId}.png`,
+                                  season: '2025/26',
+                                },
+                              ])
+                          ).values()
+                        );
+
+                  const filteredCatalog = catalogList.filter((g) => {
+                    if (builtInIds.has(g.apiLeagueId)) return false;
+                    if (
+                      modalCountryFilter !== 'all' &&
+                      g.country.toLowerCase() !== modalCountryFilter.toLowerCase()
+                    ) {
+                      return false;
+                    }
+                    if (modalRegionFilter === 'today') {
+                      if (!todayCountByLeague.has(g.apiLeagueId)) return false;
+                    }
+                    if (modalSearchQuery.trim()) {
+                      const q = modalSearchQuery.toLowerCase();
+                      return (
+                        g.name.toLowerCase().includes(q) ||
+                        g.country.toLowerCase().includes(q)
+                      );
+                    }
+                    return true;
+                  });
+
+                  if (filteredCatalog.length === 0) return null;
+
+                  const displayedCatalog = filteredCatalog.slice(0, modalVisibleLimit);
+
+                  return (
+                    <div className="space-y-3">
+                      <div className="text-xs font-mono uppercase tracking-wider text-sky-400 flex items-center justify-between">
+                        <span>
+                          🌐 Пълен световен каталог по държави ({filteredCatalog.length} професионални лиги и купи)
+                        </span>
+                        <span>Зареждане на живо при избор</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                        {displayedCatalog.map((xlg) => {
+                          const todayCount = todayCountByLeague.get(xlg.apiLeagueId) || 0;
+                          const isSelected = activeLeague.apiLeagueId === xlg.apiLeagueId;
+                          return (
+                            <button
+                              key={xlg.apiLeagueId}
+                              type="button"
+                              onClick={() => {
+                                selectAnyLeague({
+                                  apiLeagueId: xlg.apiLeagueId,
+                                  name: xlg.name,
+                                  country: xlg.country,
+                                  flag: '🌍',
+                                });
+                                setShowAllLeaguesModal(false);
+                                window.scrollTo({ top: 260, behavior: 'smooth' });
+                              }}
+                              className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2.5 group ${
+                                isSelected
+                                  ? 'border-[#43f08a] bg-[#0e231b]'
+                                  : 'border-[#1a2636] bg-[#0c1420] hover:border-sky-400/50 hover:bg-[#101b2b]'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="w-8 h-8 rounded-lg bg-white/95 p-1 flex items-center justify-center shrink-0">
+                                  <img
+                                    src={`/api/football/media/leagues/${xlg.apiLeagueId}.png`}
+                                    alt={xlg.name}
+                                    className="w-full h-full object-contain"
+                                    loading="lazy"
+                                  />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="text-xs font-bold text-white group-hover:text-sky-300 truncate">
+                                    {xlg.name}
+                                  </div>
+                                  <div className="text-[10px] text-[#8f9cae] truncate">
+                                    {xlg.country} · {xlg.rawType === 'Cup' ? 'Купа' : 'Първенство'}
+                                    {todayCount > 0 ? ` · 🔥 ${todayCount} мача днес` : ''}
+                                  </div>
+                                </div>
+                              </div>
+                              <span className="text-[11px] font-mono font-bold text-sky-400 shrink-0">
+                                Отвори →
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {filteredCatalog.length > modalVisibleLimit && (
+                        <div className="pt-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => setModalVisibleLimit((prev) => prev + 120)}
+                            className="px-5 py-2.5 rounded-xl border border-sky-400/40 bg-[#0d1826] hover:border-sky-400 text-xs font-bold text-sky-300 cursor-pointer transition-colors"
+                          >
+                            Покажи още първенства ({filteredCatalog.length - modalVisibleLimit} оставащи) ↓
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
             </div>
           </div>
         </div>
