@@ -504,10 +504,34 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (active && data && Array.isArray(data.leagues)) {
+          const countsByCountry = new Map<string, number>();
+          for (const lg of data.leagues) {
+            if (lg && typeof lg.country === 'string' && lg.country.trim()) {
+              const cName = lg.country.trim();
+              countsByCountry.set(cName, (countsByCountry.get(cName) || 0) + 1);
+            }
+          }
+          const normalizedCountries: Array<{ name: string; count: number }> =
+            Array.isArray(data.countries) && data.countries.length > 0
+              ? data.countries
+                  .map((c: string | { name?: string; count?: number }) => {
+                    if (typeof c === 'string') {
+                      return { name: c, count: countsByCountry.get(c) || 1 };
+                    }
+                    const name = String(c?.name || '').trim();
+                    const count = Number(c?.count) || countsByCountry.get(name) || 1;
+                    return { name, count };
+                  })
+                  .filter((c: { name: string; count: number }) => c.name.length > 0)
+              : Array.from(countsByCountry.entries()).map(([name, count]) => ({
+                  name,
+                  count,
+                }));
+
           setGlobalCatalog({
             totalLeagues: Number(data.totalLeagues) || data.leagues.length,
-            totalCountries: Number(data.totalCountries) || (data.countries?.length ?? 0),
-            countries: Array.isArray(data.countries) ? data.countries : [],
+            totalCountries: Number(data.totalCountries) || normalizedCountries.length,
+            countries: normalizedCountries,
             leagues: data.leagues,
           });
         }

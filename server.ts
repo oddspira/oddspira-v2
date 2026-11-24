@@ -2139,7 +2139,7 @@ async function startServer() {
       return;
     }
 
-    const cacheKey = 'football:leagues_catalog_v1';
+    const cacheKey = 'football:leagues_catalog_v2';
     const ttlMs = 24 * 60 * 60 * 1000; // 24 hours cache (1 request/day)
 
     try {
@@ -2247,16 +2247,20 @@ async function startServer() {
         return a.apiLeagueId - b.apiLeagueId;
       });
 
-      const countriesSet = new Set<string>();
+      const countryCountsMap = new Map<string, number>();
       for (const lg of catalog) {
-        countriesSet.add(lg.country);
+        countryCountsMap.set(lg.country, (countryCountsMap.get(lg.country) || 0) + 1);
       }
+      const countriesList = Array.from(countryCountsMap.entries()).map(([name, count]) => ({
+        name,
+        count,
+      }));
 
       const payload = {
         configured: true,
         totalLeagues: catalog.length,
-        totalCountries: countriesSet.size,
-        countries: Array.from(countriesSet),
+        totalCountries: countriesList.length,
+        countries: countriesList,
         leagues: catalog,
       };
 
