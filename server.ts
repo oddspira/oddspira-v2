@@ -2613,7 +2613,7 @@ async function startServer() {
         return;
       }
 
-      const mainCacheKey = `football:team_intel_v1:${resolvedTeamId}:${hintLeagueId || 'auto'}`;
+      const mainCacheKey = `football:team_intel_v3:${resolvedTeamId}:${hintLeagueId || 'auto'}`;
       const mainTtlMs = 15 * 60 * 1000; // 15 minutes cache for team profile & live standings
       const cachedMain = db
         .prepare('SELECT payload, updated_at FROM api_cache WHERE cache_key = ?')
@@ -2638,7 +2638,7 @@ async function startServer() {
             `https://v3.football.api-sports.io/players/squads?team=${resolvedTeamId}`
           ),
           getCachedSub(
-            `football:team_coach_v1:${resolvedTeamId}`,
+            `football:team_coach_v2:${resolvedTeamId}`,
             12 * 60 * 60 * 1000,
             `https://v3.football.api-sports.io/coachs?team=${resolvedTeamId}`
           ),
@@ -2680,7 +2680,8 @@ async function startServer() {
             }
           : null;
 
-      // Active Coach (ONLY if returned by API-Football)
+      // Active Coach — sort all coaches with an open stint (end === null) at this team by their stint start date DESCENDING
+      // (API-Football returns historical coaches sorted by oldest coach ID first, where retired/caretaker coaches may still have end: null on old stints)
       let coach: {
         id: number;
         name: string;
@@ -2689,19 +2690,87 @@ async function startServer() {
         photo: string;
       } | null = null;
       if (Array.isArray(coachJson?.response) && coachJson.response.length > 0) {
-        const activeCoach =
-          coachJson.response.find(
-            (c: any) =>
-              Array.isArray(c?.career) &&
-              c.career.some(
-                (car: any) => Number(car?.team?.id) === resolvedTeamId && car?.end === null
-              )
-          ) || coachJson.response[coachJson.response.length - 1];
+        const parseDateMs = (d: any): number => {
+          if (!d || typeof d !== 'string') return 0;
+          const t = Date.parse(d);
+          return Number.isFinite(t) ? t : 0;
+        };
 
+        const scoredCandidates: Array<{
+          coachObj: any;
+          startMs: number;
+          isCurrentTeamMatch: boolean;
+          isLatestCareerEntry: boolean;
+        }> = [];
+
+        for (const c of coachJson.response) {
+          if (!c?.name || !Array.isArray(c?.career)) continue;
+          const teamStints = c.career.filter(
+            (car: any) => Number(car?.team?.id) === resolvedTeamId
+          );
+          if (teamStints.length === 0) continue;
+
+          // Sort this coach's stints at resolvedTeamId by start date descending
+          const sortedTeamStints = [...teamStints].sort(
+            (a: any, b: any) => parseDateMs(b?.start) - parseDateMs(a?.start)
+          );
+          const latestTeamStint = sortedTeamStints[0];
+
+          // If their most recent stint at this club has an end date, they already left the club
+          if (latestTeamStint?.end !== null && latestTeamStint?.end !== undefined && latestTeamStint?.end !== '') {
+            continue;
+          }
+
+          // Check their most recent career entry across all clubs
+          const sortedAllCareer = [...c.career].sort(
+            (a: any, b: any) => parseDateMs(b?.start) - parseDateMs(a?.start)
+          );
+          const latestOverallStint = sortedAllCareer[0];
+          const isLatestCareerEntry =
+            Number(latestOverallStint?.team?.id) === resolvedTeamId &&
+            (latestOverallStint?.end === null || latestOverallStint?.end === undefined);
+
+          // If they started a newer job at another club after their stint here, exclude them
+          if (
+            latestOverallStint &&
+            Number(latestOverallStint?.team?.id) !== resolvedTeamId &&
+            parseDateMs(latestOverallStint?.start) > parseDateMs(latestTeamStint?.start)
+          ) {
+            continue;
+          }
+
+          const isCurrentTeamMatch = Number(c?.team?.id) === resolvedTeamId;
+          scoredCandidates.push({
+            coachObj: c,
+            startMs: parseDateMs(latestTeamStint?.start),
+            isCurrentTeamMatch,
+            isLatestCareerEntry,
+          });
+        }
+
+        // Sort candidates:
+        // 1. Most recent start date at this team (newest appointment wins over old unclosed records like Wenger 1996)
+        // 2. isLatestCareerEntry && isCurrentTeamMatch
+        scoredCandidates.sort((a, b) => {
+          if (b.startMs !== a.startMs) return b.startMs - a.startMs;
+          if (a.isLatestCareerEntry !== b.isLatestCareerEntry) {
+            return a.isLatestCareerEntry ? -1 : 1;
+          }
+          if (a.isCurrentTeamMatch !== b.isCurrentTeamMatch) {
+            return a.isCurrentTeamMatch ? -1 : 1;
+          }
+          return Number(b.coachObj?.id || 0) - Number(a.coachObj?.id || 0);
+        });
+
+        const activeCoach = scoredCandidates[0]?.coachObj;
         if (activeCoach?.name) {
+          const fullName =
+            activeCoach.firstname && activeCoach.lastname
+              ? `${activeCoach.firstname} ${activeCoach.lastname}`.trim()
+              : String(activeCoach.name);
           coach = {
             id: Number(activeCoach.id || 0),
-            name: String(activeCoach.name),
+            name: fullName,
             age: activeCoach.age ? Number(activeCoach.age) : null,
             nationality: activeCoach.nationality ? String(activeCoach.nationality) : null,
             photo: proxyMediaUrl(activeCoach.photo, 'coachs', activeCoach.id),

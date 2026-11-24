@@ -137,7 +137,6 @@ export const SearchModal: React.FC<SearchModalProps> = ({
             <div>
               <div className="text-xs font-mono text-emerald-400 uppercase tracking-wider px-2 mb-2 flex items-center justify-between">
                 <span>Отбори — Официален профил, класиране и състав</span>
-                <span>API-Football v3</span>
               </div>
               <div className="space-y-1.5">
                 {matchingTeams.map((tm) => (
@@ -189,10 +188,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                     </span>
                     <div>
                       <span className="text-xs sm:text-sm font-bold text-emerald-300 block">
-                        Потърси отбор „{query.trim()}“ директно в API-Football
+                        Потърси отбор „{query.trim()}“ в глобалната база
                       </span>
                       <span className="text-[11px] text-[#8f9cae] block">
-                        Отваря официална страница с стадион, треньор, класиране, играчи и мачове
+                        Отваря официална страница със стадион, треньор, класиране, играчи и мачове
                       </span>
                     </div>
                   </div>

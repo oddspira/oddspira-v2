@@ -620,10 +620,10 @@ export function VipSection({ language }: { language: Language }) {
           <div className="rounded-xl border border-[#1a273b] bg-[#0b1523] p-3.5 space-y-1">
             <span className="text-[10px] text-emerald-400 font-bold">СТЪПКА 1 // АВТО-ДАННИ</span>
             <div className="text-white font-bold font-sans">
-              API-Football v3 + Open-Meteo
+              Автоматична Спортна Телеметрия
             </div>
             <p className="text-[11px] text-neutral-400 font-sans leading-relaxed">
-              На всеки 15 мин. сървърът сам сваля мачове, коефициенти (Pinnacle/Bet365), T-60 стартови състави и времето на стадиона.
+              На всеки 15 мин. сървърът сам сваля мачове, пазарни коефициенти, T-60 стартови състави и метеорологични условия на стадиона.
             </p>
           </div>
 

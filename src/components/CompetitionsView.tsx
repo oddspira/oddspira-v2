@@ -403,7 +403,7 @@ const DICT = {
     regAfrica: 'Африка',
     viewLeague: 'Разгледай лигата',
     trustMainTitle: 'Доверен от анализатори по цял свят',
-    trustMainSub: '100% безплатно · Данни в реално време · API-Sports готова архитектура',
+    trustMainSub: '100% безплатно · Данни в реално време · Квантова математическа архитектура',
     trust1Title: 'Обновяване на живо',
     trust1Sub: 'Винаги актуални данни',
     trust2Title: 'Разширена аналитика',
@@ -411,7 +411,7 @@ const DICT = {
     trust3Title: 'Глобално покритие',
     trust3Sub: '88+ футболни лиги',
     trust4Title: 'Проверени данни',
-    trust4Sub: 'Официални API източници',
+    trust4Sub: 'Официални футболни статистики',
     exploreTools: 'Разгледай Инструменти',
   },
   en: {
@@ -1921,7 +1921,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                   ))
                 ) : (
                   <div className="py-8 text-center text-xs text-[#8f9cae]">
-                    Няма предстоящи мачове за този период в API-Football.
+                    Няма предстоящи мачове за този период.
                   </div>
                 )}
               </div>
@@ -2023,7 +2023,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                   ))
                 ) : (
                   <div className="py-8 text-center text-xs text-[#8f9cae]">
-                    Зареждане на последните официални резултати от API-Football...
+                    Зареждане на последните официални резултати...
                   </div>
                 )}
               </div>
@@ -2163,7 +2163,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                     <span className="font-mono">{activeLeague.glance?.goalsPerMatch || '2.72'} гола/мач</span>
                   </div>
                   <p className="text-[11px] text-neutral-300">
-                    Математически анализ на база официалното класиране и голова ефективност от API-Football v3.
+                    Математически анализ на база официалното класиране и голова ефективност за сезона.
                   </p>
                 </div>
 
@@ -2690,7 +2690,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                     Всички лиги и турнири — Пълен каталог
                   </h2>
                   <p className="text-xs text-[#8f9cae]">
-                    Избери първенство, за да заредиш официално класиране, голмайстори, програма, резултати и форма от API-Football v3
+                    Избери първенство, за да заредиш официално класиране, голмайстори, програма, резултати и форма
                   </p>
                 </div>
               </div>
@@ -2862,7 +2862,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                   <div>
                     <div className="text-xs font-mono uppercase tracking-wider text-sky-400 mb-3 flex items-center justify-between">
                       <span>Още активни лиги с мачове днес ({extraLeagues.length})</span>
-                      <span>Директна връзка с API-Football v3</span>
+                      <span>Официално класиране & статистика</span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
                       {extraLeagues.map((xlg) => (
@@ -3017,7 +3017,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
             <div className="p-6 bg-gradient-to-r from-[#07111a] via-[#0b1b20] to-[#08111a] border-b border-[#162232]">
               {selectedPastMatchModal.loadingTeamMatches ? (
                 <div className="py-6 text-center text-xs font-mono text-[#43f08a]">
-                  Зареждане на изминалия мач на {selectedPastMatchModal.teamRow?.club} от API-Football v3...
+                  Зареждане на изминалия мач на {selectedPastMatchModal.teamRow?.club}...
                 </div>
               ) : (
                 <div className="grid grid-cols-11 gap-3 items-center">
@@ -3097,7 +3097,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
             <div className="p-5 max-h-[52vh] overflow-y-auto space-y-4">
               {pastMatchModalLoading || selectedPastMatchModal.loadingTeamMatches ? (
                 <div className="py-8 text-center text-xs text-[#8f9cae] font-mono">
-                  Зареждане на официална хронология и статистика от API-Football v3...
+                  Зареждане на официална хронология и статистика за мача...
                 </div>
               ) : (
                 <>
@@ -3128,7 +3128,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                     </div>
                   ) : (
                     <div className="p-3 rounded-xl border border-[#15202e] bg-[#0b121c] text-xs text-[#8f9cae] text-center">
-                      Официален резултат от API-Football:{' '}
+                      Официален краен резултат:{' '}
                       <strong className="text-white">
                         {selectedPastMatchModal.match.homeTeam}{' '}
                         {selectedPastMatchModal.match.homeGoals} -{' '}

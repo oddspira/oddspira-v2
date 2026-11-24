@@ -925,15 +925,6 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
             </button>
           ))}
         </div>
-
-        <span className="text-[11px] font-mono text-[#43f08a] flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-[#43f08a]" />
-          <span>
-            {isBg
-              ? '100% Реални данни от API-Football v3'
-              : '100% Verified API-Football v3 Data'}
-          </span>
-        </span>
       </div>
 
       {/* =================================================================== */}
@@ -944,8 +935,8 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
           <div className="w-8 h-8 rounded-full border-2 border-[#43f08a] border-t-transparent animate-spin mx-auto" />
           <div className="text-sm font-bold text-white">
             {isBg
-              ? `Извличане на официален профил за ${teamName} от API-Football...`
-              : `Loading official profile for ${teamName} from API-Football...`}
+              ? `Зареждане на официален профил за ${teamName}...`
+              : `Loading official profile for ${teamName}...`}
           </div>
         </div>
       )}
@@ -1091,8 +1082,8 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                     </h3>
                     <p className="text-[11px] text-[#8f9cae]">
                       {isBg
-                        ? 'Официална програма от API-Football'
-                        : 'Official schedule from API-Football'}
+                        ? 'Официална програма по кръгове и турнири'
+                        : 'Official schedule by round and competition'}
                     </p>
                   </div>
                   <span className="px-2 py-0.5 rounded bg-[#0f291e] border border-[#22c55e]/40 text-[10px] font-mono font-bold text-[#43f08a]">
@@ -1339,8 +1330,8 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                   </h3>
                   <p className="text-[11px] text-[#8f9cae]">
                     {isBg
-                      ? 'Картотекирани играчи в API-Football за текущия сезон'
-                      : 'Registered squad players in API-Football'}
+                      ? 'Картотекирани играчи за текущия сезон'
+                      : 'Registered squad players for the current season'}
                   </p>
                 </div>
                 <button
@@ -1837,8 +1828,8 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
               {fixtureModalLoading ? (
                 <div className="py-8 text-center text-xs text-[#8f9cae] font-mono">
                   {isBg
-                    ? 'Зареждане на официална хронология от API-Football...'
-                    : 'Loading official match timeline from API-Football...'}
+                    ? 'Зареждане на официална хронология на мача...'
+                    : 'Loading official match timeline...'}
                 </div>
               ) : (
                 <>

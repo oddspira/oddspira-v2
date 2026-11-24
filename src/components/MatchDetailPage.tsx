@@ -1663,9 +1663,6 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                 </p>
               </div>
             </div>
-            <span className="px-2.5 py-1 rounded-lg bg-[#0f291e] border border-[#22c55e]/40 text-xs font-mono font-bold text-[#43f08a]">
-              🟢 API-Football Official
-            </span>
           </div>
           {renderStandingsTable(false)}
         </div>
@@ -1716,9 +1713,6 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                   {isLive ? t.liveBadge : t.scheduledBadge}
                 </span>
               </div>
-              <span className="text-[10px] font-mono text-[#43f08a]">
-                🟢 API-Sports Статистика
-              </span>
             </div>
 
             <div className="grid grid-cols-12 gap-3 items-center flex-1">
@@ -2679,8 +2673,8 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
               {pastMatchLoading ? (
                 <div className="py-8 text-center text-xs text-[#8f9cae] font-mono">
                   {language === 'bg'
-                    ? 'Извличане на официална хронология на мача от API-Football...'
-                    : 'Fetching official match events from API-Football...'}
+                    ? 'Зареждане на официална хронология на мача...'
+                    : 'Loading official match events...'}
                 </div>
               ) : (
                 <>

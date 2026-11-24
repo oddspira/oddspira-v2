@@ -759,7 +759,7 @@ export function LiveMatchesBoard({
             openTeamProfile({ teamId, teamName, teamLogo, leagueId, leagueName }, e)
           }
           className="px-1.5 py-0.5 rounded bg-[#101c2a] hover:bg-emerald-500/15 border border-[#1e2f44] hover:border-emerald-500/40 text-[9px] font-mono text-emerald-400 transition-colors cursor-pointer shrink-0"
-          title={`${teamName} — Официален профил, класиране и форма от API-Football`}
+          title={`${teamName} — Официален профил, класиране и форма`}
         >
           {language === 'bg' ? 'Профил ↗' : 'Profile ↗'}
         </button>
