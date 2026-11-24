@@ -291,18 +291,18 @@ export function Header({
 
   return (
     <header className="sticky top-0 z-40 w-full bg-[#070b11] border-b border-[#18202c] select-none">
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 h-[68px] sm:h-[72px] flex items-center justify-between gap-4 lg:gap-8">
+      <div className="max-w-[1440px] mx-auto px-3 sm:px-5 lg:px-6 h-[68px] sm:h-[72px] flex items-center justify-between gap-2 xl:gap-4">
         {/* Oddspira Brand Logo (Directly returns to home page) */}
         <button
           onClick={handleGoHome}
           className="flex items-center text-left whitespace-nowrap shrink-0 hover:opacity-95 transition-opacity duration-150 focus:outline-none cursor-pointer"
           title={t.homeTitle}
         >
-          <BrandLogo showSubtitle={false} className="h-10 sm:h-11" />
+          <BrandLogo showSubtitle={false} className="h-9 sm:h-10 xl:h-11" />
         </button>
 
         {/* Desktop Navigation Links: Evenly spaced between Logo and Search */}
-        <nav className="hidden lg:flex items-center justify-evenly flex-1 px-4 xl:px-8 h-full text-sm font-medium">
+        <nav className="hidden lg:flex items-center justify-evenly flex-1 min-w-0 px-1 xl:px-4 h-full text-[13px] xl:text-sm font-medium gap-1 xl:gap-2">
           {/* 1. На живо */}
           <button
             onClick={() => setActiveTab('live')}
@@ -383,11 +383,11 @@ export function Header({
         </nav>
 
         {/* Right Side: Търсене → Известия → Админ → Език → JOIN ODDSPIRA */}
-        <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-1.5 xl:gap-2 shrink-0">
           {/* Търсене */}
           <button
             onClick={onOpenSearch}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm text-[#8f9cae] hover:text-[#f7f8fb] hover:bg-[#0f1522] border border-transparent hover:border-[#1b2230] transition-colors duration-150 cursor-pointer"
+            className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm text-[#8f9cae] hover:text-[#f7f8fb] hover:bg-[#0f1522] border border-transparent hover:border-[#1b2230] transition-colors duration-150 cursor-pointer"
             title={t.searchTitle}
           >
             <svg
@@ -400,7 +400,7 @@ export function Header({
               <circle cx="11" cy="11" r="8" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
-            <span className="hidden xl:inline text-xs font-medium">{t.search}</span>
+            <span className="hidden 2xl:inline text-xs font-medium">{t.search}</span>
           </button>
 
           {/* Live Value Alerts Bell (Connected to Real Live & +EV Matches) */}
@@ -408,7 +408,7 @@ export function Header({
             <button
               type="button"
               onClick={() => setIsAlertsOpen((prev) => !prev)}
-              className="relative flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#0c1420] hover:bg-[#131f33] border border-[#1e293b] text-xs font-mono text-white cursor-pointer"
+              className="relative flex items-center gap-1 px-2 py-1.5 rounded-lg bg-[#0c1420] hover:bg-[#131f33] border border-[#1e293b] text-xs font-mono text-white cursor-pointer"
               title="Известия за мачове на живо и +EV сигнали"
             >
               <span>🔔</span>
@@ -498,7 +498,7 @@ export function Header({
             <button
               type="button"
               onClick={onOpenAdmin}
-              className="px-2.5 py-1.5 rounded-lg bg-[#0d1f18] hover:bg-[#132e23] border border-[#43f08a]/40 text-[11px] font-mono font-bold text-[#43f08a] transition-colors cursor-pointer"
+              className="px-2 py-1.5 rounded-lg bg-[#0d1f18] hover:bg-[#132e23] border border-[#43f08a]/40 text-[11px] font-mono font-bold text-[#43f08a] transition-colors cursor-pointer whitespace-nowrap"
               title="Admin, Monetization, Brevo & OVHcloud Control"
             >
               ⚙️ Admin
@@ -512,7 +512,7 @@ export function Header({
               title="Select Platform Language (12 Global Markets)"
               value={language}
               onChange={(e) => setLanguage(e.target.value as Language)}
-              className="bg-[#070b11] border border-[#1e2638] rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold text-[#f7f8fb] focus:outline-none focus:border-[#43f08a] cursor-pointer hover:border-[#2a374d] transition-colors duration-150"
+              className="bg-[#070b11] border border-[#1e2638] rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-[#f7f8fb] focus:outline-none focus:border-[#43f08a] cursor-pointer hover:border-[#2a374d] transition-colors duration-150"
             >
               <option value="bg">БГ · Български</option>
               <option value="en">EN · English</option>
@@ -531,23 +531,23 @@ export function Header({
 
           {/* AUTHENTICATED USER PROFILE OR JOIN ODDSPIRA CTA */}
           {currentUser ? (
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
                 type="button"
                 onClick={() => setActiveTab('bets')}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0c1512] border border-emerald-500/40 text-xs font-semibold text-white hover:border-emerald-400 transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#0c1512] border border-emerald-500/40 text-xs font-semibold text-white hover:border-emerald-400 transition-colors cursor-pointer"
                 title={t.bets}
               >
-                <span className="w-5 h-5 rounded-full bg-[#43f08a] text-[#05130b] font-black text-[10px] flex items-center justify-center uppercase">
+                <span className="w-5 h-5 rounded-full bg-[#43f08a] text-[#05130b] font-black text-[10px] flex items-center justify-center uppercase shrink-0">
                   {currentUser.name.charAt(0)}
                 </span>
-                <span className="max-w-[110px] truncate">{currentUser.name}</span>
+                <span className="max-w-[85px] xl:max-w-[110px] truncate">{currentUser.name}</span>
               </button>
               {onLogout && (
                 <button
                   type="button"
                   onClick={onLogout}
-                  className="px-2.5 py-1.5 rounded-lg bg-[#111926] border border-[#1e293b] hover:border-red-500/40 text-[11px] font-medium text-neutral-400 hover:text-red-300 transition-colors cursor-pointer"
+                  className="px-2 py-1.5 rounded-lg bg-[#111926] border border-[#1e293b] hover:border-red-500/40 text-[11px] font-medium text-neutral-400 hover:text-red-300 transition-colors cursor-pointer whitespace-nowrap"
                 >
                   {t.logout}
                 </button>

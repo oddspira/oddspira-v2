@@ -583,22 +583,80 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                     {row.pts}
                   </td>
                   {!compact && (
-                    <td className="py-2.5 pl-2 pr-2">
+                    <td className="py-2.5 pl-2 pr-2" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
-                        {(row.form || []).map((f, fIdx) => (
-                          <span
-                            key={fIdx}
-                            className={`w-4 h-4 rounded-full text-[9px] font-mono font-black flex items-center justify-center ${
-                              f === 'W'
-                                ? 'bg-[#10b981] text-[#04130b]'
-                                : f === 'D'
-                                ? 'bg-[#475569] text-white'
-                                : 'bg-[#ef4444] text-white'
-                            }`}
-                          >
-                            {f}
-                          </span>
-                        ))}
+                        {(row.form || []).map((f, fIdx) => {
+                          // For the currently viewed team, map directly to its recentMatches (oldest to newest of last 5)
+                          const last5Chrono = isCurrentTeam
+                            ? [...recentMatches.slice(0, 5)].reverse()
+                            : [];
+                          const offset = (row.form || []).length - last5Chrono.length;
+                          const matchedFx =
+                            isCurrentTeam && fIdx - offset >= 0
+                              ? last5Chrono[fIdx - offset]
+                              : undefined;
+
+                          return (
+                            <button
+                              key={fIdx}
+                              type="button"
+                              title={
+                                matchedFx
+                                  ? `${matchedFx.date}: ${matchedFx.homeTeam} ${matchedFx.homeScore}-${matchedFx.awayScore} ${matchedFx.awayTeam}`
+                                  : `${row.club} — Кликни за детайли за мача (${f})`
+                              }
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (matchedFx) {
+                                  handleFixtureClick(matchedFx);
+                                  return;
+                                }
+                                try {
+                                  const qs = new URLSearchParams();
+                                  if (row.teamId) qs.set('teamId', String(row.teamId));
+                                  qs.set('teamName', row.club);
+                                  if (intel?.league?.id) qs.set('leagueId', String(intel.league.id));
+                                  const res = await fetch(`/api/football/team-intel?${qs.toString()}`);
+                                  if (res.ok) {
+                                    const data = await res.json();
+                                    if (Array.isArray(data?.recentMatches) && data.recentMatches.length > 0) {
+                                      const chrono: TeamFixtureItem[] = [...data.recentMatches.slice(0, 5)].reverse();
+                                      const off = (row.form || []).length - chrono.length;
+                                      const pick =
+                                        (fIdx - off >= 0 && fIdx - off < chrono.length
+                                          ? chrono[fIdx - off]
+                                          : undefined) ||
+                                        chrono.find((m) => m.result === f) ||
+                                        chrono[chrono.length - 1];
+                                      if (pick) {
+                                        setSelectedFixture(pick);
+                                        return;
+                                      }
+                                    }
+                                  }
+                                } catch {
+                                  // fallback to opening team profile
+                                }
+                                openTeamProfile({
+                                  teamId: row.teamId,
+                                  teamName: row.club,
+                                  teamLogo: row.clubLogo,
+                                  leagueId: intel?.league?.id || undefined,
+                                  leagueName: intel?.league?.name,
+                                });
+                              }}
+                              className={`w-4 h-4 rounded-full text-[9px] font-mono font-black flex items-center justify-center transition-transform hover:scale-125 hover:ring-2 hover:ring-white/80 cursor-pointer ${
+                                f === 'W'
+                                  ? 'bg-[#10b981] text-[#04130b]'
+                                  : f === 'D'
+                                  ? 'bg-[#475569] text-white'
+                                  : 'bg-[#ef4444] text-white'
+                              }`}
+                            >
+                              {f}
+                            </button>
+                          );
+                        })}
                       </div>
                     </td>
                   )}

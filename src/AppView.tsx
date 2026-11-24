@@ -43,6 +43,7 @@ export default function AppView() {
     return 'home';
   });
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+  const [selectedCustomMatch, setSelectedCustomMatch] = useState<Match | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<SelectedTeamTarget | null>(null);
   const [initialLeagueTarget, setInitialLeagueTarget] = useState<{
     leagueKey?: string;
@@ -125,6 +126,7 @@ export default function AppView() {
         setInitialLeagueTarget({ ...custom.detail });
         setSelectedTeam(null);
         setSelectedMatchId(null);
+        setSelectedCustomMatch(null);
         setActiveTab('competitions');
         if (window.location.pathname !== '/leagues') {
           window.history.pushState({}, '', '/leagues');
@@ -140,6 +142,7 @@ export default function AppView() {
         setInitialTool(custom.detail.toolKey);
         setSelectedTeam(null);
         setSelectedMatchId(null);
+        setSelectedCustomMatch(null);
         setActiveTab('tools');
         if (window.location.pathname !== '/tools') {
           window.history.pushState({}, '', '/tools');
@@ -279,6 +282,7 @@ export default function AppView() {
 
   const handleTabChange = (tab: ActiveTab) => {
     setSelectedMatchId(null);
+    setSelectedCustomMatch(null);
     setSelectedTeam(null);
     setActiveTab(tab);
     const routeMap: Partial<Record<ActiveTab, string>> = {
@@ -300,11 +304,12 @@ export default function AppView() {
   const handleOpenMatchPage = (match: Match) => {
     setSelectedTeam(null);
     setSelectedMatchId(match.id);
+    setSelectedCustomMatch(match);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const activeDetailMatch = selectedMatchId
-    ? matches.find((m) => m.id === selectedMatchId) || null
+    ? matches.find((m) => m.id === selectedMatchId) || selectedCustomMatch || null
     : null;
 
   // Dynamic Client-Side SEO & OpenGraph Meta Tag Updater
@@ -412,7 +417,7 @@ export default function AppView() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#070b11] text-[#f7f8fb] selection:bg-[#43f08a] selection:text-[#070b11] font-sans antialiased">
+    <div className="min-h-screen w-full overflow-x-hidden flex flex-col bg-[#070b11] text-[#f7f8fb] selection:bg-[#43f08a] selection:text-[#070b11] font-sans antialiased">
       {/* Top Bar with user-specified menu order and aesthetics */}
       <Header
         activeTab={activeTab}
@@ -438,7 +443,7 @@ export default function AppView() {
       )}
 
       {/* Primary Workspace Viewport (Identical max-w-[1440px] container matching Hero and Navbar) */}
-      <main className="flex-1 max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
+      <main className="flex-1 max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full min-w-0">
         {/* Main Section Content */}
         <div>
           {/* Dedicated Team Detail Page when any team name or emblem is clicked */}
@@ -456,7 +461,10 @@ export default function AppView() {
               language={language}
               match={activeDetailMatch}
               allMatches={matches}
-              onBack={() => setSelectedMatchId(null)}
+              onBack={() => {
+                setSelectedMatchId(null);
+                setSelectedCustomMatch(null);
+              }}
               onSelectMatch={handleOpenMatchPage}
               onLogBet={handleLogBetFromMatch}
               setActiveTab={handleTabChange}

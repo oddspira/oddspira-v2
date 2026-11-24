@@ -643,6 +643,54 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
     rect: { top: number; left: number };
   } | null>(null);
 
+  // On-demand cache of last 5 finished matches per team (fallback if league-intel cache hasn't hydrated formDetails yet)
+  const [teamFormCache, setTeamFormCache] = useState<Record<string, FormMatchDetail[]>>({});
+
+  // Dedicated Match Details Modal Window when clicking any W/D/L badge or past match in Състезания
+  const [selectedPastMatchModal, setSelectedPastMatchModal] = useState<{
+    match: FormMatchDetail;
+    teamRow?: StandingRow;
+    badgeIdx?: number;
+    loadingTeamMatches?: boolean;
+  } | null>(null);
+  const [pastMatchModalIntel, setPastMatchModalIntel] = useState<{
+    found?: boolean;
+    date?: string;
+    league?: string;
+    leagueRound?: string | null;
+    homeTeam?: string;
+    awayTeam?: string;
+    homeLogo?: string;
+    awayLogo?: string;
+    homeScore?: number;
+    awayScore?: number;
+    halftimeScore?: string;
+    venue?: string | null;
+    referee?: string | null;
+    hasRealStats?: boolean;
+    stats?: {
+      possessionHome: number;
+      possessionAway: number;
+      shotsHome: number;
+      shotsAway: number;
+      shotsOnTargetHome: number;
+      shotsOnTargetAway: number;
+      cornersHome: number;
+      cornersAway: number;
+      yellowCardsHome: number;
+      yellowCardsAway: number;
+    } | null;
+    events?: Array<{
+      min: string;
+      team: 'home' | 'away';
+      icon: string;
+      title: string;
+      sub: string;
+      highlight?: boolean;
+    }>;
+  } | null>(null);
+  const [pastMatchModalLoading, setPastMatchModalLoading] = useState<boolean>(false);
+
   const selectBuiltInLeague = (key: string) => {
     setCustomLeagueOverride(null);
     setSelectedLeagueKey(key);
@@ -1023,7 +1071,9 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
 
   const regionalLeagues = allRegionalLeagues.filter((rl) => rl.region === activeRegion);
 
-  const handleOpenFixtureMatch = (fixture: UpcomingFixtureRow) => {
+  const handleOpenFixtureMatch = (
+    fixture: UpcomingFixtureRow & { homeGoals?: number; awayGoals?: number; status?: 'FINISHED' | 'SCHEDULED' }
+  ) => {
     if (!onOpenMatch) return;
     const found =
       matches.find((m) => m.id === fixture.id) ||
@@ -1038,6 +1088,27 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       return;
     }
 
+    const scoreParts =
+      typeof fixture.time === 'string' && fixture.time.includes('-')
+        ? fixture.time.split('-').map((s) => Number(s.trim()))
+        : [];
+    const parsedHomeScore =
+      typeof fixture.homeGoals === 'number'
+        ? fixture.homeGoals
+        : scoreParts.length === 2 && !Number.isNaN(scoreParts[0])
+        ? scoreParts[0]
+        : 0;
+    const parsedAwayScore =
+      typeof fixture.awayGoals === 'number'
+        ? fixture.awayGoals
+        : scoreParts.length === 2 && !Number.isNaN(scoreParts[1])
+        ? scoreParts[1]
+        : 0;
+    const isFinished =
+      fixture.status === 'FINISHED' ||
+      typeof fixture.homeGoals === 'number' ||
+      (scoreParts.length === 2 && !Number.isNaN(scoreParts[0]) && !Number.isNaN(scoreParts[1]));
+
     // Build a real Match object for API-Football fixture ID so MatchDetailPage fetches its live telemetry
     const constructedMatch: Match = {
       id: fixture.id,
@@ -1048,9 +1119,9 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       awayTeam: fixture.awayTeam,
       homeLogo: fixture.homeLogo,
       awayLogo: fixture.awayLogo,
-      homeScore: 0,
-      awayScore: 0,
-      status: 'SCHEDULED',
+      homeScore: parsedHomeScore,
+      awayScore: parsedAwayScore,
+      status: isFinished ? 'FINISHED' : 'SCHEDULED',
       startTime: fixture.dayLabel,
       hasRealStats: false,
       bookmakerOdds: { home: 2.1, draw: 3.4, away: 3.3 },
@@ -1101,12 +1172,185 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
     ? activeLeague.standings
     : activeLeague.standings.slice(0, 5);
 
-  // Interactive Form Badges renderer with instant hover match popover & click-to-open match
+  const getTeamCacheKey = (row: StandingRow) =>
+    `${activeLeague.apiLeagueId}:${row.teamId || row.club.toLowerCase()}`;
+
+  const getResolvedFormDetails = (row: StandingRow): FormMatchDetail[] => {
+    if (Array.isArray(row.formDetails) && row.formDetails.length > 0) {
+      return row.formDetails;
+    }
+    const key = getTeamCacheKey(row);
+    return teamFormCache[key] || [];
+  };
+
+  // Fetch last 5 finished matches for a team on demand if formDetails wasn't pre-populated
+  const ensureTeamFormDetails = async (row: StandingRow): Promise<FormMatchDetail[]> => {
+    const existing = getResolvedFormDetails(row);
+    if (existing.length > 0) return existing;
+
+    const key = getTeamCacheKey(row);
+    try {
+      const qs = new URLSearchParams();
+      if (row.teamId) qs.set('teamId', String(row.teamId));
+      qs.set('teamName', row.club);
+      qs.set('leagueId', String(activeLeague.apiLeagueId));
+      const res = await fetch(`/api/football/team-intel?${qs.toString()}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      if (!data?.found || !Array.isArray(data.recentMatches) || data.recentMatches.length === 0) {
+        return [];
+      }
+      // data.recentMatches are newest-first; take top 5 and reverse to oldest-first (matching row.form left-to-right)
+      const mapped: FormMatchDetail[] = data.recentMatches
+        .slice(0, 5)
+        .reverse()
+        .map((m: {
+          fixtureId: string;
+          date: string;
+          round?: string;
+          homeTeamId?: number;
+          homeTeam: string;
+          homeLogo?: string;
+          awayTeamId?: number;
+          awayTeam: string;
+          awayLogo?: string;
+          homeScore: number | null;
+          awayScore: number | null;
+          isHome?: boolean;
+          result?: 'W' | 'D' | 'L' | null;
+        }) => {
+          const isHome =
+            typeof m.isHome === 'boolean'
+              ? m.isHome
+              : m.homeTeam.toLowerCase() === row.club.toLowerCase();
+          const hg = Number(m.homeScore ?? 0);
+          const ag = Number(m.awayScore ?? 0);
+          const result: 'W' | 'D' | 'L' =
+            m.result ||
+            (hg === ag ? 'D' : (isHome ? hg > ag : ag > hg) ? 'W' : 'L');
+          return {
+            id: m.fixtureId,
+            date: m.round ? `${m.date} · ${m.round}` : m.date,
+            homeTeamId: m.homeTeamId,
+            homeTeam: m.homeTeam,
+            homeLogo: m.homeLogo,
+            awayTeamId: m.awayTeamId,
+            awayTeam: m.awayTeam,
+            awayLogo: m.awayLogo,
+            homeGoals: hg,
+            awayGoals: ag,
+            opponent: isHome ? m.awayTeam : m.homeTeam,
+            opponentLogo: isHome ? m.awayLogo : m.homeLogo,
+            isHome,
+            result,
+          };
+        });
+
+      setTeamFormCache((prev) => ({ ...prev, [key]: mapped }));
+      return mapped;
+    } catch {
+      return [];
+    }
+  };
+
+  // Load deep match events & statistics whenever selectedPastMatchModal changes
+  useEffect(() => {
+    const rawId = selectedPastMatchModal?.match?.id?.replace(/^api-/, '');
+    if (!rawId || rawId.startsWith('pending-')) {
+      setPastMatchModalIntel(null);
+      setPastMatchModalLoading(false);
+      return;
+    }
+    let active = true;
+    setPastMatchModalLoading(true);
+    fetch(`/api/football/match-intel/${rawId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (active) {
+          setPastMatchModalIntel(data?.found ? data : null);
+          setPastMatchModalLoading(false);
+        }
+      })
+      .catch(() => {
+        if (active) setPastMatchModalLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedPastMatchModal?.match?.id]);
+
+  // Open the Past Match Details Modal Window when clicking a W/D/L badge
+  const handleFormBadgeClick = async (
+    row: StandingRow,
+    badgeIdx: number,
+    resultChar: 'W' | 'D' | 'L',
+    initialMatchDetail?: FormMatchDetail
+  ) => {
+    setHoveredFormBadge(null);
+    if (initialMatchDetail) {
+      setSelectedPastMatchModal({
+        match: initialMatchDetail,
+        teamRow: row,
+        badgeIdx,
+      });
+      return;
+    }
+
+    // Open modal immediately in loading state while resolving the exact match from API-Football
+    setSelectedPastMatchModal({
+      match: {
+        id: `pending-${row.club}-${badgeIdx}`,
+        date: activeLeague.season,
+        homeTeamId: row.teamId,
+        homeTeam: row.club,
+        homeLogo: row.clubLogo,
+        awayTeam: 'Съперник',
+        homeGoals: 0,
+        awayGoals: 0,
+        opponent: 'Съперник',
+        isHome: true,
+        result: resultChar,
+      },
+      teamRow: row,
+      badgeIdx,
+      loadingTeamMatches: true,
+    });
+
+    const fetchedDetails = await ensureTeamFormDetails(row);
+    if (fetchedDetails.length > 0) {
+      const offset = row.form.length - fetchedDetails.length;
+      const detailIdx = badgeIdx - offset;
+      const picked =
+        (detailIdx >= 0 && detailIdx < fetchedDetails.length
+          ? fetchedDetails[detailIdx]
+          : undefined) ||
+        fetchedDetails.find((d) => d.result === resultChar) ||
+        fetchedDetails[fetchedDetails.length - 1];
+
+      setSelectedPastMatchModal({
+        match: picked,
+        teamRow: row,
+        badgeIdx,
+        loadingTeamMatches: false,
+      });
+    } else {
+      setSelectedPastMatchModal(null);
+      openTeamProfile({
+        teamId: row.teamId,
+        teamName: row.club,
+        teamLogo: row.clubLogo,
+        leagueId: activeLeague.apiLeagueId,
+        leagueName: activeLeague.name,
+      });
+    }
+  };
+
+  // Interactive Form Badges renderer with instant hover match popover & click-to-open Match Modal Window
   const renderInteractiveFormBadges = (
     row: StandingRow,
     align: 'right' | 'center' = 'right'
   ) => {
-    const details = Array.isArray(row.formDetails) ? row.formDetails : [];
+    const details = getResolvedFormDetails(row);
     // Align details from the right (most recent match = last badge)
     const offset = row.form.length - details.length;
 
@@ -1128,42 +1372,42 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
               type="button"
               onMouseEnter={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
+                const currentTop = rect.top;
+                const currentLeft = rect.left + rect.width / 2;
                 setHoveredFormBadge({
-                  row,
+                  row: { ...row, formDetails: details },
                   badgeIdx: i,
                   resultChar: f,
                   matchDetail,
                   rect: {
-                    top: rect.top,
-                    left: rect.left + rect.width / 2,
+                    top: currentTop,
+                    left: currentLeft,
                   },
                 });
+                if (details.length === 0) {
+                  ensureTeamFormDetails(row).then((loaded) => {
+                    if (loaded.length > 0) {
+                      const newOffset = row.form.length - loaded.length;
+                      const newIdx = i - newOffset;
+                      const resolvedMatch =
+                        newIdx >= 0 && newIdx < loaded.length ? loaded[newIdx] : undefined;
+                      setHoveredFormBadge((prev) =>
+                        prev && prev.row.club === row.club && prev.badgeIdx === i
+                          ? {
+                              ...prev,
+                              row: { ...row, formDetails: loaded },
+                              matchDetail: resolvedMatch,
+                            }
+                          : prev
+                      );
+                    }
+                  });
+                }
               }}
               onMouseLeave={() => setHoveredFormBadge(null)}
               onClick={(e) => {
                 e.stopPropagation();
-                setHoveredFormBadge(null);
-                if (matchDetail) {
-                  handleOpenFixtureMatch({
-                    id: matchDetail.id,
-                    dayLabel: matchDetail.date,
-                    homeTeamId: matchDetail.homeTeamId,
-                    homeTeam: matchDetail.homeTeam,
-                    homeLogo: matchDetail.homeLogo,
-                    awayTeamId: matchDetail.awayTeamId,
-                    awayTeam: matchDetail.awayTeam,
-                    awayLogo: matchDetail.awayLogo,
-                    time: `${matchDetail.homeGoals} - ${matchDetail.awayGoals}`,
-                  });
-                } else {
-                  openTeamProfile({
-                    teamId: row.teamId,
-                    teamName: row.club,
-                    teamLogo: row.clubLogo,
-                    leagueId: activeLeague.apiLeagueId,
-                    leagueName: activeLeague.name,
-                  });
-                }
+                handleFormBadgeClick(row, i, f, matchDetail);
               }}
               className={`w-4 h-4 rounded text-[9px] font-black flex items-center justify-center transition-transform hover:scale-125 hover:ring-2 hover:ring-white/80 cursor-pointer ${
                 f === 'W'
@@ -1392,7 +1636,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-11 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 2xl:grid-cols-11 gap-2.5">
           {featuredLeaguesList
             .filter((item) => {
               const dbLg = LEAGUES_DATABASE[item.key];
@@ -1691,16 +1935,28 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                     <div
                       key={res.id}
                       onClick={() =>
-                        handleOpenFixtureMatch({
-                          id: res.id,
-                          dayLabel: res.dayLabel,
-                          homeTeamId: res.homeTeamId,
-                          homeTeam: res.homeTeam,
-                          homeLogo: res.homeLogo,
-                          awayTeamId: res.awayTeamId,
-                          awayTeam: res.awayTeam,
-                          awayLogo: res.awayLogo,
-                          time: `${res.homeGoals} - ${res.awayGoals}`,
+                        setSelectedPastMatchModal({
+                          match: {
+                            id: res.id,
+                            date: res.dayLabel,
+                            homeTeamId: res.homeTeamId,
+                            homeTeam: res.homeTeam,
+                            homeLogo: res.homeLogo,
+                            awayTeamId: res.awayTeamId,
+                            awayTeam: res.awayTeam,
+                            awayLogo: res.awayLogo,
+                            homeGoals: res.homeGoals,
+                            awayGoals: res.awayGoals,
+                            opponent: res.awayTeam,
+                            opponentLogo: res.awayLogo,
+                            isHome: true,
+                            result:
+                              res.homeGoals > res.awayGoals
+                                ? 'W'
+                                : res.homeGoals < res.awayGoals
+                                ? 'L'
+                                : 'D',
+                          },
                         })
                       }
                       className="py-2.5 px-2 hover:bg-[#0e1622] rounded-xl transition-colors cursor-pointer flex items-center justify-between gap-2"
@@ -2656,6 +2912,321 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* =================================================================== */}
+      {/* MODAL: ПРОЗОРЕЦ С ДЕТАЙЛИ ЗА ИЗМИНАЛ МАЧ (PAST MATCH DETAILS MODAL) */}
+      {/* =================================================================== */}
+      {selectedPastMatchModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setSelectedPastMatchModal(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-2xl rounded-2xl border border-[#1f3347] bg-[#081018] shadow-2xl overflow-hidden"
+          >
+            {/* Modal Top Bar */}
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#162232] bg-[#0b1520]">
+              <div className="flex items-center gap-2 text-xs text-neutral-200 font-semibold min-w-0">
+                <div className="w-6 h-6 rounded-md bg-white/95 p-0.5 flex items-center justify-center shrink-0">
+                  <img
+                    src={`/api/football/media/leagues/${activeLeague.apiLeagueId}.png`}
+                    alt={activeLeague.name}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <span className="truncate">{pastMatchModalIntel?.league || activeLeague.name}</span>
+                <span className="text-neutral-500">·</span>
+                <span className="font-mono text-[#43f08a] truncate">
+                  {pastMatchModalIntel?.date || selectedPastMatchModal.match.date}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedPastMatchModal(null)}
+                className="w-7 h-7 rounded-lg border border-[#1e2d40] bg-[#0e1622] hover:border-[#43f08a] text-neutral-300 hover:text-white flex items-center justify-center text-sm cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Interactive Switcher for Team's Last 5 Matches (if opened from a team's W/D/L form badge) */}
+            {selectedPastMatchModal.teamRow && (
+              <div className="px-5 py-2.5 bg-[#09121c] border-b border-[#15202e] flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-xs">
+                  <TeamBadge
+                    name={selectedPastMatchModal.teamRow.club}
+                    logoUrl={selectedPastMatchModal.teamRow.clubLogo}
+                    teamId={selectedPastMatchModal.teamRow.teamId}
+                    size="sm"
+                    className="w-5 h-5"
+                  />
+                  <span className="font-bold text-white">
+                    {selectedPastMatchModal.teamRow.club}
+                  </span>
+                  <span className="text-[11px] text-[#8f9cae]">— последни мачове:</span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  {(() => {
+                    const row = selectedPastMatchModal.teamRow;
+                    const resolvedList = getResolvedFormDetails(row);
+                    const offset = row.form.length - resolvedList.length;
+                    return row.form.map((f, idx) => {
+                      const dIdx = idx - offset;
+                      const md =
+                        dIdx >= 0 && dIdx < resolvedList.length ? resolvedList[dIdx] : undefined;
+                      const isActive =
+                        selectedPastMatchModal.badgeIdx === idx ||
+                        (md && md.id === selectedPastMatchModal.match.id);
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => handleFormBadgeClick(row, idx, f, md)}
+                          title={md ? `${md.homeTeam} ${md.homeGoals}:${md.awayGoals} ${md.awayTeam}` : f}
+                          className={`px-2 py-1 rounded-lg text-[10px] font-mono font-black flex items-center gap-1 transition-all cursor-pointer ${
+                            isActive
+                              ? 'ring-2 ring-[#43f08a] scale-105'
+                              : 'opacity-75 hover:opacity-100'
+                          } ${
+                            f === 'W'
+                              ? 'bg-[#10b981] text-[#04130b]'
+                              : f === 'D'
+                              ? 'bg-[#334155] text-white'
+                              : 'bg-[#ef4444] text-white'
+                          }`}
+                        >
+                          <span>{f}</span>
+                          {md && (
+                            <span className="text-[9px] font-bold opacity-90">
+                              ({md.homeGoals}:{md.awayGoals})
+                            </span>
+                          )}
+                        </button>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+            )}
+
+            {/* Match Scoreboard Banner */}
+            <div className="p-6 bg-gradient-to-r from-[#07111a] via-[#0b1b20] to-[#08111a] border-b border-[#162232]">
+              {selectedPastMatchModal.loadingTeamMatches ? (
+                <div className="py-6 text-center text-xs font-mono text-[#43f08a]">
+                  Зареждане на изминалия мач на {selectedPastMatchModal.teamRow?.club} от API-Football v3...
+                </div>
+              ) : (
+                <div className="grid grid-cols-11 gap-3 items-center">
+                  {/* Home Team */}
+                  <div className="col-span-4 flex items-center gap-3 min-w-0">
+                    <TeamBadge
+                      name={selectedPastMatchModal.match.homeTeam}
+                      logoUrl={pastMatchModalIntel?.homeLogo || selectedPastMatchModal.match.homeLogo}
+                      teamId={selectedPastMatchModal.match.homeTeamId}
+                      size="md"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = {
+                          teamId: selectedPastMatchModal.match.homeTeamId,
+                          teamName: selectedPastMatchModal.match.homeTeam,
+                          teamLogo:
+                            pastMatchModalIntel?.homeLogo || selectedPastMatchModal.match.homeLogo,
+                          leagueId: activeLeague.apiLeagueId,
+                          leagueName: activeLeague.name,
+                        };
+                        setSelectedPastMatchModal(null);
+                        openTeamProfile(target);
+                      }}
+                      className="text-sm sm:text-base font-extrabold text-white hover:text-[#43f08a] hover:underline text-left leading-tight truncate cursor-pointer"
+                    >
+                      {selectedPastMatchModal.match.homeTeam}
+                    </button>
+                  </div>
+
+                  {/* Final Score Box */}
+                  <div className="col-span-3 text-center">
+                    <div className="inline-block rounded-xl border border-[#1f3144] bg-[#060b12]/90 px-4 py-2">
+                      <div className="text-[10px] font-mono font-bold text-[#43f08a] uppercase">
+                        {pastMatchModalIntel?.halftimeScore || 'КРАЕН РЕЗУЛТАТ'}
+                      </div>
+                      <div className="text-2xl sm:text-3xl font-black text-white font-mono">
+                        {pastMatchModalIntel?.homeScore ?? selectedPastMatchModal.match.homeGoals} -{' '}
+                        {pastMatchModalIntel?.awayScore ?? selectedPastMatchModal.match.awayGoals}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Away Team */}
+                  <div className="col-span-4 flex items-center justify-end gap-3 text-right min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = {
+                          teamId: selectedPastMatchModal.match.awayTeamId,
+                          teamName: selectedPastMatchModal.match.awayTeam,
+                          teamLogo:
+                            pastMatchModalIntel?.awayLogo || selectedPastMatchModal.match.awayLogo,
+                          leagueId: activeLeague.apiLeagueId,
+                          leagueName: activeLeague.name,
+                        };
+                        setSelectedPastMatchModal(null);
+                        openTeamProfile(target);
+                      }}
+                      className="text-sm sm:text-base font-extrabold text-white hover:text-[#43f08a] hover:underline text-right leading-tight truncate cursor-pointer"
+                    >
+                      {selectedPastMatchModal.match.awayTeam}
+                    </button>
+                    <TeamBadge
+                      name={selectedPastMatchModal.match.awayTeam}
+                      logoUrl={pastMatchModalIntel?.awayLogo || selectedPastMatchModal.match.awayLogo}
+                      teamId={selectedPastMatchModal.match.awayTeamId}
+                      size="md"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Match Events Timeline & Official Statistics */}
+            <div className="p-5 max-h-[52vh] overflow-y-auto space-y-4">
+              {pastMatchModalLoading || selectedPastMatchModal.loadingTeamMatches ? (
+                <div className="py-8 text-center text-xs text-[#8f9cae] font-mono">
+                  Зареждане на официална хронология и статистика от API-Football v3...
+                </div>
+              ) : (
+                <>
+                  {pastMatchModalIntel?.events && pastMatchModalIntel.events.length > 0 ? (
+                    <div className="space-y-1.5">
+                      <div className="text-[10px] font-mono uppercase tracking-wider text-[#8f9cae] mb-1">
+                        Хронология на събитията (Голове, Картони, Смени):
+                      </div>
+                      {pastMatchModalIntel.events.map((ev, idx) => (
+                        <div
+                          key={idx}
+                          className={`flex items-center gap-3 p-2 rounded-xl border text-xs ${
+                            ev.highlight
+                              ? 'border-[#1e553b] bg-[#0d2119]'
+                              : 'border-[#15202e] bg-[#0b121c]'
+                          }`}
+                        >
+                          <span className="w-10 font-mono text-[11px] text-[#43f08a] font-bold">
+                            {ev.min}
+                          </span>
+                          <span className="text-sm">{ev.icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-bold text-white truncate">{ev.title}</div>
+                            <div className="text-[11px] text-[#8f9cae] truncate">{ev.sub}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-3 rounded-xl border border-[#15202e] bg-[#0b121c] text-xs text-[#8f9cae] text-center">
+                      Официален резултат от API-Football:{' '}
+                      <strong className="text-white">
+                        {selectedPastMatchModal.match.homeTeam}{' '}
+                        {selectedPastMatchModal.match.homeGoals} -{' '}
+                        {selectedPastMatchModal.match.awayGoals}{' '}
+                        {selectedPastMatchModal.match.awayTeam}
+                      </strong>
+                    </div>
+                  )}
+
+                  {pastMatchModalIntel?.hasRealStats && pastMatchModalIntel.stats && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center font-mono text-xs pt-2 border-t border-[#162232]">
+                      <div className="p-2.5 rounded-xl bg-[#0b121c] border border-[#15202e]">
+                        <span className="text-[10px] text-[#8f9cae] block">Владеене</span>
+                        <span className="font-bold text-white">
+                          {pastMatchModalIntel.stats.possessionHome}% -{' '}
+                          {pastMatchModalIntel.stats.possessionAway}%
+                        </span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-[#0b121c] border border-[#15202e]">
+                        <span className="text-[10px] text-[#8f9cae] block">Удари (Точни)</span>
+                        <span className="font-bold text-white">
+                          {pastMatchModalIntel.stats.shotsHome} (
+                          {pastMatchModalIntel.stats.shotsOnTargetHome}) -{' '}
+                          {pastMatchModalIntel.stats.shotsAway} (
+                          {pastMatchModalIntel.stats.shotsOnTargetAway})
+                        </span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-[#0b121c] border border-[#15202e]">
+                        <span className="text-[10px] text-[#8f9cae] block">Корнери</span>
+                        <span className="font-bold text-white">
+                          {pastMatchModalIntel.stats.cornersHome} -{' '}
+                          {pastMatchModalIntel.stats.cornersAway}
+                        </span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-[#0b121c] border border-[#15202e]">
+                        <span className="text-[10px] text-[#8f9cae] block">🟨 Жълти картони</span>
+                        <span className="font-bold text-white">
+                          {pastMatchModalIntel.stats.yellowCardsHome} -{' '}
+                          {pastMatchModalIntel.stats.yellowCardsAway}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Modal Footer: Open Full MatchDetailPage or Team Profile */}
+            {!selectedPastMatchModal.loadingTeamMatches && (
+              <div className="px-5 py-3.5 bg-[#0a121d] border-t border-[#162232] flex flex-wrap items-center justify-between gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const row = selectedPastMatchModal.teamRow;
+                    setSelectedPastMatchModal(null);
+                    openTeamProfile({
+                      teamId: row?.teamId || selectedPastMatchModal.match.homeTeamId,
+                      teamName: row?.club || selectedPastMatchModal.match.homeTeam,
+                      teamLogo: row?.clubLogo || selectedPastMatchModal.match.homeLogo,
+                      leagueId: activeLeague.apiLeagueId,
+                      leagueName: activeLeague.name,
+                    });
+                  }}
+                  className="px-3.5 py-2 rounded-xl border border-[#1e2d40] bg-[#0e1622] hover:border-[#43f08a]/50 text-xs font-bold text-neutral-200 hover:text-white cursor-pointer transition-colors"
+                >
+                  🛡️ Профил на {selectedPastMatchModal.teamRow?.club || selectedPastMatchModal.match.homeTeam}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const md = selectedPastMatchModal.match;
+                    setSelectedPastMatchModal(null);
+                    handleOpenFixtureMatch({
+                      id: md.id,
+                      dayLabel: md.date,
+                      homeTeamId: md.homeTeamId,
+                      homeTeam: md.homeTeam,
+                      homeLogo: md.homeLogo,
+                      awayTeamId: md.awayTeamId,
+                      awayTeam: md.awayTeam,
+                      awayLogo: md.awayLogo,
+                      homeGoals: md.homeGoals,
+                      awayGoals: md.awayGoals,
+                      status: 'FINISHED',
+                      time: `${md.homeGoals} - ${md.awayGoals}`,
+                    });
+                  }}
+                  className="px-4 py-2 rounded-xl border border-[#22c55e] bg-[#0f291e] hover:bg-[#22c55e] text-[#43f08a] hover:text-[#04130b] text-xs font-extrabold cursor-pointer transition-all"
+                >
+                  Отвори Пълен +EV & Поасон Анализ на Мача →
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
