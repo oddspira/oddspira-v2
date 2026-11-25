@@ -1255,6 +1255,293 @@ const PLAYER_DICT: Record<Language, PlayerI18nEntry> = {
   },
 };
 
+const COMPARE_DICT: Record<
+  Language,
+  {
+    compareBtn: string;
+    closeCompareBtn: string;
+    title: string;
+    subtitle: string;
+    searchSecondPlaceholder: string;
+    quickPickLabel: string;
+    loadingSecond: string;
+    selectPrompt: string;
+    radarTitle: string;
+    h2hMetricsTitle: string;
+    axisGoals90: string;
+    axisAssists90: string;
+    axisShotAcc: string;
+    axisKeyPasses90: string;
+    axisDuelsPct: string;
+    metricGoals90: string;
+    metricRating: string;
+    shareLinkCopied: string;
+    copyLinkBtn: string;
+  }
+> = {
+  bg: {
+    compareBtn: '⚔️ Сравни с друг играч',
+    closeCompareBtn: '✕ Затвори сравнението',
+    title: '⚔️ Директно сравнение на двама футболисти (Head-to-Head & 5D Радар)',
+    subtitle: 'Сравни голове на 90 мин., точни удари, ключови пасове, дрибъли, спечелени дуели и официален рейтинг',
+    searchSecondPlaceholder: '🔍 Потърси втори играч за сравнение (напр. Haaland, Mbappé, Saka)...',
+    quickPickLabel: 'Бърз избор за сравнение:',
+    loadingSecond: 'Зареждане на статистиката на втория играч...',
+    selectPrompt: 'Избери втори футболист от търсачката или от бързите бутони горе, за да видиш радара и директното сравнение.',
+    radarTitle: '5-Осев Перформанс Радар (Нормализиран на 90 мин.)',
+    h2hMetricsTitle: 'Директно сравнение по показатели (Head-to-Head)',
+    axisGoals90: 'Голове/90',
+    axisAssists90: 'Асист./90',
+    axisShotAcc: 'Точни удари %',
+    axisKeyPasses90: 'Ключ. пасове/90',
+    axisDuelsPct: 'Дуели %',
+    metricGoals90: 'Голове на 90 мин.',
+    metricRating: 'Официален Рейтинг',
+    shareLinkCopied: '✓ Директният линк е копиран!',
+    copyLinkBtn: '🔗 Сподели профил',
+  },
+  en: {
+    compareBtn: '⚔️ Compare with another player',
+    closeCompareBtn: '✕ Close Comparison',
+    title: '⚔️ Player vs Player Head-to-Head & 5D Radar Comparison',
+    subtitle: 'Compare Goals per 90m, Shots on Target, Key Passes, Dribbles, Duels Won % and Official Rating',
+    searchSecondPlaceholder: '🔍 Search second player to compare (e.g. Haaland, Mbappé, Saka)...',
+    quickPickLabel: 'Quick compare presets:',
+    loadingSecond: 'Loading second player statistics...',
+    selectPrompt: 'Select a second player from the search box or quick presets above to launch the radar comparison.',
+    radarTitle: '5-Axis Performance Radar (Normalized per 90m)',
+    h2hMetricsTitle: 'Head-to-Head Statistical Breakdown',
+    axisGoals90: 'Goals/90',
+    axisAssists90: 'Assists/90',
+    axisShotAcc: 'Shot Acc %',
+    axisKeyPasses90: 'Key Passes/90',
+    axisDuelsPct: 'Duels Won %',
+    metricGoals90: 'Goals per 90 mins',
+    metricRating: 'Official Rating',
+    shareLinkCopied: '✓ Direct link copied!',
+    copyLinkBtn: '🔗 Share Profile',
+  },
+  es: {
+    compareBtn: '⚔️ Comparar con otro jugador',
+    closeCompareBtn: '✕ Cerrar comparación',
+    title: '⚔️ Comparación Jugador vs Jugador (Cara a Cara y Radar 5D)',
+    subtitle: 'Compara Goles por 90m, Tiros a puerta, Pases clave, Regates, Duelos ganados y Valoración',
+    searchSecondPlaceholder: '🔍 Buscar segundo jugador para comparar (ej. Haaland, Mbappé, Saka)...',
+    quickPickLabel: 'Selección rápida:',
+    loadingSecond: 'Cargando estadísticas del segundo jugador...',
+    selectPrompt: 'Selecciona un segundo jugador del buscador o de los botones rápidos para ver el radar.',
+    radarTitle: 'Radar de Rendimiento de 5 Ejes (Por 90 min)',
+    h2hMetricsTitle: 'Comparativa Directa (Head-to-Head)',
+    axisGoals90: 'Goles/90',
+    axisAssists90: 'Asist./90',
+    axisShotAcc: 'Prec. Tiros %',
+    axisKeyPasses90: 'Pases Clave/90',
+    axisDuelsPct: 'Duelos %',
+    metricGoals90: 'Goles por 90 min',
+    metricRating: 'Valoración Oficial',
+    shareLinkCopied: '✓ ¡Enlace copiado!',
+    copyLinkBtn: '🔗 Compartir',
+  },
+  de: {
+    compareBtn: '⚔️ Mit anderem Spieler vergleichen',
+    closeCompareBtn: '✕ Vergleich schließen',
+    title: '⚔️ Spieler-Vergleich (Head-to-Head & 5D-Radar)',
+    subtitle: 'Vergleiche Tore pro 90 Min., Torschüsse, Schlüsselpässe, Dribblings, Zweikämpfe und Bewertung',
+    searchSecondPlaceholder: '🔍 Zweiten Spieler zum Vergleich suchen (z.B. Haaland, Mbappé, Saka)...',
+    quickPickLabel: 'Schnellauswahl:',
+    loadingSecond: 'Lade Statistiken des zweiten Spielers...',
+    selectPrompt: 'Wählen Sie oben einen zweiten Spieler aus, um den Radar- und Direktvergleich zu starten.',
+    radarTitle: '5-Achsen Leistungsradar (Pro 90 Min.)',
+    h2hMetricsTitle: 'Direkter Statistik-Vergleich (Head-to-Head)',
+    axisGoals90: 'Tore/90',
+    axisAssists90: 'Vorlagen/90',
+    axisShotAcc: 'Schussgen. %',
+    axisKeyPasses90: 'Key-Pässe/90',
+    axisDuelsPct: 'Zweikämpfe %',
+    metricGoals90: 'Tore pro 90 Min.',
+    metricRating: 'Offizielle Bewertung',
+    shareLinkCopied: '✓ Direktlink kopiert!',
+    copyLinkBtn: '🔗 Teilen',
+  },
+  it: {
+    compareBtn: '⚔️ Confronta con altro giocatore',
+    closeCompareBtn: '✕ Chiudi confronto',
+    title: '⚔️ Confronto Giocatore vs Giocatore (Testa a Testa & Radar 5D)',
+    subtitle: 'Confronta Gol per 90m, Tiri in porta, Passaggi chiave, Dribbling, Duelli vinti e Valutazione',
+    searchSecondPlaceholder: '🔍 Cerca secondo giocatore da confrontare (es. Haaland, Mbappé, Saka)...',
+    quickPickLabel: 'Scelta rapida:',
+    loadingSecond: 'Caricamento statistiche secondo giocatore...',
+    selectPrompt: 'Seleziona un secondo giocatore dalla ricerca o dai pulsanti rapidi per vedere il radar.',
+    radarTitle: 'Radar Prestazioni a 5 Assi (Per 90 min)',
+    h2hMetricsTitle: 'Confronto Diretto Statistiche (Head-to-Head)',
+    axisGoals90: 'Gol/90',
+    axisAssists90: 'Assist/90',
+    axisShotAcc: 'Prec. Tiri %',
+    axisKeyPasses90: 'Pass. Chiave/90',
+    axisDuelsPct: 'Duelli %',
+    metricGoals90: 'Gol per 90 min',
+    metricRating: 'Valutazione Ufficiale',
+    shareLinkCopied: '✓ Link copiato!',
+    copyLinkBtn: '🔗 Condividi',
+  },
+  pt: {
+    compareBtn: '⚔️ Comparar com outro jogador',
+    closeCompareBtn: '✕ Fechar comparação',
+    title: '⚔️ Comparação Jogador vs Jogador (Frente a Frente & Radar 5D)',
+    subtitle: 'Compare Gols por 90m, Chutes no gol, Passes decisivos, Dribles, Duelos ganhos e Nota',
+    searchSecondPlaceholder: '🔍 Buscar segundo jogador para comparar (ex. Haaland, Mbappé, Saka)...',
+    quickPickLabel: 'Escolha rápida:',
+    loadingSecond: 'Carregando estatísticas do segundo jogador...',
+    selectPrompt: 'Selecione um segundo jogador na busca ou nos botões rápidos para ver o radar.',
+    radarTitle: 'Radar de Desempenho de 5 Eixos (Por 90 min)',
+    h2hMetricsTitle: 'Comparativo Direto de Estatísticas (Head-to-Head)',
+    axisGoals90: 'Gols/90',
+    axisAssists90: 'Assist./90',
+    axisShotAcc: 'Prec. Chutes %',
+    axisKeyPasses90: 'Passes Dec./90',
+    axisDuelsPct: 'Duelos %',
+    metricGoals90: 'Gols por 90 min',
+    metricRating: 'Nota Oficial',
+    shareLinkCopied: '✓ Link copiado!',
+    copyLinkBtn: '🔗 Compartilhar',
+  },
+  fr: {
+    compareBtn: '⚔️ Comparer avec un autre joueur',
+    closeCompareBtn: '✕ Fermer la comparaison',
+    title: '⚔️ Comparaison Joueur vs Joueur (Face-à-Face & Radar 5D)',
+    subtitle: 'Comparez Buts par 90m, Tirs cadrés, Passes clés, Dribbles, Duels gagnés et Note officielle',
+    searchSecondPlaceholder: '🔍 Rechercher un 2e joueur à comparer (ex. Haaland, Mbappé, Saka)...',
+    quickPickLabel: 'Sélection rapide :',
+    loadingSecond: 'Chargement des statistiques du second joueur...',
+    selectPrompt: 'Sélectionnez un second joueur via la recherche ou les boutons rapides pour afficher le radar.',
+    radarTitle: 'Radar de Performance à 5 Axes (Par 90 min)',
+    h2hMetricsTitle: 'Comparaison Directe (Face-à-Face)',
+    axisGoals90: 'Buts/90',
+    axisAssists90: 'Passes D./90',
+    axisShotAcc: 'Tirs Cadrés %',
+    axisKeyPasses90: 'Passes Clés/90',
+    axisDuelsPct: 'Duels %',
+    metricGoals90: 'Buts par 90 min',
+    metricRating: 'Note Officielle',
+    shareLinkCopied: '✓ Lien copié !',
+    copyLinkBtn: '🔗 Partager',
+  },
+  tr: {
+    compareBtn: '⚔️ Başka oyuncuyla karşılaştır',
+    closeCompareBtn: '✕ Karşılaştırmayı kapat',
+    title: '⚔️ Oyuncu vs Oyuncu Karşılaştırması (Baş Başa & 5D Radar)',
+    subtitle: '90 dk başına Gol, İsabetli Şut, Kilit Pas, Çalım, Kazanılan İkili Mücadele ve Reyting karşılaştırın',
+    searchSecondPlaceholder: '🔍 Karşılaştırmak için ikinci oyuncuyu arayın (örn. Haaland, Mbappé, Saka)...',
+    quickPickLabel: 'Hızlı seçim:',
+    loadingSecond: 'İkinci oyuncunun istatistikleri yükleniyor...',
+    selectPrompt: 'Radar karşılaştırmasını başlatmak için yukarıdan ikinci bir oyuncu seçin.',
+    radarTitle: '5 Eksenli Performans Radarı (90 dk başına)',
+    h2hMetricsTitle: 'Baş Başa İstatistik Karşılaştırması',
+    axisGoals90: 'Gol/90',
+    axisAssists90: 'Asist/90',
+    axisShotAcc: 'Şut İsab. %',
+    axisKeyPasses90: 'Kilit Pas/90',
+    axisDuelsPct: 'İkili Müc. %',
+    metricGoals90: '90 dk başına Gol',
+    metricRating: 'Resmi Reyting',
+    shareLinkCopied: '✓ Bağlantı kopyalandı!',
+    copyLinkBtn: '🔗 Paylaş',
+  },
+  pl: {
+    compareBtn: '⚔️ Porównaj z innym piłkarzem',
+    closeCompareBtn: '✕ Zamknij porównanie',
+    title: '⚔️ Porównanie Piłkarzy (Head-to-Head i Radar 5D)',
+    subtitle: 'Porównaj Gole na 90 min, Celne strzały, Kluczowe podania, Dryblingi, Pojedynki i Ocenę',
+    searchSecondPlaceholder: '🔍 Szukaj drugiego piłkarza do porównania (np. Haaland, Mbappé, Saka)...',
+    quickPickLabel: 'Szybki wybór:',
+    loadingSecond: 'Ładowanie statystyk drugiego piłkarza...',
+    selectPrompt: 'Wybierz drugiego zawodnika z wyszukiwarki lub szybkich przycisków, aby zobaczyć radar.',
+    radarTitle: '5-Osiowy Radar Wydajności (Na 90 min)',
+    h2hMetricsTitle: 'Bezpośrednie Porównanie Statystyk (Head-to-Head)',
+    axisGoals90: 'Gole/90',
+    axisAssists90: 'Asysty/90',
+    axisShotAcc: 'Celność %',
+    axisKeyPasses90: 'Klucz. pod./90',
+    axisDuelsPct: 'Pojedynki %',
+    metricGoals90: 'Gole na 90 min',
+    metricRating: 'Oficjalna Ocena',
+    shareLinkCopied: '✓ Link skopiowany!',
+    copyLinkBtn: '🔗 Udostępnij',
+  },
+  el: {
+    compareBtn: '⚔️ Σύγκριση με άλλον παίκτη',
+    closeCompareBtn: '✕ Κλείσιμο σύγκρισης',
+    title: '⚔️ Σύγκριση Παικτών (Head-to-Head & Ραντάρ 5D)',
+    subtitle: 'Συγκρίνετε Γκολ ανά 90λ., Σουτ στην εστία, Πάσες-κλειδιά, Ντρίμπλες, Μονομαχίες και Βαθμολογία',
+    searchSecondPlaceholder: '🔍 Αναζήτηση 2ου παίκτη για σύγκριση (π.χ. Haaland, Mbappé, Saka)...',
+    quickPickLabel: 'Γρήγορη επιλογή:',
+    loadingSecond: 'Φόρτωση στατιστικών δεύτερου παίκτη...',
+    selectPrompt: 'Επιλέξτε δεύτερο παίκτη από την αναζήτηση ή τα κουμπιά γρήγορης επιλογής για να δείτε το ραντάρ.',
+    radarTitle: 'Ραντάρ Απόδοσης 5 Αξόνων (Ανά 90 λεπτά)',
+    h2hMetricsTitle: 'Άμεση Σύγκριση Στατιστικών (Head-to-Head)',
+    axisGoals90: 'Γκολ/90',
+    axisAssists90: 'Ασίστ/90',
+    axisShotAcc: 'Ευστοχία %',
+    axisKeyPasses90: 'Πάσες-Κλ./90',
+    axisDuelsPct: 'Μονομαχίες %',
+    metricGoals90: 'Γκολ ανά 90 λεπτά',
+    metricRating: 'Επίσημη Βαθμολογία',
+    shareLinkCopied: '✓ Ο σύνδεσμος αντιγράφηκε!',
+    copyLinkBtn: '🔗 Κοινοποίηση',
+  },
+  ro: {
+    compareBtn: '⚔️ Compară cu alt jucător',
+    closeCompareBtn: '✕ Închide comparația',
+    title: '⚔️ Comparație Jucător vs Jucător (Head-to-Head & Radar 5D)',
+    subtitle: 'Compară Goluri per 90m, Șuturi pe poartă, Pase cheie, Driblinguri, Dueluri câștigate și Rating',
+    searchSecondPlaceholder: '🔍 Caută al doilea jucător pentru comparație (ex. Haaland, Mbappé, Saka)...',
+    quickPickLabel: 'Selecție rapidă:',
+    loadingSecond: 'Se încarcă statisticile celui de-al doilea jucător...',
+    selectPrompt: 'Selectează un al doilea jucător din căutare sau din butoanele rapide pentru a vedea radarul.',
+    radarTitle: 'Radar de Performanță pe 5 Axe (Per 90 min)',
+    h2hMetricsTitle: 'Comparație Directă pe Indicatori (Head-to-Head)',
+    axisGoals90: 'Goluri/90',
+    axisAssists90: 'Pase G./90',
+    axisShotAcc: 'Prec. Șut %',
+    axisKeyPasses90: 'Pase Cheie/90',
+    axisDuelsPct: 'Dueluri %',
+    metricGoals90: 'Goluri per 90 min',
+    metricRating: 'Rating Oficial',
+    shareLinkCopied: '✓ Link copiat!',
+    copyLinkBtn: '🔗 Distribuie',
+  },
+  ru: {
+    compareBtn: '⚔️ Сравнить с другим игроком',
+    closeCompareBtn: '✕ Закрыть сравнение',
+    title: '⚔️ Сравнение двух футболистов (Head-to-Head и 5D Радар)',
+    subtitle: 'Сравните голы за 90 мин., удары в створ, ключевые пасы, дриблинг, единоборства и рейтинг',
+    searchSecondPlaceholder: '🔍 Найти второго игрока для сравнения (напр. Haaland, Mbappé, Saka)...',
+    quickPickLabel: 'Быстрый выбор:',
+    loadingSecond: 'Загрузка статистики второго игрока...',
+    selectPrompt: 'Выберите второго футболиста через поиск или быстрые кнопки выше для построения радара.',
+    radarTitle: '5-осевой радар эффективности (На 90 мин.)',
+    h2hMetricsTitle: 'Прямое сравнение показателей (Head-to-Head)',
+    axisGoals90: 'Голы/90',
+    axisAssists90: 'Ассисты/90',
+    axisShotAcc: 'Точн. ударов %',
+    axisKeyPasses90: 'Ключ. пасы/90',
+    axisDuelsPct: 'Дуэли %',
+    metricGoals90: 'Голы на 90 мин.',
+    metricRating: 'Официальный рейтинг',
+    shareLinkCopied: '✓ Ссылка скопирована!',
+    copyLinkBtn: '🔗 Поделиться',
+  },
+};
+
+const QUICK_COMPARE_PRESETS: Array<{ id: number; name: string; club: string }> = [
+  { id: 1100, name: 'Erling Haaland', club: 'Manchester City' },
+  { id: 278, name: 'Kylian Mbappé', club: 'Real Madrid' },
+  { id: 306, name: 'Mohamed Salah', club: 'Liverpool' },
+  { id: 1460, name: 'Bukayo Saka', club: 'Arsenal' },
+  { id: 152982, name: 'Cole Palmer', club: 'Chelsea' },
+  { id: 2117, name: 'Kiril Despodov', club: 'PAOK' },
+];
+
 function formatDateByLang(dateStr: string, lang: Language): string {
   if (!dateStr) return '—';
   const parsed = new Date(dateStr);
@@ -1284,6 +1571,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
   onOpenLeague,
 }) => {
   const pt = PLAYER_DICT[language] || PLAYER_DICT.en;
+  const ct = COMPARE_DICT[language] || COMPARE_DICT.en;
   const [intel, setIntel] = useState<PlayerIntelResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -1295,6 +1583,65 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
   const [searchResults, setSearchResults] = useState<PlayerSearchHit[]>([]);
   const [searching, setSearching] = useState<boolean>(false);
   const [searchDropdownOpen, setSearchDropdownOpen] = useState<boolean>(false);
+
+  // Player vs Player Head-to-Head Comparison State
+  const [isCompareOpen, setIsCompareOpen] = useState<boolean>(false);
+  const [compareQuery, setCompareQuery] = useState<string>('');
+  const [compareResults, setCompareResults] = useState<PlayerSearchHit[]>([]);
+  const [compareSearching, setCompareSearching] = useState<boolean>(false);
+  const [compareIntel, setCompareIntel] = useState<PlayerIntelResponse | null>(null);
+  const [compareLoading, setCompareLoading] = useState<boolean>(false);
+  const [copiedShareLink, setCopiedShareLink] = useState<boolean>(false);
+
+  const loadComparisonPlayer = async (secondPlayerId?: number, secondPlayerName?: string) => {
+    setCompareLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (secondPlayerId) params.set('playerId', String(secondPlayerId));
+      if (secondPlayerName) params.set('name', secondPlayerName);
+      if (selectedSeason !== 'auto') params.set('season', selectedSeason);
+      const res = await fetch(`/api/football/player-intel?${params.toString()}`);
+      if (res.ok) {
+        const data: PlayerIntelResponse = await res.json();
+        if (data?.player) {
+          setCompareIntel(data);
+        }
+      }
+    } catch {
+      // ignore error
+    } finally {
+      setCompareLoading(false);
+    }
+  };
+
+  // Debounced search for second player in Comparison mode
+  useEffect(() => {
+    const q = compareQuery.trim();
+    if (q.length < 3) {
+      setCompareResults([]);
+      setCompareSearching(false);
+      return;
+    }
+    let cancelled = false;
+    setCompareSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/football/player-search?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        if (!cancelled) {
+          setCompareResults(Array.isArray(data?.players) ? data.players : []);
+        }
+      } catch {
+        if (!cancelled) setCompareResults([]);
+      } finally {
+        if (!cancelled) setCompareSearching(false);
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [compareQuery]);
 
   const translatePosition = (pos: string): string => {
     const p = pos.toLowerCase();
@@ -1402,6 +1749,19 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
   const wonTrophiesCount = trophies.filter(
     (t) => t.place.toLowerCase().includes('winner') || t.place.includes('1')
   ).length;
+
+  // Upgrade URL to canonical /player/:id and update document.title once player intel loads
+  useEffect(() => {
+    if (player?.id) {
+      const canonicalPath = `/player/${player.id}`;
+      if (window.location.pathname !== canonicalPath) {
+        window.history.replaceState({}, '', canonicalPath);
+      }
+    }
+    if (displayFullName && !displayFullName.startsWith('Player #')) {
+      document.title = `${displayFullName} — ${pt.tabStats} | Oddspira`;
+    }
+  }, [player?.id, displayFullName, pt.tabStats]);
 
   return (
     <div
@@ -1643,6 +2003,66 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
               </div>
             )}
           </div>
+
+          <button
+            onClick={() => {
+              const nextState = !isCompareOpen;
+              setIsCompareOpen(nextState);
+              if (nextState && !compareIntel) {
+                const defaultPreset =
+                  QUICK_COMPARE_PRESETS.find(
+                    (p) =>
+                      p.id !== (player?.id || target.playerId) &&
+                      !displayName.toLowerCase().includes(p.name.split(' ')[1].toLowerCase())
+                  ) || QUICK_COMPARE_PRESETS[0];
+                loadComparisonPlayer(defaultPreset.id, defaultPreset.name);
+              }
+            }}
+            style={{
+              background: isCompareOpen
+                ? 'rgba(56,189,248,0.18)'
+                : 'linear-gradient(135deg, rgba(67,240,138,0.16) 0%, rgba(56,189,248,0.16) 100%)',
+              border: `1px solid ${isCompareOpen ? '#38bdf8' : '#43f08a'}`,
+              borderRadius: '10px',
+              padding: '8px 14px',
+              color: isCompareOpen ? '#38bdf8' : '#43f08a',
+              fontSize: '12px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            {isCompareOpen ? ct.closeCompareBtn : ct.compareBtn}
+          </button>
+
+          <button
+            onClick={() => {
+              const pid = player?.id || target.playerId;
+              const shareUrl = `${window.location.origin}/player/${
+                pid ? pid : encodeURIComponent(displayName)
+              }`;
+              if (window.location.pathname !== `/player/${pid || encodeURIComponent(displayName)}`) {
+                window.history.replaceState({}, '', `/player/${pid || encodeURIComponent(displayName)}`);
+              }
+              navigator.clipboard?.writeText(shareUrl).catch(() => {});
+              setCopiedShareLink(true);
+              setTimeout(() => setCopiedShareLink(false), 2500);
+            }}
+            style={{
+              background: '#0b111a',
+              border: '1px solid #182434',
+              borderRadius: '10px',
+              padding: '8px 12px',
+              color: copiedShareLink ? '#43f08a' : '#cbd5e1',
+              fontSize: '12px',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            {copiedShareLink ? ct.shareLinkCopied : ct.copyLinkBtn}
+          </button>
 
           <button
             onClick={onBack}
@@ -2083,6 +2503,623 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
           </div>
         )}
       </div>
+
+      {/* =================================================================== */}
+      {/* PLAYER VS PLAYER HEAD-TO-HEAD & 5-AXIS RADAR COMPARISON MODULE */}
+      {/* =================================================================== */}
+      {isCompareOpen && (
+        <div
+          style={{
+            background: 'linear-gradient(135deg, #09131e 0%, #0b1623 100%)',
+            border: '1px solid rgba(56,189,248,0.4)',
+            borderRadius: '18px',
+            padding: '24px',
+            marginBottom: '24px',
+            boxShadow: '0 16px 40px rgba(0,0,0,0.55)',
+          }}
+        >
+          {/* Comparison Header & Search Bar */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              gap: '16px',
+              flexWrap: 'wrap',
+              borderBottom: '1px solid #162638',
+              paddingBottom: '16px',
+              marginBottom: '18px',
+            }}
+          >
+            <div>
+              <div style={{ fontSize: '17px', fontWeight: 900, color: '#ffffff' }}>
+                {ct.title}
+              </div>
+              <div style={{ fontSize: '12px', color: '#8f9cae', marginTop: '4px' }}>
+                {ct.subtitle}
+              </div>
+            </div>
+
+            {/* Search Second Player Box */}
+            <div style={{ position: 'relative', minWidth: '310px', flex: '0 1 380px' }}>
+              <input
+                type="text"
+                value={compareQuery}
+                onChange={(e) => setCompareQuery(e.target.value)}
+                placeholder={ct.searchSecondPlaceholder}
+                style={{
+                  width: '100%',
+                  background: '#060c14',
+                  border: '1px solid #1e334a',
+                  borderRadius: '10px',
+                  padding: '9px 14px',
+                  color: '#ffffff',
+                  fontSize: '12px',
+                  outline: 'none',
+                }}
+              />
+              {compareQuery.trim().length >= 3 && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 6px)',
+                    left: 0,
+                    right: 0,
+                    background: '#0b131e',
+                    border: '1px solid #243b55',
+                    borderRadius: '12px',
+                    boxShadow: '0 16px 40px rgba(0,0,0,0.85)',
+                    zIndex: 70,
+                    maxHeight: '280px',
+                    overflowY: 'auto',
+                    padding: '6px',
+                  }}
+                >
+                  {compareSearching ? (
+                    <div style={{ padding: '12px', fontSize: '12px', color: '#8f9cae', textAlign: 'center' }}>
+                      {pt.searchingGlobal}
+                    </div>
+                  ) : compareResults.length === 0 ? (
+                    <div style={{ padding: '12px', fontSize: '12px', color: '#8f9cae', textAlign: 'center' }}>
+                      {pt.noPlayersFound} „{compareQuery}“
+                    </div>
+                  ) : (
+                    compareResults.map((hit) => (
+                      <div
+                        key={hit.id}
+                        onClick={() => {
+                          setCompareQuery('');
+                          setCompareResults([]);
+                          loadComparisonPlayer(hit.id, hit.name);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {hit.photo && (
+                          <img
+                            src={hit.photo}
+                            alt={hit.name}
+                            style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover' }}
+                          />
+                        )}
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#ffffff' }}>
+                            {hit.name}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#8f9cae' }}>
+                            {[hit.position ? translatePosition(hit.position) : '', hit.nationality]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Quick Preset Player Buttons */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              flexWrap: 'wrap',
+              marginBottom: '20px',
+            }}
+          >
+            <span style={{ fontSize: '11px', color: '#8f9cae', fontWeight: 700 }}>
+              {ct.quickPickLabel}
+            </span>
+            {QUICK_COMPARE_PRESETS.filter((p) => p.id !== (player?.id || target.playerId)).map(
+              (preset) => {
+                const isSelectedPreset = compareIntel?.player?.id === preset.id;
+                return (
+                  <button
+                    key={preset.id}
+                    onClick={() => loadComparisonPlayer(preset.id, preset.name)}
+                    style={{
+                      background: isSelectedPreset ? 'rgba(56,189,248,0.22)' : '#070d15',
+                      border: `1px solid ${isSelectedPreset ? '#38bdf8' : '#182738'}`,
+                      color: isSelectedPreset ? '#38bdf8' : '#cbd5e1',
+                      borderRadius: '8px',
+                      padding: '5px 11px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ⚔️ {preset.name} ({preset.club})
+                  </button>
+                );
+              }
+            )}
+          </div>
+
+          {compareLoading ? (
+            <div style={{ padding: '36px', textAlign: 'center', color: '#38bdf8', fontSize: '13px', fontWeight: 700 }}>
+              {ct.loadingSecond}
+            </div>
+          ) : !compareIntel || !totals ? (
+            <div style={{ padding: '28px', textAlign: 'center', color: '#8f9cae', fontSize: '13px' }}>
+              {ct.selectPrompt}
+            </div>
+          ) : (
+            (() => {
+              const p2 = compareIntel.player;
+              const t1 = totals;
+              const t2 = compareIntel.totals || compareIntel.summary || {
+                appearances: 0,
+                lineups: 0,
+                minutes: 0,
+                goals: 0,
+                assists: 0,
+                shotsTotal: 0,
+                shotsOn: 0,
+                passesTotal: 0,
+                passesKey: 0,
+                dribblesAttempts: 0,
+                dribblesSuccess: 0,
+                duelsTotal: 0,
+                duelsWon: 0,
+                tacklesTotal: 0,
+                interceptions: 0,
+                yellowCards: 0,
+                redCards: 0,
+                penaltiesScored: 0,
+                penaltiesMissed: 0,
+                avgRating: null,
+              };
+
+              const min90_1 = Math.max(1, t1.minutes / 90);
+              const min90_2 = Math.max(1, t2.minutes / 90);
+
+              const goals90_1 = Number((t1.goals / min90_1).toFixed(2));
+              const goals90_2 = Number((t2.goals / min90_2).toFixed(2));
+
+              const assists90_1 = Number((t1.assists / min90_1).toFixed(2));
+              const assists90_2 = Number((t2.assists / min90_2).toFixed(2));
+
+              const shotAcc_1 =
+                t1.shotsTotal > 0 ? Math.round((t1.shotsOn / t1.shotsTotal) * 100) : 0;
+              const shotAcc_2 =
+                t2.shotsTotal > 0 ? Math.round((t2.shotsOn / t2.shotsTotal) * 100) : 0;
+
+              const keyPass90_1 = Number((t1.passesKey / min90_1).toFixed(2));
+              const keyPass90_2 = Number((t2.passesKey / min90_2).toFixed(2));
+
+              const duelsPct_1 =
+                t1.duelsTotal > 0 ? Math.round((t1.duelsWon / t1.duelsTotal) * 100) : 0;
+              const duelsPct_2 =
+                t2.duelsTotal > 0 ? Math.round((t2.duelsWon / t2.duelsTotal) * 100) : 0;
+
+              const rating_1 = Number(t1.avgRating || 6.8);
+              const rating_2 = Number(t2.avgRating || 6.8);
+
+              // 5-Axis Radar normalized values (0.15 to 1.0)
+              const radarAxes = [
+                {
+                  label: ct.axisGoals90,
+                  n1: Math.min(1, Math.max(0.15, goals90_1 / 1.0)),
+                  n2: Math.min(1, Math.max(0.15, goals90_2 / 1.0)),
+                },
+                {
+                  label: ct.axisAssists90,
+                  n1: Math.min(1, Math.max(0.15, assists90_1 / 0.55)),
+                  n2: Math.min(1, Math.max(0.15, assists90_2 / 0.55)),
+                },
+                {
+                  label: ct.axisShotAcc,
+                  n1: Math.min(1, Math.max(0.15, shotAcc_1 / 75)),
+                  n2: Math.min(1, Math.max(0.15, shotAcc_2 / 75)),
+                },
+                {
+                  label: ct.axisKeyPasses90,
+                  n1: Math.min(1, Math.max(0.15, keyPass90_1 / 2.8)),
+                  n2: Math.min(1, Math.max(0.15, keyPass90_2 / 2.8)),
+                },
+                {
+                  label: ct.axisDuelsPct,
+                  n1: Math.min(1, Math.max(0.15, duelsPct_1 / 70)),
+                  n2: Math.min(1, Math.max(0.15, duelsPct_2 / 70)),
+                },
+              ];
+
+              const cx = 140;
+              const cy = 135;
+              const maxR = 90;
+              const getRadarPoint = (axisIdx: number, normVal: number) => {
+                const angle = -Math.PI / 2 + (axisIdx * 2 * Math.PI) / 5;
+                const r = normVal * maxR;
+                return `${(cx + r * Math.cos(angle)).toFixed(1)},${(cy + r * Math.sin(angle)).toFixed(1)}`;
+              };
+
+              const poly1 = radarAxes.map((ax, i) => getRadarPoint(i, ax.n1)).join(' ');
+              const poly2 = radarAxes.map((ax, i) => getRadarPoint(i, ax.n2)).join(' ');
+
+              const h2hRows = [
+                {
+                  label: pt.thMatches,
+                  v1: t1.appearances,
+                  v2: t2.appearances,
+                  d1: `${t1.appearances} (${t1.lineups})`,
+                  d2: `${t2.appearances} (${t2.lineups})`,
+                },
+                {
+                  label: pt.thMinutes,
+                  v1: t1.minutes,
+                  v2: t2.minutes,
+                  d1: `${t1.minutes.toLocaleString()}'`,
+                  d2: `${t2.minutes.toLocaleString()}'`,
+                },
+                {
+                  label: pt.thGoals,
+                  v1: t1.goals,
+                  v2: t2.goals,
+                  d1: String(t1.goals),
+                  d2: String(t2.goals),
+                },
+                {
+                  label: ct.metricGoals90,
+                  v1: goals90_1,
+                  v2: goals90_2,
+                  d1: goals90_1.toFixed(2),
+                  d2: goals90_2.toFixed(2),
+                },
+                {
+                  label: pt.thAssists,
+                  v1: t1.assists,
+                  v2: t2.assists,
+                  d1: String(t1.assists),
+                  d2: String(t2.assists),
+                },
+                {
+                  label: pt.thShots,
+                  v1: t1.shotsOn,
+                  v2: t2.shotsOn,
+                  d1: `${t1.shotsOn}/${t1.shotsTotal} (${shotAcc_1}%)`,
+                  d2: `${t2.shotsOn}/${t2.shotsTotal} (${shotAcc_2}%)`,
+                },
+                {
+                  label: pt.thKeyPasses,
+                  v1: t1.passesKey,
+                  v2: t2.passesKey,
+                  d1: String(t1.passesKey),
+                  d2: String(t2.passesKey),
+                },
+                {
+                  label: pt.thDribbles,
+                  v1: t1.dribblesSuccess,
+                  v2: t2.dribblesSuccess,
+                  d1: `${t1.dribblesSuccess}/${t1.dribblesAttempts}`,
+                  d2: `${t2.dribblesSuccess}/${t2.dribblesAttempts}`,
+                },
+                {
+                  label: pt.thDuels,
+                  v1: t1.duelsWon,
+                  v2: t2.duelsWon,
+                  d1: `${t1.duelsWon}/${t1.duelsTotal} (${duelsPct_1}%)`,
+                  d2: `${t2.duelsWon}/${t2.duelsTotal} (${duelsPct_2}%)`,
+                },
+                {
+                  label: ct.metricRating,
+                  v1: rating_1,
+                  v2: rating_2,
+                  d1: t1.avgRating ? `★ ${Number(t1.avgRating).toFixed(2)}` : '—',
+                  d2: t2.avgRating ? `★ ${Number(t2.avgRating).toFixed(2)}` : '—',
+                },
+              ];
+
+              return (
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+                    gap: '22px',
+                    alignItems: 'center',
+                  }}
+                >
+                  {/* Left Column: Both Player Badges + 5-Axis SVG Radar */}
+                  <div
+                    style={{
+                      background: '#070c14',
+                      border: '1px solid #162436',
+                      borderRadius: '14px',
+                      padding: '18px',
+                    }}
+                  >
+                    {/* Player 1 vs Player 2 Header Cards */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '12px',
+                        marginBottom: '14px',
+                      }}
+                    >
+                      {/* Player 1 (Emerald) */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {displayPhoto && (
+                          <img
+                            src={displayPhoto}
+                            alt={displayName}
+                            style={{
+                              width: '44px',
+                              height: '44px',
+                              borderRadius: '50%',
+                              border: '2px solid #43f08a',
+                              objectFit: 'cover',
+                            }}
+                          />
+                        )}
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: 800, color: '#43f08a' }}>
+                            {displayName}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#8f9cae' }}>
+                            {currentTeamName}
+                          </div>
+                        </div>
+                      </div>
+
+                      <span
+                        style={{
+                          fontFamily: 'monospace',
+                          fontSize: '12px',
+                          fontWeight: 900,
+                          color: '#fbbf24',
+                          background: 'rgba(251,191,36,0.12)',
+                          padding: '4px 9px',
+                          borderRadius: '999px',
+                        }}
+                      >
+                        VS
+                      </span>
+
+                      {/* Player 2 (Cyan) */}
+                      <div
+                        onClick={() => {
+                          if (p2?.id) {
+                            openPlayerProfile({
+                              playerId: p2.id,
+                              playerName: p2.name,
+                              playerPhoto: p2.photo,
+                            });
+                          }
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          cursor: 'pointer',
+                          textAlign: 'right',
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: 800, color: '#38bdf8' }}>
+                            {p2?.name || 'Player 2'}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#8f9cae' }}>
+                            {p2?.currentTeam?.name || compareIntel.primaryTeam?.name || ''}
+                          </div>
+                        </div>
+                        {p2?.photo && (
+                          <img
+                            src={p2.photo}
+                            alt={p2.name}
+                            style={{
+                              width: '44px',
+                              height: '44px',
+                              borderRadius: '50%',
+                              border: '2px solid #38bdf8',
+                              objectFit: 'cover',
+                            }}
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        textAlign: 'center',
+                        fontSize: '11px',
+                        color: '#8f9cae',
+                        fontWeight: 700,
+                        marginBottom: '6px',
+                      }}
+                    >
+                      {ct.radarTitle}
+                    </div>
+
+                    {/* 5-Axis SVG Polygon Radar */}
+                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                      <svg viewBox="0 0 280 265" style={{ width: '100%', maxWidth: '300px' }}>
+                        {[0.25, 0.5, 0.75, 1.0].map((lvl) => (
+                          <polygon
+                            key={lvl}
+                            points={[0, 1, 2, 3, 4].map((i) => getRadarPoint(i, lvl)).join(' ')}
+                            fill="none"
+                            stroke="#182738"
+                            strokeWidth="1"
+                          />
+                        ))}
+                        {[0, 1, 2, 3, 4].map((i) => {
+                          const endPt = getRadarPoint(i, 1.0).split(',');
+                          const labelPt = getRadarPoint(i, 1.24).split(',');
+                          return (
+                            <g key={i}>
+                              <line
+                                x1={cx}
+                                y1={cy}
+                                x2={endPt[0]}
+                                y2={endPt[1]}
+                                stroke="#1e3148"
+                                strokeWidth="1"
+                              />
+                              <text
+                                x={labelPt[0]}
+                                y={labelPt[1]}
+                                textAnchor="middle"
+                                dominantBaseline="middle"
+                                fill="#cbd5e1"
+                                fontSize="9.5"
+                                fontWeight="700"
+                              >
+                                {radarAxes[i].label}
+                              </text>
+                            </g>
+                          );
+                        })}
+                        {/* Player 1 Polygon (Emerald) */}
+                        <polygon
+                          points={poly1}
+                          fill="rgba(67, 240, 138, 0.25)"
+                          stroke="#43f08a"
+                          strokeWidth="2.2"
+                        />
+                        {/* Player 2 Polygon (Cyan) */}
+                        <polygon
+                          points={poly2}
+                          fill="rgba(56, 189, 248, 0.25)"
+                          stroke="#38bdf8"
+                          strokeWidth="2.2"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Head-to-Head Dual Progress Bars */}
+                  <div
+                    style={{
+                      background: '#070c14',
+                      border: '1px solid #162436',
+                      borderRadius: '14px',
+                      padding: '18px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: '13px',
+                        fontWeight: 800,
+                        color: '#ffffff',
+                        marginBottom: '12px',
+                      }}
+                    >
+                      {ct.h2hMetricsTitle}
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
+                      {h2hRows.map((row, idx) => {
+                        const sum = Math.max(0.01, row.v1 + row.v2);
+                        const pct1 = Math.round((row.v1 / sum) * 100);
+                        const pct2 = 100 - pct1;
+                        const p1Leads = row.v1 > row.v2;
+                        const p2Leads = row.v2 > row.v1;
+
+                        return (
+                          <div key={idx}>
+                            <div
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                fontSize: '11.5px',
+                                marginBottom: '3px',
+                                fontFamily: 'monospace',
+                              }}
+                            >
+                              <span
+                                style={{
+                                  fontWeight: p1Leads ? 900 : 600,
+                                  color: p1Leads ? '#43f08a' : '#cbd5e1',
+                                }}
+                              >
+                                {row.d1}
+                              </span>
+                              <span
+                                style={{
+                                  fontFamily: 'sans-serif',
+                                  fontSize: '11px',
+                                  color: '#8f9cae',
+                                  fontWeight: 700,
+                                }}
+                              >
+                                {row.label}
+                              </span>
+                              <span
+                                style={{
+                                  fontWeight: p2Leads ? 900 : 600,
+                                  color: p2Leads ? '#38bdf8' : '#cbd5e1',
+                                }}
+                              >
+                                {row.d2}
+                              </span>
+                            </div>
+
+                            <div
+                              style={{
+                                display: 'flex',
+                                height: '6px',
+                                borderRadius: '999px',
+                                overflow: 'hidden',
+                                background: '#111d2b',
+                                gap: '2px',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width: `${pct1}%`,
+                                  background: p1Leads ? '#43f08a' : 'rgba(67,240,138,0.4)',
+                                  transition: 'width 300ms',
+                                }}
+                              />
+                              <div
+                                style={{
+                                  width: `${pct2}%`,
+                                  background: p2Leads ? '#38bdf8' : 'rgba(56,189,248,0.4)',
+                                  transition: 'width 300ms',
+                                }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()
+          )}
+        </div>
+      )}
 
       {/* Sub-Navigation Tabs + Season Selector */}
       <div

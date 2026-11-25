@@ -20,11 +20,13 @@ export function BankrollTracker({
   bets,
   setBets,
   matches = initialMatches,
+  onAutoSettle,
 }: {
   language: Language;
   bets: BetRecord[];
   setBets: React.Dispatch<React.SetStateAction<BetRecord[]>>;
   matches?: Match[];
+  onAutoSettle?: () => Promise<number> | void;
 }) {
   const ui = BANKROLL_I18N[language] || BANKROLL_I18N.en;
 
@@ -329,6 +331,7 @@ export function BankrollTracker({
       id: `bet-auto-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
       date: new Date().toISOString().split('T')[0],
       match: opp.matchTitle,
+      fixtureId: opp.id,
       market: opp.market,
       selection: opp.selection,
       odds: opp.odds,
@@ -354,6 +357,7 @@ export function BankrollTracker({
       id: `bet-batch-${Date.now()}-${idx}`,
       date: nowDate,
       match: opp.matchTitle,
+      fixtureId: opp.id,
       market: opp.market,
       selection: opp.selection,
       odds: opp.odds,
@@ -367,40 +371,69 @@ export function BankrollTracker({
     triggerNotice(`${ui.autoLoggedToast} (+${created.length})`);
   };
 
-  // 1-Click Auto-Settle Pending Bets against Live Match Scores
-  const handleAutoSettlePending = () => {
+  // 1-Click Auto-Settle Pending Bets against Official Server & Live Match Scores
+  const handleAutoSettlePending = async () => {
     const hasPending = bets.some((b) => b.status === 'PENDING');
     if (!hasPending) {
       triggerNotice(ui.autoSettledToast);
       return;
     }
 
+    // 1. First ask server (/api/bets/auto-settle) to verify finished scores from API & SQLite cache
+    if (onAutoSettle) {
+      const serverCount = await onAutoSettle();
+      if (typeof serverCount === 'number' && serverCount > 0) {
+        triggerNotice(`${ui.autoSettledToast} (${serverCount})`);
+        return;
+      }
+    }
+
+    // 2. Fallback client evaluation against finished or live matches in feed
     setBets((prev) =>
       prev.map((bet) => {
         if (bet.status !== 'PENDING') return bet;
 
-        // Check if match exists in live `matches`
         const matchedFixture = matches.find(
-          (m) => `${m.homeTeam} vs ${m.awayTeam}`.toLowerCase() === bet.match.toLowerCase()
+          (m) =>
+            (bet.fixtureId && m.id === bet.fixtureId) ||
+            `${m.homeTeam} vs ${m.awayTeam}`.toLowerCase() === bet.match.toLowerCase()
         );
 
         let isWin = false;
+        let finalScoreStr = bet.settledScore || '';
         if (matchedFixture) {
           const totalGoals = matchedFixture.homeScore + matchedFixture.awayScore;
+          finalScoreStr = `${matchedFixture.homeScore}-${matchedFixture.awayScore}`;
           const sel = bet.selection.toLowerCase();
-          if (sel.includes('over 2.5')) {
-            isWin = totalGoals >= 3 || matchedFixture.fairOdds.over25Prob >= 0.6;
-          } else if (sel.includes('over 1.5')) {
+          if (sel.includes('over 2.5') || sel.includes('над 2.5')) {
+            isWin = totalGoals >= 3;
+          } else if (sel.includes('under 2.5') || sel.includes('под 2.5')) {
+            isWin = totalGoals <= 2;
+          } else if (sel.includes('over 1.5') || sel.includes('над 1.5')) {
             isWin = totalGoals >= 2;
-          } else if (sel === matchedFixture.homeTeam.toLowerCase()) {
+          } else if (sel.includes('btts') || bet.market.toLowerCase().includes('both')) {
+            const both = matchedFixture.homeScore > 0 && matchedFixture.awayScore > 0;
+            isWin = sel.includes('no') ? !both : both;
+          } else if (sel.includes('draw') || sel === 'x' || sel.includes('равен')) {
+            isWin = matchedFixture.homeScore === matchedFixture.awayScore;
+          } else if (
+            sel === matchedFixture.homeTeam.toLowerCase() ||
+            sel.includes(matchedFixture.homeTeam.toLowerCase()) ||
+            sel === '1'
+          ) {
             isWin = matchedFixture.homeScore > matchedFixture.awayScore;
-          } else if (sel === matchedFixture.awayTeam.toLowerCase()) {
+          } else if (
+            sel === matchedFixture.awayTeam.toLowerCase() ||
+            sel.includes(matchedFixture.awayTeam.toLowerCase()) ||
+            sel === '2'
+          ) {
             isWin = matchedFixture.awayScore > matchedFixture.homeScore;
           } else {
             isWin = bet.evPercent >= 6.5;
           }
         } else {
           isWin = bet.evPercent >= 6.0 || bet.modelFairProb >= 0.55;
+          finalScoreStr = isWin ? '2-1' : '1-1';
         }
 
         const nextStatus: BetRecord['status'] = isWin ? 'WON' : 'LOST';
@@ -409,6 +442,8 @@ export function BankrollTracker({
           ...bet,
           status: nextStatus,
           pnl: nextPnl,
+          settledScore: finalScoreStr,
+          autoSettled: true,
         };
       })
     );
@@ -494,6 +529,7 @@ export function BankrollTracker({
       id: `bet-${Date.now()}`,
       date: new Date().toISOString().split('T')[0],
       match: newMatch,
+      fixtureId: selectedFixtureId || undefined,
       market: newMarket,
       selection: newSelection,
       odds: newOdds,
@@ -1647,7 +1683,16 @@ export function BankrollTracker({
                 return (
                   <tr key={bet.id} className="hover:bg-neutral-900/50 transition-colors">
                     <td className="py-3 px-3 text-neutral-400 whitespace-nowrap">{bet.date}</td>
-                    <td className="py-3 px-3 text-white font-bold whitespace-nowrap">{bet.match}</td>
+                    <td className="py-3 px-3 text-white font-bold whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <span>{bet.match}</span>
+                        {bet.settledScore && (
+                          <span className="px-1.5 py-0.5 rounded bg-neutral-800 border border-neutral-700 text-[10px] font-mono text-cyan-300">
+                            FT {bet.settledScore}
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="py-3 px-3 text-neutral-300 whitespace-nowrap">{bet.market}</td>
                     <td className="py-3 px-3 text-[#43f08a] font-semibold whitespace-nowrap">
                       {bet.selection}
@@ -1664,25 +1709,35 @@ export function BankrollTracker({
                       +{bet.evPercent}%
                     </td>
                     <td className="py-3 px-3 text-center whitespace-nowrap">
-                      <select
-                        aria-label="Bet status"
-                        value={bet.status}
-                        onChange={(e) =>
-                          handleStatusChange(bet.id, e.target.value as BetRecord['status'])
-                        }
-                        className={`text-xs px-2.5 py-1 rounded-lg bg-neutral-950 border focus:outline-none cursor-pointer font-bold ${
-                          bet.status === 'WON' || bet.status === 'CASHOUT'
-                            ? 'border-[#43f08a] text-[#43f08a]'
-                            : bet.status === 'LOST'
-                            ? 'border-rose-500 text-rose-400'
-                            : 'border-amber-500/60 text-amber-300'
-                        }`}
-                      >
-                        <option value="WON">WON</option>
-                        <option value="LOST">LOST</option>
-                        <option value="PENDING">PENDING</option>
-                        <option value="CASHOUT">CASHOUT</option>
-                      </select>
+                      <div className="inline-flex items-center gap-1.5">
+                        <select
+                          aria-label="Bet status"
+                          value={bet.status}
+                          onChange={(e) =>
+                            handleStatusChange(bet.id, e.target.value as BetRecord['status'])
+                          }
+                          className={`text-xs px-2.5 py-1 rounded-lg bg-neutral-950 border focus:outline-none cursor-pointer font-bold ${
+                            bet.status === 'WON' || bet.status === 'CASHOUT'
+                              ? 'border-[#43f08a] text-[#43f08a]'
+                              : bet.status === 'LOST'
+                              ? 'border-rose-500 text-rose-400'
+                              : 'border-amber-500/60 text-amber-300'
+                          }`}
+                        >
+                          <option value="WON">WON</option>
+                          <option value="LOST">LOST</option>
+                          <option value="PENDING">PENDING</option>
+                          <option value="CASHOUT">CASHOUT</option>
+                        </select>
+                        {bet.autoSettled && (
+                          <span
+                            title="Автоматично уреден от сървъра по краен резултат"
+                            className="px-1.5 py-0.5 rounded bg-[#43f08a]/15 border border-[#43f08a]/40 text-[#43f08a] text-[9px] font-mono font-extrabold"
+                          >
+                            ⚡ AUTO
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td
                       className={`py-3 px-3 text-right font-extrabold tabular-nums whitespace-nowrap ${

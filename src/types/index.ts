@@ -125,6 +125,7 @@ export interface BetRecord {
   id: string;
   date: string;
   match: string;
+  fixtureId?: string;
   market: string;
   selection: string;
   odds: number;
@@ -133,6 +134,8 @@ export interface BetRecord {
   evPercent: number;
   status: 'WON' | 'LOST' | 'PENDING' | 'VOID' | 'CASHOUT';
   pnl: number;
+  settledScore?: string;
+  autoSettled?: boolean;
 }
 
 export interface PoissonMatrixCell {

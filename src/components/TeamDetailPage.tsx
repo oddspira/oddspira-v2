@@ -1155,6 +1155,19 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
   const teamLogo = intel?.team?.logo || target.teamLogo;
   const teamId = intel?.team?.id || target.teamId;
 
+  // Upgrade URL to canonical /team/:id and update document.title once team intel loads
+  useEffect(() => {
+    if (teamId) {
+      const canonicalPath = `/team/${teamId}`;
+      if (window.location.pathname !== canonicalPath) {
+        window.history.replaceState({}, '', canonicalPath);
+      }
+    }
+    if (teamName && !teamName.startsWith('Club #')) {
+      document.title = `${teamName} — ${tt.tabOverview} | Oddspira`;
+    }
+  }, [teamId, teamName, tt.tabOverview]);
+
   const standings = intel?.standings || [];
   const squad = intel?.squad || [];
   const recentMatches = intel?.recentMatches || [];

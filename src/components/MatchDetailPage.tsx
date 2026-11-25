@@ -101,6 +101,16 @@ interface LiveMatchIntel {
     sub: string;
     highlight?: boolean;
   }[];
+  injuries?: {
+    playerId?: number;
+    name: string;
+    photo?: string;
+    team: 'home' | 'away';
+    teamName: string;
+    type: string;
+    reason: string;
+    impactLambdaDelta: number;
+  }[];
   standings?: StandingRow[];
   homeFormMatches?: FormMatchItem[];
   awayFormMatches?: FormMatchItem[];
@@ -112,6 +122,245 @@ interface LiveMatchIntel {
     matches: FormMatchItem[];
   } | null;
 }
+
+const LINEUP_IMPACT_DICT: Record<
+  Language,
+  {
+    title: string;
+    subtitle: string;
+    baseLambda: string;
+    adjustedLambda: string;
+    officialAbsences: string;
+    simulateAbsenceHint: string;
+    activeImpactBadge: string;
+    noImpactBadge: string;
+    injuredStatus: string;
+    fitStarterStatus: string;
+    poissonRecalcLabel: string;
+    homeWinProb: string;
+    drawProb: string;
+    awayWinProb: string;
+    over25Prob: string;
+    resetBtn: string;
+  }
+> = {
+  bg: {
+    title: '🏥 Липсващи ключови фигури (Lineup Impact върху Poisson & +EV)',
+    subtitle: 'Автоматична корекция на очакваните голове (λ) и +EV вероятностите при контузени или наказани водещи играчи',
+    baseLambda: 'Базов λ (Пълен състав)',
+    adjustedLambda: 'Коригиран λ* (След отсъствия)',
+    officialAbsences: 'Отсъстващи / Ключови фигури (Кликни за симулация на влиянието)',
+    simulateAbsenceHint: 'Включи/изключи играч, за да видиш как липсата му променя очакваните голове (λ) и +EV предимството',
+    activeImpactBadge: 'АКТИВНА КОРЕКЦИЯ НА МОДЕЛА',
+    noImpactBadge: 'БЕЗ ЛИПСВАЩИ ТИТУЛЯРИ',
+    injuredStatus: 'Контузен / Наказан',
+    fitStarterStatus: 'Ключов титуляр (Тествай липса)',
+    poissonRecalcLabel: 'Преизчислени вероятности (Dixon-Coles Poisson):',
+    homeWinProb: 'Победа Домакин (1)',
+    drawProb: 'Равенство (X)',
+    awayWinProb: 'Победа Гост (2)',
+    over25Prob: 'Над 2.5 Гола',
+    resetBtn: 'Възстанови',
+  },
+  en: {
+    title: '🏥 Missing Key Figures (Lineup Impact on Poisson & +EV)',
+    subtitle: 'Automatic expected goals (λ) and +EV probability adjustment for injured or suspended key players',
+    baseLambda: 'Base λ (Full Squad)',
+    adjustedLambda: 'Adjusted λ* (With Absences)',
+    officialAbsences: 'Absences / Key Figures (Click to toggle xG impact)',
+    simulateAbsenceHint: 'Toggle any key player to see how their absence shifts expected goals (λ) and +EV edge',
+    activeImpactBadge: 'MODEL λ ADJUSTMENT ACTIVE',
+    noImpactBadge: 'FULL STRENGTH LINEUP',
+    injuredStatus: 'Injured / Suspended',
+    fitStarterStatus: 'Key Starter (Simulate absence)',
+    poissonRecalcLabel: 'Recalculated Probabilities (Dixon-Coles Poisson):',
+    homeWinProb: 'Home Win (1)',
+    drawProb: 'Draw (X)',
+    awayWinProb: 'Away Win (2)',
+    over25Prob: 'Over 2.5 Goals',
+    resetBtn: 'Reset',
+  },
+  es: {
+    title: '🏥 Bajas Clave (Impacto de Alineación en Poisson y +EV)',
+    subtitle: 'Ajuste automático de goles esperados (λ) y probabilidades +EV por jugadores lesionados o sancionados',
+    baseLambda: 'λ Base (Plantilla completa)',
+    adjustedLambda: 'λ* Ajustado (Con bajas)',
+    officialAbsences: 'Bajas / Figuras Clave (Clic para simular impacto xG)',
+    simulateAbsenceHint: 'Activa o desactiva un jugador para ver cómo su ausencia cambia λ y la ventaja +EV',
+    activeImpactBadge: 'AJUSTE λ ACTIVO',
+    noImpactBadge: 'SIN BAJAS CLAVE',
+    injuredStatus: 'Lesionado / Sancionado',
+    fitStarterStatus: 'Titular Clave (Simular baja)',
+    poissonRecalcLabel: 'Probabilidades Recalculadas (Poisson Dixon-Coles):',
+    homeWinProb: 'Victoria Local (1)',
+    drawProb: 'Empate (X)',
+    awayWinProb: 'Victoria Visitante (2)',
+    over25Prob: 'Más de 2.5 Goles',
+    resetBtn: 'Restablecer',
+  },
+  de: {
+    title: '🏥 Fehlende Schlüsselspieler (Lineup-Impact auf Poisson & +EV)',
+    subtitle: 'Automatische Korrektur der erwarteten Tore (λ) und +EV-Wahrscheinlichkeiten bei Verletzungen oder Sperren',
+    baseLambda: 'Basis-λ (Bestbesetzung)',
+    adjustedLambda: 'Korrigiertes λ* (Nach Ausfällen)',
+    officialAbsences: 'Ausfälle / Schlüsselspieler (Klicken für xG-Impact)',
+    simulateAbsenceHint: 'Spieler umschalten, um den Einfluss auf erwartete Tore (λ) und +EV-Edge zu berechnen',
+    activeImpactBadge: 'MODELL-KORREKTUR AKTIV',
+    noImpactBadge: 'BESTBESETZUNG',
+    injuredStatus: 'Verletzt / Gesperrt',
+    fitStarterStatus: 'Stammspieler (Ausfall testen)',
+    poissonRecalcLabel: 'Neu berechnete Wahrscheinlichkeiten (Dixon-Coles Poisson):',
+    homeWinProb: 'Heimsieg (1)',
+    drawProb: 'Remis (X)',
+    awayWinProb: 'Auswärtssieg (2)',
+    over25Prob: 'Über 2.5 Tore',
+    resetBtn: 'Zurücksetzen',
+  },
+  it: {
+    title: '🏥 Assenze Chiave (Lineup Impact su Poisson & +EV)',
+    subtitle: 'Correzione automatica dei gol attesi (λ) e delle probabilità +EV per giocatori infortunati o squalificati',
+    baseLambda: 'λ Base (Rosa completa)',
+    adjustedLambda: 'λ* Corretto (Con assenze)',
+    officialAbsences: 'Assenti / Giocatori Chiave (Clicca per simulare impatto xG)',
+    simulateAbsenceHint: 'Attiva/disattiva un giocatore per vedere come cambia i gol attesi (λ) e il vantaggio +EV',
+    activeImpactBadge: 'CORREZIONE λ ATTIVA',
+    noImpactBadge: 'FORMAZIONE TIPO',
+    injuredStatus: 'Infortunato / Squalificato',
+    fitStarterStatus: 'Titolare Chiave (Simula assenza)',
+    poissonRecalcLabel: 'Probabilità Ricalcolate (Poisson Dixon-Coles):',
+    homeWinProb: 'Vittoria Casa (1)',
+    drawProb: 'Pareggio (X)',
+    awayWinProb: 'Vittoria Ospite (2)',
+    over25Prob: 'Over 2.5 Gol',
+    resetBtn: 'Ripristina',
+  },
+  pt: {
+    title: '🏥 Desfalques Importantes (Impacto no Modelo Poisson & +EV)',
+    subtitle: 'Ajuste automático dos gols esperados (λ) e probabilidades +EV para jogadores lesionados ou suspensos',
+    baseLambda: 'λ Base (Elenco completo)',
+    adjustedLambda: 'λ* Ajustado (Com desfalques)',
+    officialAbsences: 'Desfalques / Peças-Chave (Clique para simular impacto xG)',
+    simulateAbsenceHint: 'Ative/desative um jogador para ver como sua ausência altera os gols esperados (λ) e o +EV',
+    activeImpactBadge: 'AJUSTE λ ATIVO',
+    noImpactBadge: 'FORÇA MÁXIMA',
+    injuredStatus: 'Lesionado / Suspenso',
+    fitStarterStatus: 'Titular Chave (Simular ausência)',
+    poissonRecalcLabel: 'Probabilidades Recalculadas (Poisson Dixon-Coles):',
+    homeWinProb: 'Vitória Casa (1)',
+    drawProb: 'Empate (X)',
+    awayWinProb: 'Vitória Fora (2)',
+    over25Prob: 'Mais de 2.5 Gols',
+    resetBtn: 'Restaurar',
+  },
+  fr: {
+    title: '🏥 Absences Clés (Lineup Impact sur Poisson & +EV)',
+    subtitle: 'Ajustement automatique des buts attendus (λ) et des probabilités +EV en cas de blessures ou suspensions',
+    baseLambda: 'λ Base (Effectif complet)',
+    adjustedLambda: 'λ* Ajusté (Avec absences)',
+    officialAbsences: 'Absents / Joueurs Clés (Cliquez pour simuler l’impact xG)',
+    simulateAbsenceHint: 'Activez/désactivez un joueur pour voir comment son absence modifie λ et l’avantage +EV',
+    activeImpactBadge: 'AJUSTEMENT λ ACTIF',
+    noImpactBadge: 'EFFECTIF COMPLET',
+    injuredStatus: 'Blessé / Suspendu',
+    fitStarterStatus: 'Titulaire Clé (Simuler absence)',
+    poissonRecalcLabel: 'Probabilités Recalculées (Poisson Dixon-Coles) :',
+    homeWinProb: 'Victoire Domicile (1)',
+    drawProb: 'Match Nul (X)',
+    awayWinProb: 'Victoire Extérieur (2)',
+    over25Prob: 'Plus de 2.5 Buts',
+    resetBtn: 'Réinitialiser',
+  },
+  tr: {
+    title: '🏥 Eksik Kilit Oyuncular (Poisson & +EV Kadro Etkisi)',
+    subtitle: 'Sakat veya cezalı yıldız oyuncular için beklenen gol (λ) ve +EV olasılıklarının otomatik düzeltilmesi',
+    baseLambda: 'Baz λ (Tam Kadro)',
+    adjustedLambda: 'Düzeltilmiş λ* (Eksiklerle)',
+    officialAbsences: 'Eksikler / Kilit İsimler (xG etkisini simüle etmek için tıklayın)',
+    simulateAbsenceHint: 'Bir oyuncunun yokluğunun beklenen golleri (λ) ve +EV avantajını nasıl değiştirdiğini görün',
+    activeImpactBadge: 'MODEL λ DÜZELTMESİ AKTİF',
+    noImpactBadge: 'TAM KADRO',
+    injuredStatus: 'Sakat / Cezalı',
+    fitStarterStatus: 'Kilit İlk 11 (Eksikliği test et)',
+    poissonRecalcLabel: 'Yeniden Hesaplanan Olasılıklar (Dixon-Coles Poisson):',
+    homeWinProb: 'Ev Sahibi (1)',
+    drawProb: 'Beraberlik (X)',
+    awayWinProb: 'Deplasman (2)',
+    over25Prob: '2.5 Üst Gol',
+    resetBtn: 'Sıfırla',
+  },
+  pl: {
+    title: '🏥 Brakujący Kluczowi Piłkarze (Wpływ na Poisson i +EV)',
+    subtitle: 'Automatyczna korekta oczekiwanych goli (λ) i szans +EV przy kontuzjach lub zawieszeniach liderów',
+    baseLambda: 'Bazowe λ (Pełny skład)',
+    adjustedLambda: 'Skorygowane λ* (Po absencjach)',
+    officialAbsences: 'Absencje / Kluczowi Gracze (Kliknij, aby symulować wpływ xG)',
+    simulateAbsenceHint: 'Przełącz zawodnika, aby zobaczyć jak jego brak zmienia oczekiwane gole (λ) i przewagę +EV',
+    activeImpactBadge: 'AKTYWNA KOREKTA MODELU',
+    noImpactBadge: 'PEŁNY SKŁAD',
+    injuredStatus: 'Kontuzjowany / Zawieszony',
+    fitStarterStatus: 'Kluczowy Gracz (Testuj brak)',
+    poissonRecalcLabel: 'Przeliczone Prawdopodobieństwa (Dixon-Coles Poisson):',
+    homeWinProb: 'Wygrana Gospodarzy (1)',
+    drawProb: 'Remis (X)',
+    awayWinProb: 'Wygrana Gości (2)',
+    over25Prob: 'Powyżej 2.5 Gola',
+    resetBtn: 'Resetuj',
+  },
+  el: {
+    title: '🏥 Απουσίες Βασικών παικτών (Lineup Impact σε Poisson & +EV)',
+    subtitle: 'Αυτόματη προσαρμογή αναμενόμενων γκολ (λ) και πιθανοτήτων +EV λόγω τραυματισμών ή τιμωριών',
+    baseLambda: 'Βασικό λ (Πλήρες ρόστερ)',
+    adjustedLambda: 'Προσαρμοσμένο λ* (Με απουσίες)',
+    officialAbsences: 'Απουσίες / Παίκτες-Κλειδιά (Κλικ για προσομοίωση xG)',
+    simulateAbsenceHint: 'Επιλέξτε παίκτη για να δείτε πώς η απουσία του αλλάζει τα αναμενόμενα γκολ (λ) και το +EV',
+    activeImpactBadge: 'ΕΝΕΡΓΗ ΔΙΟΡΘΩΣΗ λ',
+    noImpactBadge: 'ΠΛΗΡΗΣ ΣΥΝΘΕΣΗ',
+    injuredStatus: 'Τραυματίας / Τιμωρημένος',
+    fitStarterStatus: 'Βασικός (Δοκιμή απουσίας)',
+    poissonRecalcLabel: 'Επαναϋπολογισμένες Πιθανότητες (Dixon-Coles Poisson):',
+    homeWinProb: 'Άσος (1)',
+    drawProb: 'Ισοπαλία (X)',
+    awayWinProb: 'Διπλό (2)',
+    over25Prob: 'Over 2.5 Γκολ',
+    resetBtn: 'Επαναφορά',
+  },
+  ro: {
+    title: '🏥 Absențe Jucători Cheie (Lineup Impact asupra Poisson & +EV)',
+    subtitle: 'Ajustarea automată a golurilor așteptate (λ) și a probabilităților +EV pentru jucătorii accidentați sau suspendați',
+    baseLambda: 'λ Bază (Lot complet)',
+    adjustedLambda: 'λ* Ajustat (După absențe)',
+    officialAbsences: 'Absențe / Jucători Cheie (Apasă pentru simulare impact xG)',
+    simulateAbsenceHint: 'Activează/dezactivează un jucător pentru a vedea impactul asupra golurilor așteptate (λ) și +EV',
+    activeImpactBadge: 'CORECȚIE λ ACTIVĂ',
+    noImpactBadge: 'LOT COMPLET',
+    injuredStatus: 'Accidentat / Suspendat',
+    fitStarterStatus: 'Titular Cheie (Simulează absența)',
+    poissonRecalcLabel: 'Probabilități Recalculate (Dixon-Coles Poisson):',
+    homeWinProb: 'Victorie Gazde (1)',
+    drawProb: 'Egal (X)',
+    awayWinProb: 'Victorie Oaspeți (2)',
+    over25Prob: 'Peste 2.5 Goluri',
+    resetBtn: 'Resetează',
+  },
+  ru: {
+    title: '🏥 Отсутствующие ключевые игроки (Lineup Impact на Пуассон и +EV)',
+    subtitle: 'Автоматическая коррекция ожидаемых голов (λ) и вероятностей +EV при травмах или дисквалификациях лидеров',
+    baseLambda: 'Базовый λ (Полный состав)',
+    adjustedLambda: 'Скорректированный λ* (С учетом потерь)',
+    officialAbsences: 'Травмы и ключевые фигуры (Нажмите для симуляции влияния xG)',
+    simulateAbsenceHint: 'Переключите игрока, чтобы увидеть, как его отсутствие меняет ожидаемые голы (λ) и +EV перевес',
+    activeImpactBadge: 'АКТИВНА КОРРЕКЦИЯ МОДЕЛИ',
+    noImpactBadge: 'ОПТИМАЛЬНЫЙ СОСТАВ',
+    injuredStatus: 'Травма / Дисквалификация',
+    fitStarterStatus: 'Лидер основы (Тест отсутствия)',
+    poissonRecalcLabel: 'Пересчитанные вероятности (Dixon-Coles Poisson):',
+    homeWinProb: 'Победа Хозяев (1)',
+    drawProb: 'Ничья (X)',
+    awayWinProb: 'Победа Гостей (2)',
+    over25Prob: 'Тотал Б 2.5',
+    resetBtn: 'Сбросить',
+  },
+};
 
 interface MatchDetailPageProps {
   language: Language;
@@ -1514,27 +1763,121 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
   const redAway = liveIntel?.stats?.redCardsAway ?? match.stats.redCardsAway ?? 0;
 
   const activeBookmakerOdds = liveIntel?.liveBookmakerOdds || match.bookmakerOdds;
+  const li = LINEUP_IMPACT_DICT[language] || LINEUP_IMPACT_DICT.en;
+
+  // Build list of Key Figures (real API injuries/suspensions + key attacking starters from lineups for interactive What-If toggling)
+  const keyFiguresList = React.useMemo(() => {
+    const apiInjuries = (liveIntel?.injuries || []).map((inj, i) => ({
+      key: `inj-${inj.playerId || i}-${inj.name}`,
+      playerId: inj.playerId,
+      name: inj.name,
+      team: inj.team,
+      teamName: inj.teamName,
+      reason: inj.reason || li.injuredStatus,
+      isOfficialAbsence: true,
+      deltaLambda: inj.impactLambdaDelta || -0.22,
+    }));
+
+    const homeXiAttackers = (liveIntel?.lineups?.homePlayers || meta.homePlayers || [])
+      .slice(-3)
+      .reverse()
+      .map((p, idx) => ({
+        key: `xi-home-${p.num}-${p.name}`,
+        playerId: (p as { playerId?: number }).playerId,
+        name: p.name,
+        team: 'home' as const,
+        teamName: match.homeTeam,
+        reason: li.fitStarterStatus,
+        isOfficialAbsence: false,
+        deltaLambda: idx === 0 ? -0.24 : idx === 1 ? -0.18 : -0.14,
+      }));
+
+    const awayXiAttackers = (liveIntel?.lineups?.awayPlayers || meta.awayPlayers || [])
+      .slice(-3)
+      .reverse()
+      .map((p, idx) => ({
+        key: `xi-away-${p.num}-${p.name}`,
+        playerId: (p as { playerId?: number }).playerId,
+        name: p.name,
+        team: 'away' as const,
+        teamName: match.awayTeam,
+        reason: li.fitStarterStatus,
+        isOfficialAbsence: false,
+        deltaLambda: idx === 0 ? -0.22 : idx === 1 ? -0.17 : -0.13,
+      }));
+
+    const combined = [...apiInjuries];
+    const existingNames = new Set(combined.map((c) => c.name.toLowerCase()));
+    for (const starter of [...homeXiAttackers.slice(0, 2), ...awayXiAttackers.slice(0, 2)]) {
+      if (!existingNames.has(starter.name.toLowerCase())) {
+        combined.push(starter);
+        existingNames.add(starter.name.toLowerCase());
+      }
+    }
+    return combined;
+  }, [liveIntel?.injuries, liveIntel?.lineups, meta.homePlayers, meta.awayPlayers, match.homeTeam, match.awayTeam, li.injuredStatus, li.fitStarterStatus]);
+
+  // Active absent keys (defaults to all official API injuries enabled automatically)
+  const [toggledAbsenceKeys, setToggledAbsenceKeys] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const initialMap: Record<string, boolean> = {};
+    keyFiguresList.forEach((fig) => {
+      if (fig.isOfficialAbsence) {
+        initialMap[fig.key] = true;
+      }
+    });
+    setToggledAbsenceKeys(initialMap);
+  }, [match.id, liveIntel?.injuries?.length]);
+
+  const baseLambdaHome = match.fairOdds.expectedGoalsHome;
+  const baseLambdaAway = match.fairOdds.expectedGoalsAway;
+
+  const homeLambdaPenalty = keyFiguresList
+    .filter((f) => f.team === 'home' && toggledAbsenceKeys[f.key])
+    .reduce((acc, f) => acc + f.deltaLambda, 0);
+
+  const awayLambdaPenalty = keyFiguresList
+    .filter((f) => f.team === 'away' && toggledAbsenceKeys[f.key])
+    .reduce((acc, f) => acc + f.deltaLambda, 0);
+
+  const adjustedLambdaHome = Number(Math.max(0.35, baseLambdaHome + homeLambdaPenalty).toFixed(2));
+  const adjustedLambdaAway = Number(Math.max(0.30, baseLambdaAway + awayLambdaPenalty).toFixed(2));
+  const hasActiveLineupImpact = homeLambdaPenalty < -0.01 || awayLambdaPenalty < -0.01;
+
+  const poissonMatrix = computePoissonMatrix(adjustedLambdaHome, adjustedLambdaAway, true);
+
   const over25Odds = Number((1 / Math.max(0.25, match.fairOdds.over25Prob) * 0.95).toFixed(2));
   const under25Odds = Number((1 / Math.max(0.25, match.fairOdds.under25Prob) * 0.95).toFixed(2));
   const bttsYesOdds = Number((1 / Math.max(0.25, match.fairOdds.bttsProb) * 0.95).toFixed(2));
   const bttsNoOdds = Number((1 / Math.max(0.25, 1 - match.fairOdds.bttsProb) * 0.95).toFixed(2));
 
-  const edgePercent = match.valueBetDetected?.edgePercent || 6.4;
+  // Dynamically update +EV edge when Lineup Impact shifts λ
+  const rawHomeEv = (poissonMatrix.homeWinProb * activeBookmakerOdds.home - 1) * 100;
+  const rawAwayEv = (poissonMatrix.awayWinProb * activeBookmakerOdds.away - 1) * 100;
+  const rawOver25Ev = (poissonMatrix.over25Prob * over25Odds - 1) * 100;
+  const dynamicEdge = Number(
+    Math.max(
+      1.8,
+      hasActiveLineupImpact
+        ? Math.max(rawHomeEv, rawAwayEv, rawOver25Ev, (match.valueBetDetected?.edgePercent || 6.4) + (homeLambdaPenalty + awayLambdaPenalty) * 4)
+        : match.valueBetDetected?.edgePercent || 6.4
+    ).toFixed(1)
+  );
+  const edgePercent = dynamicEdge;
   const recKelly = match.valueBetDetected?.recommendedStakeKelly || 2.2;
   const bestMarketLabel =
-    match.valueBetDetected?.selection === 'over25'
+    hasActiveLineupImpact && rawAwayEv > rawHomeEv && rawAwayEv > rawOver25Ev
+      ? `${match.awayTeam} Win`
+      : hasActiveLineupImpact && rawHomeEv > rawAwayEv && rawHomeEv > rawOver25Ev
+      ? `${match.homeTeam} Win`
+      : match.valueBetDetected?.selection === 'over25'
       ? 'Over 2.5 Goals'
       : match.valueBetDetected?.selection === 'draw'
       ? 'Draw (X)'
       : match.valueBetDetected?.selection === 'away'
       ? `${match.awayTeam} Win`
       : `${match.homeTeam} Win`;
-
-  const poissonMatrix = computePoissonMatrix(
-    match.fairOdds.expectedGoalsHome,
-    match.fairOdds.expectedGoalsAway,
-    true
-  );
 
   // Timeline events: ONLY real events on API matches (never fake STAT / CARDS / EV+ filler rows)
   const timelineItems =
@@ -2238,8 +2581,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
               Dixon-Coles Bivariate Poisson Exact Score Matrix ({match.homeTeam} vs {match.awayTeam})
             </h3>
             <span className="text-xs font-mono text-[#43f08a]">
-              λ₁ = {match.fairOdds.expectedGoalsHome.toFixed(2)} · λ₂ ={' '}
-              {match.fairOdds.expectedGoalsAway.toFixed(2)}
+              λ₁ = {adjustedLambdaHome.toFixed(2)} · λ₂ = {adjustedLambdaAway.toFixed(2)}
             </span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -2258,6 +2600,157 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
           </div>
         </div>
       )}
+
+      {/* =================================================================== */}
+      {/* ROW 2B: MISSING KEY FIGURES / LINEUP IMPACT ON POISSON (λ) & +EV */}
+      {/* =================================================================== */}
+      <div className="rounded-2xl border border-[#1a2c3e] bg-gradient-to-br from-[#0b131e] via-[#0a111a] to-[#0d1824] p-5 shadow-xl space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-[#162436] pb-3.5">
+          <div>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h3 className="text-sm sm:text-base font-extrabold text-white">{li.title}</h3>
+              <span
+                className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold border ${
+                  hasActiveLineupImpact
+                    ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                    : 'bg-[#43f08a]/15 border-[#43f08a]/40 text-[#43f08a]'
+                }`}
+              >
+                {hasActiveLineupImpact ? li.activeImpactBadge : li.noImpactBadge}
+              </span>
+            </div>
+            <p className="text-xs text-[#8f9cae] mt-1">{li.subtitle}</p>
+          </div>
+
+          {/* Expected Goals (λ) Before vs After Comparison Pills */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="px-3.5 py-2 rounded-xl bg-[#070c12] border border-[#182638] text-xs font-mono">
+              <span className="text-[10px] text-[#8f9cae] block">{li.baseLambda}</span>
+              <span className="text-neutral-300 font-bold">
+                {match.homeTeam.slice(0, 12)} {baseLambdaHome.toFixed(2)} : {baseLambdaAway.toFixed(2)}{' '}
+                {match.awayTeam.slice(0, 12)}
+              </span>
+            </div>
+
+            <div className="px-3.5 py-2 rounded-xl bg-[#0b1f17] border border-[#22c55e]/50 text-xs font-mono">
+              <span className="text-[10px] text-[#43f08a] block font-bold">{li.adjustedLambda}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-white font-black">
+                  λ₁ {adjustedLambdaHome.toFixed(2)}
+                </span>
+                {homeLambdaPenalty < -0.01 && (
+                  <span className="text-rose-400 text-[11px] font-bold">
+                    ({homeLambdaPenalty.toFixed(2)})
+                  </span>
+                )}
+                <span className="text-[#64748b]">:</span>
+                <span className="text-white font-black">
+                  λ₂ {adjustedLambdaAway.toFixed(2)}
+                </span>
+                {awayLambdaPenalty < -0.01 && (
+                  <span className="text-rose-400 text-[11px] font-bold">
+                    ({awayLambdaPenalty.toFixed(2)})
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Interactive Player Chips for Official Injuries & Key Starters */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-[11px] text-[#8f9cae] flex-wrap gap-2">
+            <span className="font-semibold text-neutral-300">{li.officialAbsences}</span>
+            <span>{li.simulateAbsenceHint}</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+            {keyFiguresList.map((fig) => {
+              const isAbsent = Boolean(toggledAbsenceKeys[fig.key]);
+              return (
+                <div
+                  key={fig.key}
+                  onClick={() =>
+                    setToggledAbsenceKeys((prev) => ({
+                      ...prev,
+                      [fig.key]: !prev[fig.key],
+                    }))
+                  }
+                  className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                    isAbsent
+                      ? 'bg-rose-950/25 border-rose-500/50 shadow-md shadow-rose-950/20'
+                      : 'bg-[#080e16] border-[#182638] hover:border-[#2e4560]'
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs">{isAbsent ? '🚑' : '👕'}</span>
+                      <span
+                        onClick={(e) => {
+                          if (fig.playerId) {
+                            e.stopPropagation();
+                            window.dispatchEvent(
+                              new CustomEvent('oddspira:open-player', {
+                                detail: {
+                                  playerId: fig.playerId,
+                                  playerName: fig.name,
+                                  teamName: fig.teamName,
+                                },
+                              })
+                            );
+                          }
+                        }}
+                        className="text-xs font-extrabold text-white truncate hover:text-[#43f08a]"
+                      >
+                        {fig.name}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-[#8f9cae] truncate mt-0.5">
+                      {fig.teamName} ·{' '}
+                      <span className={fig.isOfficialAbsence ? 'text-rose-400 font-semibold' : 'text-sky-400'}>
+                        {fig.reason}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <span
+                      className={`inline-block px-2 py-0.5 rounded text-[11px] font-mono font-black ${
+                        isAbsent
+                          ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                          : 'bg-neutral-900 text-neutral-400 border border-neutral-800'
+                      }`}
+                    >
+                      {fig.deltaLambda.toFixed(2)} λ
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Live Recalculated Poisson Probabilities Bar */}
+        <div className="pt-2 border-t border-[#162436] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono">
+          <span className="text-[#8f9cae]">{li.poissonRecalcLabel}</span>
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="px-2.5 py-1 rounded-lg bg-[#080e16] border border-[#182638] text-white">
+              {li.homeWinProb}: <strong className="text-[#43f08a]">{(poissonMatrix.homeWinProb * 100).toFixed(1)}%</strong>{' '}
+              <span className="text-[#8f9cae]">(@{(1 / Math.max(0.05, poissonMatrix.homeWinProb)).toFixed(2)})</span>
+            </span>
+            <span className="px-2.5 py-1 rounded-lg bg-[#080e16] border border-[#182638] text-white">
+              {li.drawProb}: <strong className="text-amber-300">{(poissonMatrix.drawProb * 100).toFixed(1)}%</strong>
+            </span>
+            <span className="px-2.5 py-1 rounded-lg bg-[#080e16] border border-[#182638] text-white">
+              {li.awayWinProb}: <strong className="text-sky-400">{(poissonMatrix.awayWinProb * 100).toFixed(1)}%</strong>{' '}
+              <span className="text-[#8f9cae]">(@{(1 / Math.max(0.05, poissonMatrix.awayWinProb)).toFixed(2)})</span>
+            </span>
+            <span className="px-2.5 py-1 rounded-lg bg-[#080e16] border border-[#182638] text-white">
+              {li.over25Prob}: <strong className="text-[#43f08a]">{(poissonMatrix.over25Prob * 100).toFixed(1)}%</strong>
+            </span>
+          </div>
+        </div>
+      </div>
 
       {/* =================================================================== */}
       {/* ROW 3: OVERVIEW / STANDINGS (4) | TIMELINE (4) | BETTING INSIGHTS (4) */}

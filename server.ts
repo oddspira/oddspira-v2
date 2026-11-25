@@ -169,6 +169,21 @@ try {
 } catch {
   // Column already exists
 }
+try {
+  db.exec("ALTER TABLE user_bets ADD COLUMN fixture_id TEXT NOT NULL DEFAULT '';");
+} catch {
+  // Column already exists
+}
+try {
+  db.exec("ALTER TABLE user_bets ADD COLUMN settled_score TEXT NOT NULL DEFAULT '';");
+} catch {
+  // Column already exists
+}
+try {
+  db.exec('ALTER TABLE user_bets ADD COLUMN auto_settled INTEGER NOT NULL DEFAULT 0;');
+} catch {
+  // Column already exists
+}
 
 /**
  * Brevo (Sendinblue) Transactional Email Service with 300/day Free Tier Rate Limiter
@@ -924,8 +939,155 @@ async function startServer() {
   });
 
   // =========================================================================
-  // 2. USER BET TRACKER PERSISTENCE (/api/bets)
+  // 2. USER BET TRACKER PERSISTENCE & AUTO-SETTLEMENT ENGINE (/api/bets)
   // =========================================================================
+  function evaluateBetSettlement(
+    marketRaw: string,
+    selectionRaw: string,
+    homeTeamRaw: string,
+    awayTeamRaw: string,
+    homeGoals: number,
+    awayGoals: number
+  ): 'WON' | 'LOST' | null {
+    const market = (marketRaw || '').trim().toLowerCase();
+    const sel = (selectionRaw || '').trim().toLowerCase();
+    const home = (homeTeamRaw || '').trim().toLowerCase();
+    const away = (awayTeamRaw || '').trim().toLowerCase();
+    const totalGoals = homeGoals + awayGoals;
+
+    // 1. Over / Under Goals (e.g. "Over 2.5 Goals", "Under 2.5", "Над 2.5", "Под 2.5")
+    const overMatch = sel.match(/(?:over|над|más de|über|plus de|peste|больше|>)\s*(\d+(?:\.\d+)?)/i) ||
+      market.match(/(?:over|над)\s*(\d+(?:\.\d+)?)/i);
+    if (overMatch && !sel.includes('under') && !sel.includes('под')) {
+      const line = parseFloat(overMatch[1]);
+      if (!Number.isNaN(line)) {
+        return totalGoals > line ? 'WON' : 'LOST';
+      }
+    }
+    const underMatch = sel.match(/(?:under|под|menos de|unter|moins de|sub|меньше|<)\s*(\d+(?:\.\d+)?)/i) ||
+      market.match(/(?:under|под)\s*(\d+(?:\.\d+)?)/i);
+    if (underMatch) {
+      const line = parseFloat(underMatch[1]);
+      if (!Number.isNaN(line)) {
+        return totalGoals < line ? 'WON' : 'LOST';
+      }
+    }
+
+    // 2. Both Teams To Score (BTTS / Гол/Гол)
+    if (
+      market.includes('btts') ||
+      market.includes('both teams') ||
+      market.includes('гол/гол') ||
+      sel.includes('btts')
+    ) {
+      const isNo =
+        sel.includes('no') || sel.includes('не') || sel.includes('nein') || sel.includes('non');
+      const bothScored = homeGoals > 0 && awayGoals > 0;
+      return isNo ? (!bothScored ? 'WON' : 'LOST') : bothScored ? 'WON' : 'LOST';
+    }
+
+    // 3. Double Chance (1X, X2, 12)
+    if (sel === '1x' || sel.includes('1x')) {
+      return homeGoals >= awayGoals ? 'WON' : 'LOST';
+    }
+    if (sel === 'x2' || sel.includes('x2')) {
+      return awayGoals >= homeGoals ? 'WON' : 'LOST';
+    }
+    if (sel === '12' && market.includes('double')) {
+      return homeGoals !== awayGoals ? 'WON' : 'LOST';
+    }
+
+    // 4. 1X2 / Match Winner / Full Time Result
+    if (
+      sel === 'x' ||
+      sel === 'draw' ||
+      sel.includes('draw') ||
+      sel.includes('равен') ||
+      sel.includes('empate') ||
+      sel.includes('remis') ||
+      sel.includes('ничья')
+    ) {
+      return homeGoals === awayGoals ? 'WON' : 'LOST';
+    }
+
+    if (
+      sel === '1' ||
+      sel === 'home' ||
+      (home && (sel.includes(home) || home.includes(sel.replace(/\s*\(1\)\s*$/, '').trim()))) ||
+      sel.includes('(1)')
+    ) {
+      return homeGoals > awayGoals ? 'WON' : 'LOST';
+    }
+
+    if (
+      sel === '2' ||
+      sel === 'away' ||
+      (away && (sel.includes(away) || away.includes(sel.replace(/\s*\(2\)\s*$/, '').trim()))) ||
+      sel.includes('(2)')
+    ) {
+      return awayGoals > homeGoals ? 'WON' : 'LOST';
+    }
+
+    return null;
+  }
+
+  function findFinishedMatchFromCache(): Map<
+    string,
+    { fixtureId: string; homeTeam: string; awayTeam: string; homeScore: number; awayScore: number }
+  > {
+    const finishedMap = new Map<
+      string,
+      { fixtureId: string; homeTeam: string; awayTeam: string; homeScore: number; awayScore: number }
+    >();
+
+    try {
+      const rows = db
+        .prepare(
+          "SELECT cache_key, payload FROM api_cache WHERE cache_key LIKE 'football:live_feed%' OR cache_key LIKE 'football:match_intel%' ORDER BY updated_at DESC LIMIT 60"
+        )
+        .all() as Array<{ cache_key: string; payload: string }>;
+
+      for (const r of rows) {
+        try {
+          const parsed = JSON.parse(r.payload);
+          if (Array.isArray(parsed?.matches)) {
+            for (const m of parsed.matches) {
+              if (m?.status === 'FINISHED' && m?.homeTeam && m?.awayTeam) {
+                const keyName = `${String(m.homeTeam).toLowerCase().trim()} vs ${String(m.awayTeam).toLowerCase().trim()}`;
+                const item = {
+                  fixtureId: String(m.id || ''),
+                  homeTeam: String(m.homeTeam),
+                  awayTeam: String(m.awayTeam),
+                  homeScore: Number(m.homeScore ?? 0),
+                  awayScore: Number(m.awayScore ?? 0),
+                };
+                finishedMap.set(keyName, item);
+                if (item.fixtureId) finishedMap.set(item.fixtureId, item);
+              }
+            }
+          } else if (parsed?.found && parsed?.status === 'FINISHED' && parsed?.homeTeam && parsed?.awayTeam) {
+            const keyName = `${String(parsed.homeTeam).toLowerCase().trim()} vs ${String(parsed.awayTeam).toLowerCase().trim()}`;
+            const item = {
+              fixtureId: String(parsed.fixtureId || ''),
+              homeTeam: String(parsed.homeTeam),
+              awayTeam: String(parsed.awayTeam),
+              homeScore: Number(parsed.homeScore ?? 0),
+              awayScore: Number(parsed.awayScore ?? 0),
+            };
+            finishedMap.set(keyName, item);
+            if (item.fixtureId) finishedMap.set(item.fixtureId, item);
+          }
+        } catch {
+          // ignore malformed cache entry
+        }
+      }
+    } catch {
+      // ignore db read issue
+    }
+
+    return finishedMap;
+  }
+
   app.get('/api/bets', (req: Request, res: Response) => {
     const authUser = getAuthenticatedUser(req);
     if (!authUser) {
@@ -934,9 +1096,12 @@ async function startServer() {
     }
 
     const stmt = db.prepare(
-      'SELECT id, date, match_name as match, market, selection, odds, stake, model_fair_prob as modelFairProb, ev_percent as evPercent, status, pnl FROM user_bets WHERE user_id = ? ORDER BY created_at DESC'
+      'SELECT id, date, match_name as match, fixture_id as fixtureId, market, selection, odds, stake, model_fair_prob as modelFairProb, ev_percent as evPercent, status, pnl, settled_score as settledScore, auto_settled as autoSettled FROM user_bets WHERE user_id = ? ORDER BY created_at DESC'
     );
-    const rows = stmt.all(authUser.userId);
+    const rows = (stmt.all(authUser.userId) as Array<Record<string, any>>).map((r) => ({
+      ...r,
+      autoSettled: Boolean(r.autoSettled),
+    }));
     res.json({ bets: rows });
   });
 
@@ -959,8 +1124,8 @@ async function startServer() {
 
       const insertStmt = db.prepare(`
         INSERT INTO user_bets (
-          id, user_id, date, match_name, market, selection, odds, stake, model_fair_prob, ev_percent, status, pnl, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          id, user_id, date, match_name, fixture_id, market, selection, odds, stake, model_fair_prob, ev_percent, status, pnl, settled_score, auto_settled, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       const now = new Date().toISOString();
@@ -970,6 +1135,7 @@ async function startServer() {
           authUser.userId,
           String(b.date || now.split('T')[0]),
           String(b.match || ''),
+          String(b.fixtureId || ''),
           String(b.market || '1X2'),
           String(b.selection || ''),
           Number(b.odds) || 1.0,
@@ -978,6 +1144,8 @@ async function startServer() {
           Number(b.evPercent) || 0,
           String(b.status || 'PENDING'),
           Number(b.pnl) || 0,
+          String(b.settledScore || ''),
+          b.autoSettled ? 1 : 0,
           now
         );
       }
@@ -986,6 +1154,151 @@ async function startServer() {
     } catch (err) {
       console.error('Sync bets error:', err);
       res.status(500).json({ error: 'Failed to sync bets' });
+    }
+  });
+
+  // Auto-Settlement Endpoint: settles PENDING bets against finished matches in cache or upstream API
+  app.post('/api/bets/auto-settle', async (req: Request, res: Response) => {
+    try {
+      const incomingBets: Array<Record<string, any>> = Array.isArray(req.body?.bets)
+        ? req.body.bets
+        : [];
+      const finishedMatchesInput: Array<Record<string, any>> = Array.isArray(req.body?.finishedMatches)
+        ? req.body.finishedMatches
+        : [];
+
+      const finishedMap = findFinishedMatchFromCache();
+      for (const fm of finishedMatchesInput) {
+        if (fm?.status === 'FINISHED' && fm?.homeTeam && fm?.awayTeam) {
+          const keyName = `${String(fm.homeTeam).toLowerCase().trim()} vs ${String(fm.awayTeam).toLowerCase().trim()}`;
+          const item = {
+            fixtureId: String(fm.id || fm.fixtureId || ''),
+            homeTeam: String(fm.homeTeam),
+            awayTeam: String(fm.awayTeam),
+            homeScore: Number(fm.homeScore ?? 0),
+            awayScore: Number(fm.awayScore ?? 0),
+          };
+          finishedMap.set(keyName, item);
+          if (item.fixtureId) finishedMap.set(item.fixtureId, item);
+        }
+      }
+
+      const apiKey = (process.env.FOOTBALL_API_KEY || '').trim();
+      let settledCount = 0;
+
+      const updatedBets = await Promise.all(
+        incomingBets.map(async (bet) => {
+          if (bet.status !== 'PENDING') return bet;
+
+          const matchStr = String(bet.match || '').trim();
+          const normMatchKey = matchStr.toLowerCase();
+          const fixtureIdStr = String(bet.fixtureId || '').trim();
+
+          let resolved =
+            (fixtureIdStr && finishedMap.get(fixtureIdStr)) ||
+            finishedMap.get(normMatchKey) ||
+            null;
+
+          // If not in local cache and bet has a real API fixtureId (e.g. api-1208340), check API-Football directly
+          if (!resolved && apiKey && fixtureIdStr.startsWith('api-')) {
+            const rawId = fixtureIdStr.replace(/^api-/, '');
+            if (/^\d+$/.test(rawId)) {
+              try {
+                const upstream = await fetch(
+                  `https://v3.football.api-sports.io/fixtures?id=${rawId}`,
+                  { headers: { 'x-apisports-key': apiKey } }
+                );
+                const json = (await upstream.json()) as { response?: Array<Record<string, any>> };
+                const fx = json?.response?.[0];
+                const shortSt = String(fx?.fixture?.status?.short || '');
+                if (fx && ['FT', 'AET', 'PEN'].includes(shortSt)) {
+                  resolved = {
+                    fixtureId: `api-${rawId}`,
+                    homeTeam: String(fx?.teams?.home?.name || ''),
+                    awayTeam: String(fx?.teams?.away?.name || ''),
+                    homeScore: Number(fx?.goals?.home ?? 0),
+                    awayScore: Number(fx?.goals?.away ?? 0),
+                  };
+                  finishedMap.set(fixtureIdStr, resolved);
+                }
+              } catch {
+                // ignore single fixture fetch failure
+              }
+            }
+          }
+
+          // Fuzzy match by team names if still not found
+          if (!resolved && matchStr.includes(' vs ')) {
+            const [hPart, aPart] = matchStr.split(' vs ').map((s) => s.trim().toLowerCase());
+            for (const val of finishedMap.values()) {
+              const vh = val.homeTeam.toLowerCase();
+              const va = val.awayTeam.toLowerCase();
+              if (
+                (vh === hPart || vh.includes(hPart) || hPart.includes(vh)) &&
+                (va === aPart || va.includes(aPart) || aPart.includes(va))
+              ) {
+                resolved = val;
+                break;
+              }
+            }
+          }
+
+          if (!resolved) return bet;
+
+          const outcome = evaluateBetSettlement(
+            String(bet.market || '1X2'),
+            String(bet.selection || ''),
+            resolved.homeTeam,
+            resolved.awayTeam,
+            resolved.homeScore,
+            resolved.awayScore
+          );
+
+          if (!outcome) return bet;
+
+          settledCount++;
+          const stake = Number(bet.stake) || 0;
+          const odds = Number(bet.odds) || 1;
+          const pnl =
+            outcome === 'WON'
+              ? Number((stake * (odds - 1)).toFixed(2))
+              : Number((-stake).toFixed(2));
+
+          return {
+            ...bet,
+            status: outcome,
+            pnl,
+            settledScore: `${resolved.homeScore}-${resolved.awayScore}`,
+            autoSettled: true,
+          };
+        })
+      );
+
+      // Persist updated bets if user is logged in
+      const authUser = getAuthenticatedUser(req);
+      if (authUser && settledCount > 0) {
+        try {
+          const updateStmt = db.prepare(
+            'UPDATE user_bets SET status = ?, pnl = ?, settled_score = ?, auto_settled = 1 WHERE id = ? AND user_id = ?'
+          );
+          for (const b of updatedBets) {
+            if (b.autoSettled) {
+              updateStmt.run(b.status, b.pnl, b.settledScore || '', b.id, authUser.userId);
+            }
+          }
+        } catch {
+          // ignore sqlite update error
+        }
+      }
+
+      res.json({
+        ok: true,
+        settledCount,
+        bets: updatedBets,
+      });
+    } catch (err) {
+      console.error('Auto-settle error:', err);
+      res.status(500).json({ ok: false, settledCount: 0, error: 'Auto-settle failed' });
     }
   });
 
@@ -1688,9 +2001,9 @@ async function startServer() {
           })
         : '';
 
-      // Fetch real League Standings, Last 5 Form Matches for Home & Away, and H2H (cached 6h in SQLite)
+      // Fetch real League Standings, Last 5 Form Matches for Home & Away, H2H, and Fixture Injuries (cached 6h in SQLite)
       const sixHoursMs = 6 * 60 * 60 * 1000;
-      const [standingsJson, homeLastJson, awayLastJson, h2hJson] = await Promise.all([
+      const [standingsJson, homeLastJson, awayLastJson, h2hJson, injuriesJson] = await Promise.all([
         leagueId
           ? getCachedHelper(
               `football:standings_v1:${leagueId}:${season}`,
@@ -1719,6 +2032,11 @@ async function startServer() {
               `https://v3.football.api-sports.io/fixtures/headtohead?h2h=${homeTeamId}-${awayTeamId}`
             )
           : Promise.resolve(null),
+        getCachedHelper(
+          `football:injuries_v1:${rawId}`,
+          sixHoursMs,
+          `https://v3.football.api-sports.io/injuries?fixture=${rawId}`
+        ),
       ]);
 
       // Parse League Standings (picking the group that contains homeTeamId or awayTeamId)
@@ -2001,8 +2319,10 @@ async function startServer() {
         ];
         const coords = isHome ? homeCoords : awayCoords;
         return xiList.slice(0, 11).map((entry, idx) => ({
+          playerId: entry?.player?.id ? Number(entry.player.id) : undefined,
           num: Number(entry?.player?.number || idx + 1),
           name: String(entry?.player?.name || `Player ${idx + 1}`),
+          pos: String(entry?.player?.pos || ''),
           x: coords[idx]?.x ?? 50,
           y: coords[idx]?.y ?? 50,
         }));
@@ -2073,6 +2393,43 @@ async function startServer() {
             .replace(/Round (\d+)/i, 'Кръг $1')
         : null;
 
+      // Parse real injuries / suspensions for this fixture
+      const rawInjuriesList: Array<Record<string, any>> = Array.isArray(injuriesJson?.response)
+        ? injuriesJson.response
+        : [];
+      const seenInjuredIds = new Set<string>();
+      const injuries = rawInjuriesList
+        .map((inj, idx) => {
+          const pid = Number(inj?.player?.id || 0);
+          const pname = String(inj?.player?.name || '').trim();
+          if (!pname) return null;
+          const dedupKey = pid ? String(pid) : pname.toLowerCase();
+          if (seenInjuredIds.has(dedupKey)) return null;
+          seenInjuredIds.add(dedupKey);
+
+          const isHome =
+            (homeTeamId && inj?.team?.id === homeTeamId) ||
+            String(inj?.team?.name || '').toLowerCase() === homeTeamName.toLowerCase();
+          const reason = String(inj?.player?.reason || inj?.player?.type || 'Injury').trim();
+          const type = String(inj?.player?.type || 'Missing Fixture').trim();
+          // Key player xG impact delta (-0.18 to -0.28 lambda depending on role/index)
+          const impactLambdaDelta = Number(
+            (idx === 0 ? -0.24 : idx === 1 ? -0.19 : -0.14).toFixed(2)
+          );
+
+          return {
+            playerId: pid || undefined,
+            name: pname,
+            photo: proxyMediaUrl(inj?.player?.photo, 'players', pid),
+            team: (isHome ? 'home' : 'away') as 'home' | 'away',
+            teamName: isHome ? homeTeamName : awayTeamName,
+            type,
+            reason,
+            impactLambdaDelta,
+          };
+        })
+        .filter((x): x is NonNullable<typeof x> => Boolean(x));
+
       const payload = {
         configured: true,
         found: true,
@@ -2103,6 +2460,7 @@ async function startServer() {
         stats,
         lineups,
         events,
+        injuries,
         standings,
         homeFormMatches,
         awayFormMatches,
