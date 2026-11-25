@@ -3490,7 +3490,7 @@ async function startServer() {
         return;
       }
 
-      const mainCacheKey = `football:player_intel_v1:${resolvedPlayerId}:${requestedSeason}`;
+      const mainCacheKey = `football:player_intel_v2:${resolvedPlayerId}:${requestedSeason}`;
       const mainTtlMs = 6 * 60 * 60 * 1000; // 6 hours cache
       const cachedMain = db
         .prepare('SELECT payload, updated_at FROM api_cache WHERE cache_key = ?')
@@ -3505,6 +3505,19 @@ async function startServer() {
         requestedSeason !== 'auto' && /^\d{4}$/.test(requestedSeason)
           ? Number(requestedSeason)
           : 2025;
+
+      const hasRealAppearances = (entry: Record<string, any> | null | undefined): boolean => {
+        if (!entry || !Array.isArray(entry.statistics) || entry.statistics.length === 0) {
+          return false;
+        }
+        return entry.statistics.some(
+          (s: Record<string, any>) =>
+            Number(s?.games?.appearences ?? s?.games?.appearances ?? 0) > 0 ||
+            Number(s?.games?.minutes ?? 0) > 0 ||
+            Number(s?.goals?.total ?? 0) > 0 ||
+            Number(s?.substitutes?.bench ?? 0) > 0
+        );
+      };
 
       // 2. Fetch Player Season Stats + Profile + Transfers + Trophies + Sidelined in parallel
       const [
@@ -3544,18 +3557,23 @@ async function startServer() {
       let activeSeason = explicitSeasonNum;
       let statsEntry = primaryStatsJson?.response?.[0] || null;
 
-      // If auto season (2025) has no stats yet for this player, try 2024 then 2023
-      if (!statsEntry && requestedSeason === 'auto') {
-        for (const fallbackYr of [2024, 2023]) {
+      // If auto season has no actual appearances yet for this player, check 2024, 2026, 2023
+      if (!hasRealAppearances(statsEntry) && requestedSeason === 'auto') {
+        for (const fallbackYr of [2024, 2026, 2023]) {
           const fbJson = await getCachedSub(
             `football:player_stats_v1:${resolvedPlayerId}:${fallbackYr}`,
             12 * 60 * 60 * 1000,
             `https://v3.football.api-sports.io/players?id=${resolvedPlayerId}&season=${fallbackYr}`
           );
-          if (fbJson?.response?.[0]) {
-            statsEntry = fbJson.response[0];
+          const candidate = fbJson?.response?.[0] || null;
+          if (hasRealAppearances(candidate)) {
+            statsEntry = candidate;
             activeSeason = fallbackYr;
             break;
+          }
+          if (!statsEntry && candidate) {
+            statsEntry = candidate;
+            activeSeason = fallbackYr;
           }
         }
       }
@@ -3580,7 +3598,11 @@ async function startServer() {
         .map((s) => {
           const tId = Number(s?.team?.id || 0);
           const lId = Number(s?.league?.id || 0);
-          const rawRating = s?.games?.rating ? Number(parseFloat(String(s.games.rating)).toFixed(2)) : null;
+          const rawRatingNum = s?.games?.rating
+            ? Number(parseFloat(String(s.games.rating)).toFixed(2))
+            : null;
+          const validRating =
+            rawRatingNum && Number.isFinite(rawRatingNum) ? rawRatingNum.toFixed(2) : null;
 
           return {
             teamId: tId || null,
@@ -3588,7 +3610,7 @@ async function startServer() {
             teamLogo: proxyMediaUrl(s?.team?.logo, 'teams', tId),
             leagueId: lId || null,
             leagueName: String(s?.league?.name || 'Competition'),
-            leagueCountry: s?.league?.country ? String(s.league.country) : null,
+            leagueCountry: s?.league?.country ? String(s.league.country) : '',
             leagueLogo: proxyMediaUrl(s?.league?.logo, 'leagues', lId),
             season: Number(s?.league?.season || activeSeason),
             appearances: Number(s?.games?.appearences ?? s?.games?.appearances ?? 0),
@@ -3600,7 +3622,7 @@ async function startServer() {
               : profilePlayer?.number
               ? Number(profilePlayer.number)
               : null,
-            rating: rawRating && Number.isFinite(rawRating) ? rawRating : null,
+            rating: validRating,
             captain: Boolean(s?.games?.captain),
             subIn: Number(s?.substitutes?.in || 0),
             subOut: Number(s?.substitutes?.out || 0),
@@ -3615,7 +3637,9 @@ async function startServer() {
             passesKey: Number(s?.passes?.key || 0),
             passesAccuracy: s?.passes?.accuracy ? Number(s.passes.accuracy) : null,
             tacklesTotal: Number(s?.tackles?.total || 0),
+            tacklesBlocks: Number(s?.tackles?.blocks || 0),
             blocks: Number(s?.tackles?.blocks || 0),
+            tacklesInterceptions: Number(s?.tackles?.interceptions || 0),
             interceptions: Number(s?.tackles?.interceptions || 0),
             duelsTotal: Number(s?.duels?.total || 0),
             duelsWon: Number(s?.duels?.won || 0),
@@ -3632,7 +3656,8 @@ async function startServer() {
             penaltiesMissed: Number(s?.penalty?.missed || 0),
             penaltiesSaved: Number(s?.penalty?.saved || 0),
           };
-        });
+        })
+        .sort((a, b) => b.appearances - a.appearances || b.minutes - a.minutes);
 
       // Compute aggregated season totals across all competitions
       const totals = competitions.reduce(
@@ -3663,7 +3688,7 @@ async function startServer() {
           acc.penaltiesMissed += c.penaltiesMissed;
           acc.penaltiesWon += c.penaltiesWon;
           if (c.rating && c.appearances > 0) {
-            acc.ratingWeightedSum += c.rating * c.appearances;
+            acc.ratingWeightedSum += Number(c.rating) * c.appearances;
             acc.ratingApps += c.appearances;
           }
           return acc;
@@ -3701,12 +3726,11 @@ async function startServer() {
 
       const avgRating =
         totals.ratingApps > 0
-          ? Number((totals.ratingWeightedSum / totals.ratingApps).toFixed(2))
+          ? (totals.ratingWeightedSum / totals.ratingApps).toFixed(2)
           : null;
 
       // Primary club (the one with the most appearances in the season, or latest transfer teamIn)
-      const sortedByApps = [...competitions].sort((a, b) => b.appearances - a.appearances);
-      const primaryComp = sortedByApps[0] || competitions[0] || null;
+      const primaryComp = competitions[0] || null;
 
       // Parse career transfers
       const rawTransfers: Array<Record<string, any>> = Array.isArray(
@@ -3781,6 +3805,18 @@ async function startServer() {
           }
         : null;
 
+      const rawHeight = String(statsPlayer?.height || profilePlayer?.height || '').trim();
+      const rawWeight = String(statsPlayer?.weight || profilePlayer?.weight || '').trim();
+      const formattedHeight =
+        rawHeight && /^\d+$/.test(rawHeight) ? `${rawHeight} cm` : rawHeight;
+      const formattedWeight =
+        rawWeight && /^\d+$/.test(rawWeight) ? `${rawWeight} kg` : rawWeight;
+
+      const summaryTotals = {
+        ...totals,
+        avgRating,
+      };
+
       const payload = {
         configured: true,
         found: true,
@@ -3790,19 +3826,19 @@ async function startServer() {
           id: resolvedPlayerId,
           name: playerName,
           fullName,
-          firstname: firstname || null,
-          lastname: lastname || null,
+          firstname: firstname || '',
+          lastname: lastname || '',
           age: Number(statsPlayer?.age || profilePlayer?.age || 0) || null,
           birthDate:
-            statsPlayer?.birth?.date || profilePlayer?.birth?.date || null,
+            statsPlayer?.birth?.date || profilePlayer?.birth?.date || '',
           birthPlace:
-            statsPlayer?.birth?.place || profilePlayer?.birth?.place || null,
+            statsPlayer?.birth?.place || profilePlayer?.birth?.place || '',
           birthCountry:
-            statsPlayer?.birth?.country || profilePlayer?.birth?.country || null,
+            statsPlayer?.birth?.country || profilePlayer?.birth?.country || '',
           nationality:
-            statsPlayer?.nationality || profilePlayer?.nationality || null,
-          height: statsPlayer?.height || profilePlayer?.height || null,
-          weight: statsPlayer?.weight || profilePlayer?.weight || null,
+            statsPlayer?.nationality || profilePlayer?.nationality || '',
+          height: formattedHeight,
+          weight: formattedWeight,
           injured: Boolean(statsPlayer?.injured),
           position:
             primaryComp?.position ||
@@ -3816,12 +3852,16 @@ async function startServer() {
             'players',
             resolvedPlayerId
           ),
+          currentTeam: primaryTeam || {
+            id: null,
+            name: '',
+            logo: '',
+          },
         },
         primaryTeam,
-        summary: {
-          ...totals,
-          avgRating,
-        },
+        totals: summaryTotals,
+        summary: summaryTotals,
+        statistics: competitions,
         competitions,
         transfers,
         trophies,

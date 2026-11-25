@@ -17,7 +17,7 @@ interface PlayerCompetitionStat {
   appearances: number;
   lineups: number;
   minutes: number;
-  rating: string | null;
+  rating: string | number | null;
   subIn: number;
   subOut: number;
   bench: number;
@@ -31,8 +31,10 @@ interface PlayerCompetitionStat {
   passesKey: number;
   passesAccuracy: number | null;
   tacklesTotal: number;
-  tacklesBlocks: number;
-  tacklesInterceptions: number;
+  tacklesBlocks?: number;
+  blocks?: number;
+  tacklesInterceptions?: number;
+  interceptions?: number;
   duelsTotal: number;
   duelsWon: number;
   dribblesAttempts: number;
@@ -69,6 +71,33 @@ interface PlayerSidelinedItem {
   end: string;
 }
 
+interface PlayerTotalsSummary {
+  appearances: number;
+  lineups: number;
+  minutes: number;
+  goals: number;
+  assists: number;
+  saves: number;
+  conceded: number;
+  shotsTotal: number;
+  shotsOn: number;
+  passesTotal: number;
+  passesKey: number;
+  tacklesTotal: number;
+  interceptions: number;
+  duelsTotal: number;
+  duelsWon: number;
+  dribblesAttempts: number;
+  dribblesSuccess: number;
+  foulsDrawn: number;
+  foulsCommitted: number;
+  yellowCards: number;
+  redCards: number;
+  penaltiesScored: number;
+  penaltiesMissed: number;
+  avgRating: string | number | null;
+}
+
 interface PlayerIntelResponse {
   season: number;
   player: {
@@ -87,39 +116,21 @@ interface PlayerIntelResponse {
     photo: string;
     position: string;
     number: number | null;
-    currentTeam: {
+    currentTeam?: {
       id: number | null;
       name: string;
       logo: string;
     };
   };
-  totals: {
-    appearances: number;
-    lineups: number;
-    minutes: number;
-    goals: number;
-    assists: number;
-    saves: number;
-    conceded: number;
-    shotsTotal: number;
-    shotsOn: number;
-    passesTotal: number;
-    passesKey: number;
-    tacklesTotal: number;
-    interceptions: number;
-    duelsTotal: number;
-    duelsWon: number;
-    dribblesAttempts: number;
-    dribblesSuccess: number;
-    foulsDrawn: number;
-    foulsCommitted: number;
-    yellowCards: number;
-    redCards: number;
-    penaltiesScored: number;
-    penaltiesMissed: number;
-    avgRating: string | null;
-  };
-  statistics: PlayerCompetitionStat[];
+  primaryTeam?: {
+    id: number | null;
+    name: string;
+    logo: string;
+  } | null;
+  totals?: PlayerTotalsSummary;
+  summary?: PlayerTotalsSummary;
+  statistics?: PlayerCompetitionStat[];
+  competitions?: PlayerCompetitionStat[];
   transfers: PlayerTransferItem[];
   trophies: PlayerTrophyItem[];
   sidelined: PlayerSidelinedItem[];
@@ -163,6 +174,18 @@ function formatDateBg(dateStr: string): string {
     month: '2-digit',
     year: 'numeric',
   });
+}
+
+function formatHeight(val?: string | null): string {
+  if (!val) return '';
+  const trimmed = String(val).trim();
+  return /^\d+$/.test(trimmed) ? `${trimmed} cm` : trimmed;
+}
+
+function formatWeight(val?: string | null): string {
+  if (!val) return '';
+  const trimmed = String(val).trim();
+  return /^\d+$/.test(trimmed) ? `${trimmed} kg` : trimmed;
 }
 
 export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
@@ -252,8 +275,8 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
   }, [searchQuery]);
 
   const player = intel?.player;
-  const totals = intel?.totals;
-  const statistics = intel?.statistics || [];
+  const totals = intel?.totals || intel?.summary || null;
+  const statistics = intel?.statistics || intel?.competitions || [];
   const transfers = intel?.transfers || [];
   const trophies = intel?.trophies || [];
   const sidelined = intel?.sidelined || [];
@@ -266,12 +289,18 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
   const displayPhoto = player?.photo || target.playerPhoto || '';
   const displayPosition = player?.position || target.position || '';
   const displayNumber = player?.number ?? target.number ?? null;
-  const currentTeamId = player?.currentTeam?.id || target.teamId || null;
-  const currentTeamName = player?.currentTeam?.name || target.teamName || '';
-  const currentTeamLogo = player?.currentTeam?.logo || target.teamLogo || '';
+  const currentTeamId =
+    player?.currentTeam?.id || intel?.primaryTeam?.id || target.teamId || null;
+  const currentTeamName =
+    player?.currentTeam?.name || intel?.primaryTeam?.name || target.teamName || '';
+  const currentTeamLogo =
+    player?.currentTeam?.logo || intel?.primaryTeam?.logo || target.teamLogo || '';
 
-  const wonTrophiesCount = trophies.filter((t) =>
-    t.place.toLowerCase().includes('winner') || t.place.includes('1')
+  const displayHeight = formatHeight(player?.height);
+  const displayWeight = formatWeight(player?.weight);
+
+  const wonTrophiesCount = trophies.filter(
+    (t) => t.place.toLowerCase().includes('winner') || t.place.includes('1')
   ).length;
 
   return (
@@ -279,8 +308,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
       style={{
         maxWidth: '1400px',
         margin: '0 auto',
-        padding: '24px 24px 72px',
-        fontFamily: 'var(--font-sans)',
+        padding: '12px 0 64px',
       }}
     >
       {/* Top Breadcrumb + Inline Global Player Search + Back button */}
@@ -300,7 +328,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
             alignItems: 'center',
             gap: '8px',
             fontSize: '13px',
-            color: 'var(--text-muted)',
+            color: '#8f9cae',
             flexWrap: 'wrap',
           }}
         >
@@ -308,8 +336,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
             onClick={onBack}
             style={{
               cursor: 'pointer',
-              color: 'var(--text-secondary)',
-              transition: 'color 150ms',
+              color: '#cbd5e1',
             }}
           >
             Начало
@@ -332,17 +359,18 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                 }
                 style={{
                   cursor: 'pointer',
-                  color: 'var(--text-secondary)',
+                  color: '#cbd5e1',
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '5px',
+                  gap: '6px',
+                  fontWeight: 600,
                 }}
               >
                 {currentTeamLogo && (
                   <img
                     src={currentTeamLogo}
                     alt=""
-                    style={{ width: '15px', height: '15px', objectFit: 'contain' }}
+                    style={{ width: '16px', height: '16px', objectFit: 'contain' }}
                   />
                 )}
                 {currentTeamName}
@@ -350,12 +378,12 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
             </>
           )}
           <span>›</span>
-          <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{displayName}</span>
+          <span style={{ color: '#ffffff', fontWeight: 800 }}>{displayName}</span>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           {/* Inline Global Player Search */}
-          <div style={{ position: 'relative', minWidth: '270px' }}>
+          <div style={{ position: 'relative', minWidth: '280px' }}>
             <input
               type="text"
               value={searchQuery}
@@ -368,11 +396,11 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
               placeholder="🔍 Потърси всеки футболист по име..."
               style={{
                 width: '100%',
-                background: 'var(--bg-surface)',
-                border: '1px solid var(--border-default)',
-                borderRadius: '8px',
-                padding: '7px 12px',
-                color: 'var(--text-primary)',
+                background: '#0b111a',
+                border: '1px solid #182434',
+                borderRadius: '10px',
+                padding: '8px 13px',
+                color: '#f7f8fb',
                 fontSize: '12px',
                 outline: 'none',
               }}
@@ -384,10 +412,10 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                   top: 'calc(100% + 6px)',
                   right: 0,
                   left: 0,
-                  background: '#0D1B2A',
-                  border: '1px solid var(--border-default)',
-                  borderRadius: '10px',
-                  boxShadow: '0 16px 40px rgba(0,0,0,0.65)',
+                  background: '#0b131e',
+                  border: '1px solid #1f3147',
+                  borderRadius: '12px',
+                  boxShadow: '0 16px 40px rgba(0,0,0,0.75)',
                   zIndex: 60,
                   maxHeight: '340px',
                   overflowY: 'auto',
@@ -399,7 +427,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                     style={{
                       padding: '12px',
                       fontSize: '12px',
-                      color: 'var(--text-muted)',
+                      color: '#8f9cae',
                       textAlign: 'center',
                     }}
                   >
@@ -410,7 +438,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                     style={{
                       padding: '12px',
                       fontSize: '12px',
-                      color: 'var(--text-muted)',
+                      color: '#8f9cae',
                       textAlign: 'center',
                     }}
                   >
@@ -439,7 +467,6 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                         padding: '8px 10px',
                         borderRadius: '8px',
                         cursor: 'pointer',
-                        transition: 'background 120ms',
                       }}
                       onMouseEnter={(e) =>
                         (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')
@@ -455,7 +482,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                             height: '32px',
                             borderRadius: '50%',
                             objectFit: 'cover',
-                            background: 'var(--bg-elevated)',
+                            background: '#111c2a',
                           }}
                         />
                       ) : (
@@ -464,7 +491,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                             width: '32px',
                             height: '32px',
                             borderRadius: '50%',
-                            background: 'var(--bg-elevated)',
+                            background: '#111c2a',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -480,7 +507,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                           style={{
                             fontSize: '13px',
                             fontWeight: 700,
-                            color: 'var(--text-primary)',
+                            color: '#ffffff',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
@@ -492,15 +519,15 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                               style={{
                                 marginLeft: '6px',
                                 fontSize: '11px',
-                                color: 'var(--accent-green)',
-                                fontFamily: 'var(--font-mono)',
+                                color: '#43f08a',
+                                fontFamily: 'monospace',
                               }}
                             >
                               #{hit.number}
                             </span>
                           ) : null}
                         </div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        <div style={{ fontSize: '11px', color: '#8f9cae' }}>
                           {[
                             hit.position,
                             hit.nationality,
@@ -520,13 +547,13 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
           <button
             onClick={onBack}
             style={{
-              background: 'var(--bg-surface)',
-              border: '1px solid var(--border-default)',
-              borderRadius: '8px',
-              padding: '7px 14px',
-              color: 'var(--text-secondary)',
+              background: '#0b111a',
+              border: '1px solid #182434',
+              borderRadius: '10px',
+              padding: '8px 14px',
+              color: '#cbd5e1',
               fontSize: '12px',
-              fontWeight: 600,
+              fontWeight: 700,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -542,9 +569,9 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
       <div
         style={{
           background:
-            'linear-gradient(135deg, rgba(13,27,42,0.96) 0%, rgba(19,35,56,0.94) 60%, rgba(0,212,170,0.08) 100%)',
-          border: '1px solid var(--border-default)',
-          borderRadius: '16px',
+            'linear-gradient(135deg, #0b131e 0%, #0d1b2a 60%, rgba(67,240,138,0.08) 100%)',
+          border: '1px solid #182434',
+          borderRadius: '18px',
           padding: '28px',
           marginBottom: '22px',
           display: 'flex',
@@ -552,7 +579,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
           justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: '24px',
-          boxShadow: '0 14px 36px rgba(0,0,0,0.3)',
+          boxShadow: '0 14px 36px rgba(0,0,0,0.45)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '22px', flexWrap: 'wrap' }}>
@@ -563,13 +590,13 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                 width: '104px',
                 height: '104px',
                 borderRadius: '50%',
-                background: 'rgba(255,255,255,0.05)',
-                border: '2px solid rgba(0,212,170,0.45)',
+                background: '#111c2a',
+                border: '2px solid #43f08a',
                 overflow: 'hidden',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
               }}
             >
               {displayPhoto ? (
@@ -579,7 +606,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
               ) : (
-                <span style={{ fontSize: '36px', fontWeight: 800, color: 'var(--accent-green)' }}>
+                <span style={{ fontSize: '36px', fontWeight: 800, color: '#43f08a' }}>
                   {displayName.slice(0, 2).toUpperCase()}
                 </span>
               )}
@@ -590,14 +617,14 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                   position: 'absolute',
                   bottom: '-4px',
                   right: '-4px',
-                  background: 'var(--accent-green)',
-                  color: '#071018',
-                  fontFamily: 'var(--font-mono)',
+                  background: '#43f08a',
+                  color: '#04130b',
+                  fontFamily: 'monospace',
                   fontSize: '13px',
                   fontWeight: 900,
                   padding: '2px 8px',
                   borderRadius: '999px',
-                  border: '2px solid #0D1B2A',
+                  border: '2px solid #0b131e',
                 }}
               >
                 #{displayNumber}
@@ -613,14 +640,14 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                 alignItems: 'center',
                 gap: '10px',
                 flexWrap: 'wrap',
-                marginBottom: '6px',
+                marginBottom: '8px',
               }}
             >
               <h1
                 style={{
                   fontSize: '28px',
                   fontWeight: 800,
-                  color: 'var(--text-primary)',
+                  color: '#ffffff',
                   margin: 0,
                   letterSpacing: '-0.02em',
                 }}
@@ -633,9 +660,9 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                   style={{
                     fontSize: '11px',
                     fontWeight: 700,
-                    color: 'var(--accent-blue)',
-                    background: 'rgba(0,180,216,0.12)',
-                    border: '1px solid rgba(0,180,216,0.3)',
+                    color: '#38bdf8',
+                    background: 'rgba(56,189,248,0.14)',
+                    border: '1px solid rgba(56,189,248,0.35)',
                     padding: '3px 10px',
                     borderRadius: '6px',
                   }}
@@ -648,21 +675,21 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                 <span
                   style={{
                     fontSize: '12px',
-                    fontFamily: 'var(--font-mono)',
-                    fontWeight: 800,
-                    color: '#071018',
+                    fontFamily: 'monospace',
+                    fontWeight: 900,
+                    color: '#04130b',
                     background:
                       Number(totals.avgRating) >= 7.2
-                        ? 'var(--accent-green)'
+                        ? '#43f08a'
                         : Number(totals.avgRating) >= 6.8
-                        ? 'var(--accent-amber)'
+                        ? '#f59e0b'
                         : '#94A3B8',
                     padding: '3px 9px',
                     borderRadius: '6px',
                   }}
                   title="Среден официален рейтинг за сезона"
                 >
-                  ★ {totals.avgRating}
+                  ★ {Number(totals.avgRating).toFixed(2)}
                 </span>
               )}
 
@@ -671,8 +698,8 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                   style={{
                     fontSize: '11px',
                     fontWeight: 700,
-                    color: '#EF4444',
-                    background: 'rgba(239,68,68,0.14)',
+                    color: '#f87171',
+                    background: 'rgba(239,68,68,0.15)',
                     border: '1px solid rgba(239,68,68,0.35)',
                     padding: '3px 9px',
                     borderRadius: '6px',
@@ -691,7 +718,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                 gap: '10px',
                 flexWrap: 'wrap',
                 fontSize: '13px',
-                color: 'var(--text-secondary)',
+                color: '#cbd5e1',
                 marginBottom: '8px',
               }}
             >
@@ -711,13 +738,13 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '6px',
-                    background: 'rgba(255,255,255,0.05)',
+                    background: 'rgba(255,255,255,0.06)',
                     padding: '4px 10px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '8px',
+                    border: '1px solid #1e2f44',
                     cursor: 'pointer',
                     fontWeight: 700,
-                    color: 'var(--text-primary)',
+                    color: '#ffffff',
                   }}
                   title="Отвори профила на клуба"
                 >
@@ -737,12 +764,12 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                   style={{
                     background: 'rgba(255,255,255,0.04)',
                     padding: '4px 10px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '8px',
+                    border: '1px solid #1a2738',
                   }}
                 >
                   🌍 Националност:{' '}
-                  <strong style={{ color: 'var(--text-primary)' }}>{player.nationality}</strong>
+                  <strong style={{ color: '#ffffff' }}>{player.nationality}</strong>
                 </span>
               )}
 
@@ -751,11 +778,11 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                   style={{
                     background: 'rgba(255,255,255,0.04)',
                     padding: '4px 10px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '8px',
+                    border: '1px solid #1a2738',
                   }}
                 >
-                  🎂 Възраст: <strong style={{ color: 'var(--text-primary)' }}>{player.age} г.</strong>
+                  🎂 Възраст: <strong style={{ color: '#ffffff' }}>{player.age} г.</strong>
                   {player.birthDate ? ` (${formatDateBg(player.birthDate)})` : ''}
                 </span>
               )}
@@ -769,7 +796,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                 gap: '10px',
                 flexWrap: 'wrap',
                 fontSize: '12px',
-                color: 'var(--text-secondary)',
+                color: '#cbd5e1',
               }}
             >
               {(player?.birthPlace || player?.birthCountry) && (
@@ -777,40 +804,40 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                   style={{
                     background: 'rgba(255,255,255,0.04)',
                     padding: '4px 10px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '8px',
+                    border: '1px solid #1a2738',
                   }}
                 >
                   📍 Място на раждане:{' '}
-                  <strong style={{ color: 'var(--text-primary)' }}>
+                  <strong style={{ color: '#ffffff' }}>
                     {[player.birthPlace, player.birthCountry].filter(Boolean).join(', ')}
                   </strong>
                 </span>
               )}
 
-              {player?.height && (
+              {displayHeight && (
                 <span
                   style={{
                     background: 'rgba(255,255,255,0.04)',
                     padding: '4px 10px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '8px',
+                    border: '1px solid #1a2738',
                   }}
                 >
-                  📏 Ръст: <strong style={{ color: 'var(--text-primary)' }}>{player.height}</strong>
+                  📏 Ръст: <strong style={{ color: '#ffffff' }}>{displayHeight}</strong>
                 </span>
               )}
 
-              {player?.weight && (
+              {displayWeight && (
                 <span
                   style={{
                     background: 'rgba(255,255,255,0.04)',
                     padding: '4px 10px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '8px',
+                    border: '1px solid #1a2738',
                   }}
                 >
-                  ⚖️ Тегло: <strong style={{ color: 'var(--text-primary)' }}>{player.weight}</strong>
+                  ⚖️ Тегло: <strong style={{ color: '#ffffff' }}>{displayWeight}</strong>
                 </span>
               )}
 
@@ -818,11 +845,11 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                 <span
                   onClick={() => setActiveTab('trophies')}
                   style={{
-                    background: 'rgba(245,158,11,0.12)',
+                    background: 'rgba(245,158,11,0.14)',
                     padding: '4px 10px',
-                    borderRadius: '6px',
-                    border: '1px solid rgba(245,158,11,0.35)',
-                    color: 'var(--accent-amber)',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(245,158,11,0.4)',
+                    color: '#fbbf24',
                     fontWeight: 700,
                     cursor: 'pointer',
                   }}
@@ -839,118 +866,119 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(4, minmax(112px, 1fr))',
+              gridTemplateColumns: 'repeat(4, minmax(118px, 1fr))',
               gap: '12px',
             }}
           >
             <div
               style={{
-                background: 'rgba(10,22,40,0.75)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: '10px',
+                background: '#080e16',
+                border: '1px solid #182434',
+                borderRadius: '12px',
                 padding: '12px 14px',
                 textAlign: 'center',
               }}
             >
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                МАЧОВЕ / ТИТУЛЯР
+              <div style={{ fontSize: '10px', color: '#8f9cae', marginBottom: '4px', fontWeight: 700 }}>
+                МАЧОВЕ (ТИТУЛЯР)
               </div>
               <div
                 style={{
-                  fontSize: '19px',
-                  fontWeight: 800,
-                  fontFamily: 'var(--font-mono)',
-                  color: 'var(--text-primary)',
+                  fontSize: '20px',
+                  fontWeight: 900,
+                  fontFamily: 'monospace',
+                  color: '#ffffff',
                 }}
               >
-                {totals.appearances} <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>({totals.lineups})</span>
+                {totals.appearances}{' '}
+                <span style={{ fontSize: '13px', color: '#8f9cae' }}>({totals.lineups})</span>
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--accent-blue)', marginTop: '4px' }}>
+              <div style={{ fontSize: '11px', color: '#38bdf8', marginTop: '4px', fontWeight: 600 }}>
                 {totals.minutes.toLocaleString()} мин.
               </div>
             </div>
 
             <div
               style={{
-                background: 'rgba(10,22,40,0.75)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: '10px',
+                background: '#080e16',
+                border: '1px solid #182434',
+                borderRadius: '12px',
                 padding: '12px 14px',
                 textAlign: 'center',
               }}
             >
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+              <div style={{ fontSize: '10px', color: '#8f9cae', marginBottom: '4px', fontWeight: 700 }}>
                 ГОЛОВЕ / АСИСТЕНЦИИ
               </div>
               <div
                 style={{
-                  fontSize: '19px',
-                  fontWeight: 800,
-                  fontFamily: 'var(--font-mono)',
-                  color: 'var(--accent-green)',
+                  fontSize: '20px',
+                  fontWeight: 900,
+                  fontFamily: 'monospace',
+                  color: '#43f08a',
                 }}
               >
-                {totals.goals} <span style={{ color: 'var(--text-muted)', fontSize: '14px' }}>/</span>{' '}
-                <span style={{ color: 'var(--accent-blue)' }}>{totals.assists}</span>
+                {totals.goals} <span style={{ color: '#8f9cae', fontSize: '14px' }}>/</span>{' '}
+                <span style={{ color: '#38bdf8' }}>{totals.assists}</span>
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+              <div style={{ fontSize: '11px', color: '#8f9cae', marginTop: '4px' }}>
                 Дузпи: {totals.penaltiesScored} вкарани
               </div>
             </div>
 
             <div
               style={{
-                background: 'rgba(10,22,40,0.75)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: '10px',
+                background: '#080e16',
+                border: '1px solid #182434',
+                borderRadius: '12px',
                 padding: '12px 14px',
                 textAlign: 'center',
               }}
             >
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+              <div style={{ fontSize: '10px', color: '#8f9cae', marginBottom: '4px', fontWeight: 700 }}>
                 УДАРИ (ТОЧНИ)
               </div>
               <div
                 style={{
-                  fontSize: '19px',
-                  fontWeight: 800,
-                  fontFamily: 'var(--font-mono)',
-                  color: 'var(--text-primary)',
+                  fontSize: '20px',
+                  fontWeight: 900,
+                  fontFamily: 'monospace',
+                  color: '#ffffff',
                 }}
               >
                 {totals.shotsTotal}{' '}
-                <span style={{ fontSize: '13px', color: 'var(--accent-green)' }}>
+                <span style={{ fontSize: '13px', color: '#43f08a' }}>
                   ({totals.shotsOn})
                 </span>
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+              <div style={{ fontSize: '11px', color: '#8f9cae', marginTop: '4px' }}>
                 Дрибъли: {totals.dribblesSuccess}/{totals.dribblesAttempts}
               </div>
             </div>
 
             <div
               style={{
-                background: 'rgba(10,22,40,0.75)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: '10px',
+                background: '#080e16',
+                border: '1px solid #182434',
+                borderRadius: '12px',
                 padding: '12px 14px',
                 textAlign: 'center',
               }}
             >
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+              <div style={{ fontSize: '10px', color: '#8f9cae', marginBottom: '4px', fontWeight: 700 }}>
                 КЛЮЧОВИ ПАСОВЕ
               </div>
               <div
                 style={{
-                  fontSize: '19px',
-                  fontWeight: 800,
-                  fontFamily: 'var(--font-mono)',
-                  color: 'var(--accent-amber)',
+                  fontSize: '20px',
+                  fontWeight: 900,
+                  fontFamily: 'monospace',
+                  color: '#fbbf24',
                 }}
               >
                 {totals.passesKey}
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+              <div style={{ fontSize: '11px', color: '#8f9cae', marginTop: '4px' }}>
                 Единоборства: {totals.duelsWon}/{totals.duelsTotal}
               </div>
             </div>
@@ -987,61 +1015,66 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
               id: 'sidelined' as SubTab,
               label: `🏥 Контузии и отсъствия (${sidelined.length})`,
             },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              style={{
-                background: activeTab === tab.id ? 'var(--accent-green)' : 'var(--bg-surface)',
-                color: activeTab === tab.id ? '#0A1628' : 'var(--text-secondary)',
-                border: `1px solid ${
-                  activeTab === tab.id ? 'var(--accent-green)' : 'var(--border-default)'
-                }`,
-                borderRadius: '999px',
-                padding: '9px 18px',
-                fontSize: '13px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                transition: 'all 150ms',
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
+          ].map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                style={{
+                  background: isActive ? '#22c55e' : '#0b111a',
+                  color: isActive ? '#04130b' : '#cbd5e1',
+                  border: `1px solid ${isActive ? '#43f08a' : '#182434'}`,
+                  borderRadius: '12px',
+                  padding: '9px 18px',
+                  fontSize: '13px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  transition: 'all 150ms',
+                }}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
 
         {/* Season Selector */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '12px', color: '#8f9cae', fontWeight: 700 }}>
             Сезон:
           </span>
           {[
-            { key: 'auto', label: intel?.season ? `Актуален (${intel.season}/${String(intel.season + 1).slice(-2)})` : 'Актуален' },
+            {
+              key: 'auto',
+              label: intel?.season
+                ? `Актуален (${intel.season}/${String(intel.season + 1).slice(-2)})`
+                : 'Актуален',
+            },
             { key: '2025', label: '2025/26' },
             { key: '2024', label: '2024/25' },
             { key: '2023', label: '2023/24' },
-          ].map((s) => (
-            <button
-              key={s.key}
-              onClick={() => setSelectedSeason(s.key)}
-              style={{
-                background:
-                  selectedSeason === s.key ? 'rgba(0,212,170,0.16)' : 'var(--bg-surface)',
-                color:
-                  selectedSeason === s.key ? 'var(--accent-green)' : 'var(--text-secondary)',
-                border: `1px solid ${
-                  selectedSeason === s.key ? 'var(--accent-green)' : 'var(--border-default)'
-                }`,
-                borderRadius: '8px',
-                padding: '6px 11px',
-                fontSize: '11px',
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
-              {s.label}
-            </button>
-          ))}
+          ].map((s) => {
+            const isSel = selectedSeason === s.key;
+            return (
+              <button
+                key={s.key}
+                onClick={() => setSelectedSeason(s.key)}
+                style={{
+                  background: isSel ? 'rgba(67,240,138,0.16)' : '#0b111a',
+                  color: isSel ? '#43f08a' : '#cbd5e1',
+                  border: `1px solid ${isSel ? '#43f08a' : '#182434'}`,
+                  borderRadius: '8px',
+                  padding: '6px 11px',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+              >
+                {s.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -1049,16 +1082,16 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
       {loading && (
         <div
           style={{
-            background: 'var(--bg-surface)',
-            border: '1px solid var(--border-default)',
-            borderRadius: '14px',
+            background: '#0b111a',
+            border: '1px solid #182434',
+            borderRadius: '16px',
             padding: '48px',
             textAlign: 'center',
-            color: 'var(--text-secondary)',
+            color: '#cbd5e1',
           }}
         >
           Зареждане на пълно досие, сезонна статистика, трансфери и трофеи за{' '}
-          <strong>{displayName}</strong>...
+          <strong style={{ color: '#43f08a' }}>{displayName}</strong>...
         </div>
       )}
 
@@ -1067,7 +1100,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
           style={{
             background: 'rgba(239,68,68,0.08)',
             border: '1px solid rgba(239,68,68,0.3)',
-            borderRadius: '14px',
+            borderRadius: '16px',
             padding: '28px',
             textAlign: 'center',
             color: '#F87171',
@@ -1076,7 +1109,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
           <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: '6px' }}>
             {errorMsg}
           </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+          <div style={{ fontSize: '12px', color: '#cbd5e1' }}>
             Можете да използвате търсачката горе вдясно, за да потърсите футболиста по официалното му име на латиница.
           </div>
         </div>
@@ -1088,9 +1121,9 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
           {/* Summary Table Across Competitions */}
           <div
             style={{
-              background: 'var(--bg-surface)',
-              border: '1px solid var(--border-default)',
-              borderRadius: '14px',
+              background: '#0b111a',
+              border: '1px solid #182434',
+              borderRadius: '16px',
               padding: '22px',
               overflowX: 'auto',
             }}
@@ -1106,11 +1139,11 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
               }}
             >
               <div>
-                <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                <div style={{ fontSize: '16px', fontWeight: 800, color: '#ffffff' }}>
                   Сезонна статистика по първенства и турнири (
                   {intel?.season ? `${intel.season}/${String(intel.season + 1).slice(-2)}` : 'Актуален'})
                 </div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                <div style={{ fontSize: '12px', color: '#8f9cae' }}>
                   Кликни върху турнир или отбор, за да отвориш техния официален профил
                 </div>
               </div>
@@ -1121,7 +1154,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                 style={{
                   padding: '28px',
                   textAlign: 'center',
-                  color: 'var(--text-muted)',
+                  color: '#8f9cae',
                   fontSize: '13px',
                 }}
               >
@@ -1138,8 +1171,8 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                 <thead>
                   <tr
                     style={{
-                      borderBottom: '1px solid var(--border-default)',
-                      color: 'var(--text-muted)',
+                      borderBottom: '1px solid #182434',
+                      color: '#8f9cae',
                       fontSize: '11px',
                       textAlign: 'left',
                     }}
@@ -1163,7 +1196,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                     <tr
                       key={`${st.leagueId}-${st.teamId}-${idx}`}
                       style={{
-                        borderBottom: '1px solid var(--border-subtle)',
+                        borderBottom: '1px solid #141f2e',
                       }}
                     >
                       <td style={{ padding: '12px 8px', fontWeight: 700 }}>
@@ -1178,7 +1211,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                             alignItems: 'center',
                             gap: '8px',
                             cursor: st.leagueId && onOpenLeague ? 'pointer' : 'default',
-                            color: 'var(--text-primary)',
+                            color: '#ffffff',
                           }}
                         >
                           {st.leagueLogo && (
@@ -1191,7 +1224,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                           <div>
                             <div>{st.leagueName || 'Турнир'}</div>
                             {st.leagueCountry && (
-                              <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 500 }}>
+                              <div style={{ fontSize: '10px', color: '#8f9cae', fontWeight: 500 }}>
                                 {st.leagueCountry}
                               </div>
                             )}
@@ -1219,7 +1252,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                             alignItems: 'center',
                             gap: '6px',
                             cursor: 'pointer',
-                            color: 'var(--text-secondary)',
+                            color: '#cbd5e1',
                             fontWeight: 600,
                           }}
                         >
@@ -1238,12 +1271,13 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                         style={{
                           padding: '12px 8px',
                           textAlign: 'center',
-                          fontFamily: 'var(--font-mono)',
+                          fontFamily: 'monospace',
                           fontWeight: 700,
+                          color: '#ffffff',
                         }}
                       >
                         {st.appearances}{' '}
-                        <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>
+                        <span style={{ color: '#8f9cae', fontWeight: 400 }}>
                           ({st.lineups})
                         </span>
                       </td>
@@ -1252,8 +1286,8 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                         style={{
                           padding: '12px 8px',
                           textAlign: 'center',
-                          fontFamily: 'var(--font-mono)',
-                          color: 'var(--text-secondary)',
+                          fontFamily: 'monospace',
+                          color: '#cbd5e1',
                         }}
                       >
                         {st.minutes}'
@@ -1263,9 +1297,9 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                         style={{
                           padding: '12px 8px',
                           textAlign: 'center',
-                          fontFamily: 'var(--font-mono)',
+                          fontFamily: 'monospace',
                           fontWeight: 800,
-                          color: st.goals > 0 ? 'var(--accent-green)' : 'var(--text-muted)',
+                          color: st.goals > 0 ? '#43f08a' : '#8f9cae',
                         }}
                       >
                         {st.goals}
@@ -1275,9 +1309,9 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                         style={{
                           padding: '12px 8px',
                           textAlign: 'center',
-                          fontFamily: 'var(--font-mono)',
+                          fontFamily: 'monospace',
                           fontWeight: 700,
-                          color: st.assists > 0 ? 'var(--accent-blue)' : 'var(--text-muted)',
+                          color: st.assists > 0 ? '#38bdf8' : '#8f9cae',
                         }}
                       >
                         {st.assists}
@@ -1287,19 +1321,20 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                         style={{
                           padding: '12px 8px',
                           textAlign: 'center',
-                          fontFamily: 'var(--font-mono)',
+                          fontFamily: 'monospace',
+                          color: '#ffffff',
                         }}
                       >
                         {st.shotsTotal}{' '}
-                        <span style={{ color: 'var(--accent-green)' }}>({st.shotsOn})</span>
+                        <span style={{ color: '#43f08a' }}>({st.shotsOn})</span>
                       </td>
 
                       <td
                         style={{
                           padding: '12px 8px',
                           textAlign: 'center',
-                          fontFamily: 'var(--font-mono)',
-                          color: 'var(--accent-amber)',
+                          fontFamily: 'monospace',
+                          color: '#fbbf24',
                           fontWeight: 700,
                         }}
                       >
@@ -1310,7 +1345,8 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                         style={{
                           padding: '12px 8px',
                           textAlign: 'center',
-                          fontFamily: 'var(--font-mono)',
+                          fontFamily: 'monospace',
+                          color: '#cbd5e1',
                         }}
                       >
                         {st.dribblesSuccess}/{st.dribblesAttempts}
@@ -1320,7 +1356,8 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                         style={{
                           padding: '12px 8px',
                           textAlign: 'center',
-                          fontFamily: 'var(--font-mono)',
+                          fontFamily: 'monospace',
+                          color: '#cbd5e1',
                         }}
                       >
                         {st.duelsWon}/{st.duelsTotal}
@@ -1330,7 +1367,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                         style={{
                           padding: '12px 8px',
                           textAlign: 'center',
-                          fontFamily: 'var(--font-mono)',
+                          fontFamily: 'monospace',
                         }}
                       >
                         <span style={{ color: '#FACC15', fontWeight: 700 }}>
@@ -1345,7 +1382,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                         style={{
                           padding: '12px 8px',
                           textAlign: 'center',
-                          fontFamily: 'var(--font-mono)',
+                          fontFamily: 'monospace',
                           fontWeight: 800,
                         }}
                       >
@@ -1354,12 +1391,10 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                             style={{
                               background:
                                 Number(st.rating) >= 7.2
-                                  ? 'rgba(0,212,170,0.16)'
+                                  ? 'rgba(67,240,138,0.16)'
                                   : 'rgba(255,255,255,0.06)',
                               color:
-                                Number(st.rating) >= 7.2
-                                  ? 'var(--accent-green)'
-                                  : 'var(--text-primary)',
+                                Number(st.rating) >= 7.2 ? '#43f08a' : '#ffffff',
                               padding: '3px 8px',
                               borderRadius: '6px',
                             }}
@@ -1389,9 +1424,9 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
               {/* Card 1: Attacking & Finishing */}
               <div
                 style={{
-                  background: 'var(--bg-surface)',
-                  border: '1px solid var(--border-default)',
-                  borderRadius: '14px',
+                  background: '#0b111a',
+                  border: '1px solid #182434',
+                  borderRadius: '16px',
                   padding: '20px',
                 }}
               >
@@ -1399,7 +1434,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                   style={{
                     fontSize: '14px',
                     fontWeight: 800,
-                    color: 'var(--accent-green)',
+                    color: '#43f08a',
                     marginBottom: '14px',
                   }}
                 >
@@ -1427,16 +1462,16 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                       display: 'flex',
                       justifyContent: 'space-between',
                       padding: '8px 0',
-                      borderBottom: i < 4 ? '1px solid var(--border-subtle)' : 'none',
+                      borderBottom: i < 4 ? '1px solid #141f2e' : 'none',
                       fontSize: '12px',
                     }}
                   >
-                    <span style={{ color: 'var(--text-secondary)' }}>{row.label}</span>
+                    <span style={{ color: '#cbd5e1' }}>{row.label}</span>
                     <span
                       style={{
-                        fontFamily: 'var(--font-mono)',
+                        fontFamily: 'monospace',
                         fontWeight: 700,
-                        color: 'var(--text-primary)',
+                        color: '#ffffff',
                       }}
                     >
                       {row.value}
@@ -1448,9 +1483,9 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
               {/* Card 2: Playmaking & Dribbles */}
               <div
                 style={{
-                  background: 'var(--bg-surface)',
-                  border: '1px solid var(--border-default)',
-                  borderRadius: '14px',
+                  background: '#0b111a',
+                  border: '1px solid #182434',
+                  borderRadius: '16px',
                   padding: '20px',
                 }}
               >
@@ -1458,7 +1493,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                   style={{
                     fontSize: '14px',
                     fontWeight: 800,
-                    color: 'var(--accent-blue)',
+                    color: '#38bdf8',
                     marginBottom: '14px',
                   }}
                 >
@@ -1486,16 +1521,16 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                       display: 'flex',
                       justifyContent: 'space-between',
                       padding: '8px 0',
-                      borderBottom: i < 4 ? '1px solid var(--border-subtle)' : 'none',
+                      borderBottom: i < 4 ? '1px solid #141f2e' : 'none',
                       fontSize: '12px',
                     }}
                   >
-                    <span style={{ color: 'var(--text-secondary)' }}>{row.label}</span>
+                    <span style={{ color: '#cbd5e1' }}>{row.label}</span>
                     <span
                       style={{
-                        fontFamily: 'var(--font-mono)',
+                        fontFamily: 'monospace',
                         fontWeight: 700,
-                        color: 'var(--text-primary)',
+                        color: '#ffffff',
                       }}
                     >
                       {row.value}
@@ -1507,9 +1542,9 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
               {/* Card 3: Defensive & Duels */}
               <div
                 style={{
-                  background: 'var(--bg-surface)',
-                  border: '1px solid var(--border-default)',
-                  borderRadius: '14px',
+                  background: '#0b111a',
+                  border: '1px solid #182434',
+                  borderRadius: '16px',
                   padding: '20px',
                 }}
               >
@@ -1517,7 +1552,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                   style={{
                     fontSize: '14px',
                     fontWeight: 800,
-                    color: 'var(--accent-amber)',
+                    color: '#fbbf24',
                     marginBottom: '14px',
                   }}
                 >
@@ -1546,16 +1581,16 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                       display: 'flex',
                       justifyContent: 'space-between',
                       padding: '8px 0',
-                      borderBottom: i < 4 ? '1px solid var(--border-subtle)' : 'none',
+                      borderBottom: i < 4 ? '1px solid #141f2e' : 'none',
                       fontSize: '12px',
                     }}
                   >
-                    <span style={{ color: 'var(--text-secondary)' }}>{row.label}</span>
+                    <span style={{ color: '#cbd5e1' }}>{row.label}</span>
                     <span
                       style={{
-                        fontFamily: 'var(--font-mono)',
+                        fontFamily: 'monospace',
                         fontWeight: 700,
-                        color: 'var(--text-primary)',
+                        color: '#ffffff',
                       }}
                     >
                       {row.value}
@@ -1572,17 +1607,17 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
       {!loading && !errorMsg && activeTab === 'transfers' && (
         <div
           style={{
-            background: 'var(--bg-surface)',
-            border: '1px solid var(--border-default)',
-            borderRadius: '14px',
+            background: '#0b111a',
+            border: '1px solid #182434',
+            borderRadius: '16px',
             padding: '22px',
           }}
         >
           <div style={{ marginBottom: '16px' }}>
-            <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)' }}>
+            <div style={{ fontSize: '16px', fontWeight: 800, color: '#ffffff' }}>
               Пълна трансферна история ({transfers.length})
             </div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: '12px', color: '#8f9cae' }}>
               Всички официални трансфери и наеми в кариерата на футболиста (кликни върху отбор за неговия профил)
             </div>
           </div>
@@ -1592,7 +1627,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
               style={{
                 padding: '32px',
                 textAlign: 'center',
-                color: 'var(--text-muted)',
+                color: '#8f9cae',
                 fontSize: '13px',
               }}
             >
@@ -1609,16 +1644,16 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                     alignItems: 'center',
                     gap: '12px',
                     padding: '12px 16px',
-                    background: 'var(--bg-elevated)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: '10px',
+                    background: '#080e16',
+                    border: '1px solid #15202e',
+                    borderRadius: '12px',
                   }}
                 >
                   <div
                     style={{
-                      fontFamily: 'var(--font-mono)',
+                      fontFamily: 'monospace',
                       fontSize: '12px',
-                      color: 'var(--text-secondary)',
+                      color: '#cbd5e1',
                       fontWeight: 600,
                     }}
                   >
@@ -1653,12 +1688,12 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                       />
                     )}
                     <div>
-                      <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>ОТ КЛУБ</div>
+                      <div style={{ fontSize: '10px', color: '#8f9cae' }}>ОТ КЛУБ</div>
                       <div
                         style={{
                           fontSize: '13px',
                           fontWeight: 700,
-                          color: 'var(--text-primary)',
+                          color: '#ffffff',
                         }}
                       >
                         {tr.teamOut.name || '—'}
@@ -1669,7 +1704,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                   <div
                     style={{
                       textAlign: 'center',
-                      color: 'var(--accent-green)',
+                      color: '#43f08a',
                       fontSize: '16px',
                       fontWeight: 800,
                     }}
@@ -1705,12 +1740,12 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                       />
                     )}
                     <div>
-                      <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>В КЛУБ</div>
+                      <div style={{ fontSize: '10px', color: '#8f9cae' }}>В КЛУБ</div>
                       <div
                         style={{
                           fontSize: '13px',
                           fontWeight: 700,
-                          color: 'var(--accent-green)',
+                          color: '#43f08a',
                         }}
                       >
                         {tr.teamIn.name || '—'}
@@ -1724,13 +1759,13 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                       style={{
                         display: 'inline-block',
                         fontSize: '11px',
-                        fontFamily: 'var(--font-mono)',
+                        fontFamily: 'monospace',
                         fontWeight: 700,
                         padding: '4px 10px',
                         borderRadius: '6px',
-                        background: 'rgba(0,212,170,0.12)',
-                        color: 'var(--accent-green)',
-                        border: '1px solid rgba(0,212,170,0.28)',
+                        background: 'rgba(67,240,138,0.12)',
+                        color: '#43f08a',
+                        border: '1px solid rgba(67,240,138,0.3)',
                       }}
                     >
                       {tr.type || 'Трансфер'}
@@ -1747,17 +1782,17 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
       {!loading && !errorMsg && activeTab === 'trophies' && (
         <div
           style={{
-            background: 'var(--bg-surface)',
-            border: '1px solid var(--border-default)',
-            borderRadius: '14px',
+            background: '#0b111a',
+            border: '1px solid #182434',
+            borderRadius: '16px',
             padding: '22px',
           }}
         >
           <div style={{ marginBottom: '16px' }}>
-            <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)' }}>
+            <div style={{ fontSize: '16px', fontWeight: 800, color: '#ffffff' }}>
               Спечелени трофеи и отличия ({trophies.length})
             </div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: '12px', color: '#8f9cae' }}>
               Всички шампионски титли, купи и финали в кариерата на футболиста
             </div>
           </div>
@@ -1767,7 +1802,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
               style={{
                 padding: '32px',
                 textAlign: 'center',
-                color: 'var(--text-muted)',
+                color: '#8f9cae',
                 fontSize: '13px',
               }}
             >
@@ -1789,12 +1824,12 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                     key={`${tr.league}-${tr.season}-${idx}`}
                     style={{
                       background: isWinner
-                        ? 'linear-gradient(135deg, rgba(245,158,11,0.12) 0%, rgba(13,27,42,0.9) 100%)'
-                        : 'var(--bg-elevated)',
+                        ? 'linear-gradient(135deg, rgba(245,158,11,0.12) 0%, #080e16 100%)'
+                        : '#080e16',
                       border: `1px solid ${
-                        isWinner ? 'rgba(245,158,11,0.38)' : 'var(--border-subtle)'
+                        isWinner ? 'rgba(245,158,11,0.38)' : '#15202e'
                       }`,
-                      borderRadius: '10px',
+                      borderRadius: '12px',
                       padding: '14px 16px',
                       display: 'flex',
                       alignItems: 'center',
@@ -1809,12 +1844,12 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                           style={{
                             fontSize: '13px',
                             fontWeight: 800,
-                            color: 'var(--text-primary)',
+                            color: '#ffffff',
                           }}
                         >
                           {tr.league}
                         </div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        <div style={{ fontSize: '11px', color: '#8f9cae' }}>
                           {[tr.country, tr.season].filter(Boolean).join(' · ')}
                         </div>
                       </div>
@@ -1828,7 +1863,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                         background: isWinner
                           ? 'rgba(245,158,11,0.2)'
                           : 'rgba(255,255,255,0.06)',
-                        color: isWinner ? 'var(--accent-amber)' : 'var(--text-secondary)',
+                        color: isWinner ? '#fbbf24' : '#cbd5e1',
                         whiteSpace: 'nowrap',
                       }}
                     >
@@ -1846,17 +1881,17 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
       {!loading && !errorMsg && activeTab === 'sidelined' && (
         <div
           style={{
-            background: 'var(--bg-surface)',
-            border: '1px solid var(--border-default)',
-            borderRadius: '14px',
+            background: '#0b111a',
+            border: '1px solid #182434',
+            borderRadius: '16px',
             padding: '22px',
           }}
         >
           <div style={{ marginBottom: '16px' }}>
-            <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)' }}>
+            <div style={{ fontSize: '16px', fontWeight: 800, color: '#ffffff' }}>
               История на контузиите и наказанията ({sidelined.length})
             </div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: '12px', color: '#8f9cae' }}>
               Хронологичен архив на всички контузии, заболявания и дисциплинарни наказания
             </div>
           </div>
@@ -1866,7 +1901,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
               style={{
                 padding: '32px',
                 textAlign: 'center',
-                color: 'var(--text-muted)',
+                color: '#8f9cae',
                 fontSize: '13px',
               }}
             >
@@ -1884,9 +1919,9 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                     flexWrap: 'wrap',
                     gap: '12px',
                     padding: '12px 16px',
-                    background: 'var(--bg-elevated)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: '10px',
+                    background: '#080e16',
+                    border: '1px solid #15202e',
+                    borderRadius: '12px',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1896,12 +1931,12 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                         style={{
                           fontSize: '13px',
                           fontWeight: 700,
-                          color: 'var(--text-primary)',
+                          color: '#ffffff',
                         }}
                       >
                         {sd.type}
                       </div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                      <div style={{ fontSize: '11px', color: '#8f9cae' }}>
                         Официално регистрирано отсъствие
                       </div>
                     </div>
@@ -1912,14 +1947,21 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                       display: 'flex',
                       alignItems: 'center',
                       gap: '12px',
-                      fontFamily: 'var(--font-mono)',
+                      fontFamily: 'monospace',
                       fontSize: '12px',
-                      color: 'var(--text-secondary)',
+                      color: '#cbd5e1',
                     }}
                   >
-                    <span>От: <strong>{formatDateBg(sd.start)}</strong></span>
+                    <span>
+                      От: <strong style={{ color: '#ffffff' }}>{formatDateBg(sd.start)}</strong>
+                    </span>
                     <span>→</span>
-                    <span>До: <strong>{sd.end ? formatDateBg(sd.end) : 'Активна'}</strong></span>
+                    <span>
+                      До:{' '}
+                      <strong style={{ color: '#ffffff' }}>
+                        {sd.end ? formatDateBg(sd.end) : 'Активна'}
+                      </strong>
+                    </span>
                   </div>
                 </div>
               ))}
