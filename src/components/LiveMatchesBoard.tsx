@@ -1713,7 +1713,7 @@ export function LiveMatchesBoard({
                             )
                           }
                           className="text-sm sm:text-base font-extrabold text-white hover:text-[#43f08a] hover:underline transition-colors leading-tight cursor-pointer"
-                          title={`${featuredMatch.homeTeam} — Профил на отбора`}
+                          title={featuredMatch.homeTeam}
                         >
                           {featuredMatch.homeTeam}
                         </div>
@@ -1759,7 +1759,7 @@ export function LiveMatchesBoard({
                             )
                           }
                           className="text-sm sm:text-base font-extrabold text-white hover:text-[#43f08a] hover:underline transition-colors leading-tight cursor-pointer"
-                          title={`${featuredMatch.awayTeam} — Профил на отбора`}
+                          title={featuredMatch.awayTeam}
                         >
                           {featuredMatch.awayTeam}
                         </div>
@@ -2023,7 +2023,7 @@ export function LiveMatchesBoard({
                               )
                             }
                             className="flex items-center gap-2 min-w-0 cursor-pointer"
-                            title={`${match.homeTeam} — Профил на отбора`}
+                            title={match.homeTeam}
                           >
                             <TeamBadge
                               name={match.homeTeam}
@@ -2061,7 +2061,7 @@ export function LiveMatchesBoard({
                               )
                             }
                             className="flex items-center gap-2 min-w-0 cursor-pointer"
-                            title={`${match.awayTeam} — Профил на отбора`}
+                            title={match.awayTeam}
                           >
                             <TeamBadge
                               name={match.awayTeam}
@@ -2115,8 +2115,8 @@ export function LiveMatchesBoard({
                         </div>
                       </div>
 
-                      <span className="px-1.5 py-0.5 rounded bg-[#131d2a] text-[9px] font-mono text-[#8f9cae] truncate max-w-[90px]">
-                        {match.halftimeScore || (isLive ? `LIVE ${match.minute || 1}'` : 'ДНЕС')}
+                      <span className="px-1.5 py-0.5 rounded bg-[#131d2a] text-[9px] font-mono text-[#8f9cae] truncate max-w-[90px] uppercase">
+                        {match.halftimeScore || (isLive ? `LIVE ${match.minute || 1}'` : t.upcoming)}
                       </span>
                     </div>
 

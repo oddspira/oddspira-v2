@@ -181,6 +181,868 @@ interface TeamDetailPageProps {
   setActiveTab: (tab: ActiveTab) => void;
 }
 
+interface TeamI18n {
+  tabOverview: string;
+  tabStandings: string;
+  tabSquad: string;
+  tabMatches: string;
+  posGK: string;
+  posDF: string;
+  posMF: string;
+  posFW: string;
+  clickMatchDetails: string;
+  thClub: string;
+  thForm: string;
+  selectedBadge: string;
+  home: string;
+  back: string;
+  founded: string;
+  seats: string;
+  coach: string;
+  last5Matches: string;
+  playedWdl: string;
+  goalsDiff: string;
+  avg: string;
+  over25Goals: string;
+  matchesUnit: string;
+  bttsRate: string;
+  cleanSheets: string;
+  loadingClub: string;
+  recentOfficialMatches: string;
+  clickMatchOrTeamHint: string;
+  allMatchesLink: string;
+  upcomingScheduled: string;
+  officialScheduleSub: string;
+  leagueStandingsTitle: string;
+  viewFullTable: string;
+  homeAwayTitle: string;
+  homeRecord: string;
+  awayRecord: string;
+  goalsLabel: string;
+  clubStadium: string;
+  capacityLabel: string;
+  officialClubSquad: string;
+  registeredPlayersSub: string;
+  viewAllPlayers: string;
+  yearsShort: string;
+  fullStandingsTitle: string;
+  clickAnyTeamSub: string;
+  filterOverall: string;
+  filterHome: string;
+  filterAway: string;
+  headCoachLabel: string;
+  searchPlayerPlaceholder: string;
+  filterAll: string;
+  filterGK: string;
+  filterDEF: string;
+  filterMID: string;
+  filterATT: string;
+  yearsOld: string;
+  recentFinishedTitle: string;
+  upcomingFixturesTitle: string;
+  finalScore: string;
+  loadingTimeline: string;
+  possession: string;
+  shotsOnTarget: string;
+  corners: string;
+  yellowCards: string;
+}
+
+const TEAM_DICT: Record<Language, TeamI18n> = {
+  bg: {
+    tabOverview: 'Преглед на отбора',
+    tabStandings: 'Класиране',
+    tabSquad: 'Играчи & Състав',
+    tabMatches: 'Мачове',
+    posGK: 'Вратар',
+    posDF: 'Защитник',
+    posMF: 'Полузащитник',
+    posFW: 'Нападател',
+    clickMatchDetails: 'Кликни за детайли от мача ↗',
+    thClub: 'Отбор',
+    thForm: 'Форма',
+    selectedBadge: 'ИЗБРАН',
+    home: 'Начало',
+    back: '← Назад',
+    founded: 'Основан:',
+    seats: 'места',
+    coach: 'Треньор:',
+    last5Matches: 'Последни 5 мача:',
+    playedWdl: 'Мачове (W-D-L)',
+    goalsDiff: 'Голова разлика',
+    avg: 'ср.',
+    over25Goals: 'Над 2.5 Гола',
+    matchesUnit: 'мача',
+    bttsRate: 'Гол/Гол (BTTS)',
+    cleanSheets: 'Сухи мрежи:',
+    loadingClub: 'Зареждане на официален профил за',
+    recentOfficialMatches: 'Последни официални мачове',
+    clickMatchOrTeamHint: 'Кликни на мач за хронология или върху отбор за неговия профил',
+    allMatchesLink: 'Всички мачове ›',
+    upcomingScheduled: 'Предстоящи мачове по програма',
+    officialScheduleSub: 'Официална програма по кръгове и турнири',
+    leagueStandingsTitle: 'Позиция в класирането',
+    viewFullTable: 'Виж пълното класиране ›',
+    homeAwayTitle: 'Представяне Домакин vs Гост (Официална статистика)',
+    homeRecord: 'Като Домакин',
+    awayRecord: 'Като Гост',
+    goalsLabel: 'Голове:',
+    clubStadium: 'Стадион на клуба',
+    capacityLabel: 'Капацитет:',
+    officialClubSquad: 'Официален състав на отбора',
+    registeredPlayersSub: 'Картотекирани играчи за текущия сезон (кликни на играч за пълна статистика)',
+    viewAllPlayers: 'Виж всички играчи ›',
+    yearsShort: 'г.',
+    fullStandingsTitle: 'Пълно класиране',
+    clickAnyTeamSub: 'Кликни върху който и да е отбор в таблицата, за да отвориш неговата страница',
+    filterOverall: 'Общо',
+    filterHome: 'Домакин',
+    filterAway: 'Гост',
+    headCoachLabel: 'Старши треньор:',
+    searchPlayerPlaceholder: 'Търси играч или номер...',
+    filterAll: 'Всички',
+    filterGK: 'Вратари',
+    filterDEF: 'Защитници',
+    filterMID: 'Халфове',
+    filterATT: 'Нападатели',
+    yearsOld: 'години',
+    recentFinishedTitle: 'Последни изиграни срещи',
+    upcomingFixturesTitle: 'Предстоящи мачове',
+    finalScore: 'КРАЕН РЕЗУЛТАТ',
+    loadingTimeline: 'Зареждане на официална хронология на мача...',
+    possession: 'Владеене',
+    shotsOnTarget: 'Удари (Точни)',
+    corners: 'Корнери',
+    yellowCards: 'Жълти картони',
+  },
+  en: {
+    tabOverview: 'Club Overview',
+    tabStandings: 'Standings',
+    tabSquad: 'Squad & Players',
+    tabMatches: 'Matches',
+    posGK: 'Goalkeeper',
+    posDF: 'Defender',
+    posMF: 'Midfielder',
+    posFW: 'Forward',
+    clickMatchDetails: 'Click for match details ↗',
+    thClub: 'Club',
+    thForm: 'Form',
+    selectedBadge: 'SELECTED',
+    home: 'Home',
+    back: '← Back',
+    founded: 'Founded:',
+    seats: 'seats',
+    coach: 'Coach:',
+    last5Matches: 'Last 5 matches:',
+    playedWdl: 'Played (W-D-L)',
+    goalsDiff: 'Goals (GF:GA)',
+    avg: 'avg',
+    over25Goals: 'Over 2.5 Goals',
+    matchesUnit: 'matches',
+    bttsRate: 'BTTS Rate',
+    cleanSheets: 'Clean sheets:',
+    loadingClub: 'Loading official profile for',
+    recentOfficialMatches: 'Recent Official Matches',
+    clickMatchOrTeamHint: 'Click a match for timeline or a team name for its profile',
+    allMatchesLink: 'All matches ›',
+    upcomingScheduled: 'Upcoming Scheduled Fixtures',
+    officialScheduleSub: 'Official schedule by round and competition',
+    leagueStandingsTitle: 'League Standings',
+    viewFullTable: 'View full table ›',
+    homeAwayTitle: 'Home vs Away Performance (Official)',
+    homeRecord: 'Home Record',
+    awayRecord: 'Away Record',
+    goalsLabel: 'Goals:',
+    clubStadium: 'Club Stadium',
+    capacityLabel: 'Capacity:',
+    officialClubSquad: 'Official Club Squad',
+    registeredPlayersSub: 'Registered squad players for the current season (click any player for full stats)',
+    viewAllPlayers: 'View all players ›',
+    yearsShort: 'yrs',
+    fullStandingsTitle: 'Full Standings',
+    clickAnyTeamSub: 'Click any team in the table to open its dedicated profile page',
+    filterOverall: 'Overall',
+    filterHome: 'Home',
+    filterAway: 'Away',
+    headCoachLabel: 'Head Coach:',
+    searchPlayerPlaceholder: 'Search player or #...',
+    filterAll: 'All',
+    filterGK: 'GK',
+    filterDEF: 'DEF',
+    filterMID: 'MID',
+    filterATT: 'ATT',
+    yearsOld: 'years old',
+    recentFinishedTitle: 'Recent Finished Matches',
+    upcomingFixturesTitle: 'Upcoming Fixtures',
+    finalScore: 'FINAL SCORE',
+    loadingTimeline: 'Loading official match timeline...',
+    possession: 'Possession',
+    shotsOnTarget: 'Shots (On Target)',
+    corners: 'Corners',
+    yellowCards: 'Yellow Cards',
+  },
+  es: {
+    tabOverview: 'Resumen del Club',
+    tabStandings: 'Clasificación',
+    tabSquad: 'Plantilla',
+    tabMatches: 'Partidos',
+    posGK: 'Portero',
+    posDF: 'Defensa',
+    posMF: 'Centrocampista',
+    posFW: 'Delantero',
+    clickMatchDetails: 'Clic para detalles del partido ↗',
+    thClub: 'Equipo',
+    thForm: 'Forma',
+    selectedBadge: 'SELECCIONADO',
+    home: 'Inicio',
+    back: '← Volver',
+    founded: 'Fundado:',
+    seats: 'asientos',
+    coach: 'Entrenador:',
+    last5Matches: 'Últimos 5 partidos:',
+    playedWdl: 'Partidos (V-E-D)',
+    goalsDiff: 'Goles (GF:GC)',
+    avg: 'prom.',
+    over25Goals: 'Más de 2.5 Goles',
+    matchesUnit: 'partidos',
+    bttsRate: 'Ambos Marcan',
+    cleanSheets: 'Porterías a cero:',
+    loadingClub: 'Cargando perfil oficial de',
+    recentOfficialMatches: 'Últimos Partidos Oficiales',
+    clickMatchOrTeamHint: 'Haz clic en un partido para ver la cronología o en un club para su perfil',
+    allMatchesLink: 'Todos los partidos ›',
+    upcomingScheduled: 'Próximos Partidos Programados',
+    officialScheduleSub: 'Calendario oficial por jornada y competición',
+    leagueStandingsTitle: 'Posición en la Tabla',
+    viewFullTable: 'Ver tabla completa ›',
+    homeAwayTitle: 'Rendimiento Local vs Visitante (Oficial)',
+    homeRecord: 'Como Local',
+    awayRecord: 'Como Visitante',
+    goalsLabel: 'Goles:',
+    clubStadium: 'Estadio del Club',
+    capacityLabel: 'Capacidad:',
+    officialClubSquad: 'Plantilla Oficial del Club',
+    registeredPlayersSub: 'Jugadores inscritos en la temporada actual (clic en un jugador para sus estadísticas)',
+    viewAllPlayers: 'Ver todos los jugadores ›',
+    yearsShort: 'a.',
+    fullStandingsTitle: 'Clasificación Completa',
+    clickAnyTeamSub: 'Haz clic en cualquier equipo de la tabla para abrir su perfil',
+    filterOverall: 'Total',
+    filterHome: 'Local',
+    filterAway: 'Visitante',
+    headCoachLabel: 'Entrenador:',
+    searchPlayerPlaceholder: 'Buscar jugador o dorsal...',
+    filterAll: 'Todos',
+    filterGK: 'POR',
+    filterDEF: 'DEF',
+    filterMID: 'MED',
+    filterATT: 'DEL',
+    yearsOld: 'años',
+    recentFinishedTitle: 'Últimos Partidos Jugados',
+    upcomingFixturesTitle: 'Próximos Partidos',
+    finalScore: 'RESULTADO FINAL',
+    loadingTimeline: 'Cargando cronología oficial del partido...',
+    possession: 'Posesión',
+    shotsOnTarget: 'Tiros (A Puerta)',
+    corners: 'Córners',
+    yellowCards: 'Tarjetas Amarillas',
+  },
+  de: {
+    tabOverview: 'Vereinsübersicht',
+    tabStandings: 'Tabelle',
+    tabSquad: 'Kader & Spieler',
+    tabMatches: 'Spiele',
+    posGK: 'Torwart',
+    posDF: 'Verteidiger',
+    posMF: 'Mittelfeld',
+    posFW: 'Stürmer',
+    clickMatchDetails: 'Klicken für Spieldetails ↗',
+    thClub: 'Verein',
+    thForm: 'Form',
+    selectedBadge: 'GEWÄHLT',
+    home: 'Start',
+    back: '← Zurück',
+    founded: 'Gegründet:',
+    seats: 'Plätze',
+    coach: 'Trainer:',
+    last5Matches: 'Letzte 5 Spiele:',
+    playedWdl: 'Spiele (S-U-N)',
+    goalsDiff: 'Tore (GF:GA)',
+    avg: 'Ø',
+    over25Goals: 'Über 2.5 Tore',
+    matchesUnit: 'Spiele',
+    bttsRate: 'BTTS-Quote',
+    cleanSheets: 'Zu-Null-Spiele:',
+    loadingClub: 'Lade offizielles Vereinsprofil für',
+    recentOfficialMatches: 'Letzte Offizielle Spiele',
+    clickMatchOrTeamHint: 'Klicken Sie auf ein Spiel für den Verlauf oder auf einen Verein für das Profil',
+    allMatchesLink: 'Alle Spiele ›',
+    upcomingScheduled: 'Anstehende Spiele',
+    officialScheduleSub: 'Offizieller Spielplan nach Spieltag und Wettbewerb',
+    leagueStandingsTitle: 'Tabellenplatz',
+    viewFullTable: 'Komplette Tabelle ›',
+    homeAwayTitle: 'Heim- vs. Auswärtsbilanz (Offiziell)',
+    homeRecord: 'Heimbilanz',
+    awayRecord: 'Auswärtsbilanz',
+    goalsLabel: 'Tore:',
+    clubStadium: 'Vereinsstadion',
+    capacityLabel: 'Kapazität:',
+    officialClubSquad: 'Offizieller Vereinskader',
+    registeredPlayersSub: 'Registrierte Spieler der aktuellen Saison (Spieler anklicken für Statistiken)',
+    viewAllPlayers: 'Alle Spieler ansehen ›',
+    yearsShort: 'J.',
+    fullStandingsTitle: 'Komplette Tabelle',
+    clickAnyTeamSub: 'Klicken Sie auf ein Team in der Tabelle, um das Vereinsprofil zu öffnen',
+    filterOverall: 'Gesamt',
+    filterHome: 'Heim',
+    filterAway: 'Auswärts',
+    headCoachLabel: 'Cheftrainer:',
+    searchPlayerPlaceholder: 'Spieler oder # suchen...',
+    filterAll: 'Alle',
+    filterGK: 'TW',
+    filterDEF: 'ABW',
+    filterMID: 'MIT',
+    filterATT: 'ANG',
+    yearsOld: 'Jahre',
+    recentFinishedTitle: 'Letzte Beendete Spiele',
+    upcomingFixturesTitle: 'Anstehende Spiele',
+    finalScore: 'ENDERGEBNIS',
+    loadingTimeline: 'Lade offiziellen Spielverlauf...',
+    possession: 'Ballbesitz',
+    shotsOnTarget: 'Schüsse (Aufs Tor)',
+    corners: 'Ecken',
+    yellowCards: 'Gelbe Karten',
+  },
+  it: {
+    tabOverview: 'Panoramica Club',
+    tabStandings: 'Classifica',
+    tabSquad: 'Rosa & Giocatori',
+    tabMatches: 'Partite',
+    posGK: 'Portiere',
+    posDF: 'Difensore',
+    posMF: 'Centrocampista',
+    posFW: 'Attaccante',
+    clickMatchDetails: 'Clicca per dettagli partita ↗',
+    thClub: 'Squadra',
+    thForm: 'Forma',
+    selectedBadge: 'SELEZIONATO',
+    home: 'Home',
+    back: '← Indietro',
+    founded: 'Fondato:',
+    seats: 'posti',
+    coach: 'Allenatore:',
+    last5Matches: 'Ultime 5 partite:',
+    playedWdl: 'Partite (V-N-P)',
+    goalsDiff: 'Gol (GF:GS)',
+    avg: 'media',
+    over25Goals: 'Over 2.5 Gol',
+    matchesUnit: 'partite',
+    bttsRate: 'Goal/Goal (BTTS)',
+    cleanSheets: 'Reti inviolate:',
+    loadingClub: 'Caricamento profilo ufficiale per',
+    recentOfficialMatches: 'Ultime Partite Ufficiali',
+    clickMatchOrTeamHint: 'Clicca su una partita per la cronologia o su una squadra per il profilo',
+    allMatchesLink: 'Tutte le partite ›',
+    upcomingScheduled: 'Prossime Partite in Programma',
+    officialScheduleSub: 'Calendario ufficiale per giornata e competizione',
+    leagueStandingsTitle: 'Posizione in Classifica',
+    viewFullTable: 'Vedi classifica completa ›',
+    homeAwayTitle: 'Rendimento Casa vs Trasferta (Ufficiale)',
+    homeRecord: 'In Casa',
+    awayRecord: 'In Trasferta',
+    goalsLabel: 'Gol:',
+    clubStadium: 'Stadio del Club',
+    capacityLabel: 'Capienza:',
+    officialClubSquad: 'Rosa Ufficiale della Squadra',
+    registeredPlayersSub: 'Giocatori tesserati per la stagione attuale (clicca su un giocatore per le statistiche)',
+    viewAllPlayers: 'Vedi tutti i giocatori ›',
+    yearsShort: 'a.',
+    fullStandingsTitle: 'Classifica Completa',
+    clickAnyTeamSub: 'Clicca su qualsiasi squadra nella tabella per aprire il profilo',
+    filterOverall: 'Totale',
+    filterHome: 'Casa',
+    filterAway: 'Trasferta',
+    headCoachLabel: 'Allenatore:',
+    searchPlayerPlaceholder: 'Cerca giocatore o #...',
+    filterAll: 'Tutti',
+    filterGK: 'POR',
+    filterDEF: 'DIF',
+    filterMID: 'CEN',
+    filterATT: 'ATT',
+    yearsOld: 'anni',
+    recentFinishedTitle: 'Ultime Partite Giocate',
+    upcomingFixturesTitle: 'Prossime Partite',
+    finalScore: 'RISULTATO FINALE',
+    loadingTimeline: 'Caricamento cronologia ufficiale della partita...',
+    possession: 'Possesso',
+    shotsOnTarget: 'Tiri (In Porta)',
+    corners: 'Corner',
+    yellowCards: 'Cartellini Gialli',
+  },
+  pt: {
+    tabOverview: 'Visão Geral do Clube',
+    tabStandings: 'Classificação',
+    tabSquad: 'Elenco & Jogadores',
+    tabMatches: 'Partidas',
+    posGK: 'Goleiro',
+    posDF: 'Defensor',
+    posMF: 'Meio-campista',
+    posFW: 'Atacante',
+    clickMatchDetails: 'Clique para detalhes da partida ↗',
+    thClub: 'Clube',
+    thForm: 'Forma',
+    selectedBadge: 'SELECIONADO',
+    home: 'Início',
+    back: '← Voltar',
+    founded: 'Fundado:',
+    seats: 'lugares',
+    coach: 'Treinador:',
+    last5Matches: 'Últimos 5 jogos:',
+    playedWdl: 'Jogos (V-E-D)',
+    goalsDiff: 'Gols (GP:GC)',
+    avg: 'méd.',
+    over25Goals: 'Mais de 2.5 Gols',
+    matchesUnit: 'jogos',
+    bttsRate: 'Ambas Marcam',
+    cleanSheets: 'Jogos sem sofrer:',
+    loadingClub: 'Carregando perfil oficial de',
+    recentOfficialMatches: 'Últimas Partidas Oficiais',
+    clickMatchOrTeamHint: 'Clique em uma partida para a cronologia ou em um clube para o perfil',
+    allMatchesLink: 'Todas as partidas ›',
+    upcomingScheduled: 'Próximas Partidas Agendadas',
+    officialScheduleSub: 'Calendário oficial por rodada e competição',
+    leagueStandingsTitle: 'Posição na Classificação',
+    viewFullTable: 'Ver tabela completa ›',
+    homeAwayTitle: 'Desempenho Casa vs Fora (Oficial)',
+    homeRecord: 'Em Casa',
+    awayRecord: 'Fora',
+    goalsLabel: 'Gols:',
+    clubStadium: 'Estádio do Clube',
+    capacityLabel: 'Capacidade:',
+    officialClubSquad: 'Elenco Oficial do Clube',
+    registeredPlayersSub: 'Jogadores inscritos na temporada atual (clique em um jogador para estatísticas)',
+    viewAllPlayers: 'Ver todos os jogadores ›',
+    yearsShort: 'a.',
+    fullStandingsTitle: 'Classificação Completa',
+    clickAnyTeamSub: 'Clique em qualquer clube na tabela para abrir o perfil',
+    filterOverall: 'Geral',
+    filterHome: 'Casa',
+    filterAway: 'Fora',
+    headCoachLabel: 'Treinador:',
+    searchPlayerPlaceholder: 'Buscar jogador ou nº...',
+    filterAll: 'Todos',
+    filterGK: 'GOL',
+    filterDEF: 'DEF',
+    filterMID: 'MEI',
+    filterATT: 'ATA',
+    yearsOld: 'anos',
+    recentFinishedTitle: 'Últimas Partidas Encerradas',
+    upcomingFixturesTitle: 'Próximas Partidas',
+    finalScore: 'PLACAR FINAL',
+    loadingTimeline: 'Carregando cronologia oficial da partida...',
+    possession: 'Posse',
+    shotsOnTarget: 'Chutes (No Gol)',
+    corners: 'Escanteios',
+    yellowCards: 'Cartões Amarelos',
+  },
+  fr: {
+    tabOverview: 'Aperçu du Club',
+    tabStandings: 'Classement',
+    tabSquad: 'Effectif & Joueurs',
+    tabMatches: 'Matchs',
+    posGK: 'Gardien',
+    posDF: 'Défenseur',
+    posMF: 'Milieu',
+    posFW: 'Attaquant',
+    clickMatchDetails: 'Cliquez pour les détails du match ↗',
+    thClub: 'Club',
+    thForm: 'Forme',
+    selectedBadge: 'SÉLECTIONNÉ',
+    home: 'Accueil',
+    back: '← Retour',
+    founded: 'Fondé :',
+    seats: 'places',
+    coach: 'Entraîneur :',
+    last5Matches: '5 derniers matchs :',
+    playedWdl: 'Matchs (V-N-D)',
+    goalsDiff: 'Buts (BP:BC)',
+    avg: 'moy.',
+    over25Goals: 'Plus de 2.5 Buts',
+    matchesUnit: 'matchs',
+    bttsRate: 'Les Deux Marquent',
+    cleanSheets: 'Clean sheets :',
+    loadingClub: 'Chargement du profil officiel pour',
+    recentOfficialMatches: 'Derniers Matchs Officiels',
+    clickMatchOrTeamHint: 'Cliquez sur un match pour la chronologie ou sur un club pour son profil',
+    allMatchesLink: 'Tous les matchs ›',
+    upcomingScheduled: 'Prochains Matchs Programmés',
+    officialScheduleSub: 'Calendrier officiel par journée et compétition',
+    leagueStandingsTitle: 'Position au Classement',
+    viewFullTable: 'Voir le classement complet ›',
+    homeAwayTitle: 'Performance Domicile vs Extérieur (Officiel)',
+    homeRecord: 'À Domicile',
+    awayRecord: 'À l’Extérieur',
+    goalsLabel: 'Buts :',
+    clubStadium: 'Stade du Club',
+    capacityLabel: 'Capacité :',
+    officialClubSquad: 'Effectif Officiel du Club',
+    registeredPlayersSub: 'Joueurs inscrits pour la saison actuelle (cliquez sur un joueur pour ses statistiques)',
+    viewAllPlayers: 'Voir tous les joueurs ›',
+    yearsShort: 'ans',
+    fullStandingsTitle: 'Classement Complet',
+    clickAnyTeamSub: 'Cliquez sur n’importe quel club du tableau pour ouvrir son profil',
+    filterOverall: 'Général',
+    filterHome: 'Domicile',
+    filterAway: 'Extérieur',
+    headCoachLabel: 'Entraîneur :',
+    searchPlayerPlaceholder: 'Rechercher un joueur ou n°...',
+    filterAll: 'Tous',
+    filterGK: 'GAR',
+    filterDEF: 'DÉF',
+    filterMID: 'MIL',
+    filterATT: 'ATT',
+    yearsOld: 'ans',
+    recentFinishedTitle: 'Derniers Matchs Joués',
+    upcomingFixturesTitle: 'Prochains Matchs',
+    finalScore: 'SCORE FINAL',
+    loadingTimeline: 'Chargement de la chronologie officielle du match...',
+    possession: 'Possession',
+    shotsOnTarget: 'Tirs (Cadrés)',
+    corners: 'Corners',
+    yellowCards: 'Cartons Jaunes',
+  },
+  tr: {
+    tabOverview: 'Kulüp Özeti',
+    tabStandings: 'Puan Durumu',
+    tabSquad: 'Kadro & Oyuncular',
+    tabMatches: 'Maçlar',
+    posGK: 'Kaleci',
+    posDF: 'Defans',
+    posMF: 'Orta Saha',
+    posFW: 'Forvet',
+    clickMatchDetails: 'Maç detayları için tıklayın ↗',
+    thClub: 'Kulüp',
+    thForm: 'Form',
+    selectedBadge: 'SEÇİLİ',
+    home: 'Ana Sayfa',
+    back: '← Geri',
+    founded: 'Kuruluş:',
+    seats: 'kapasite',
+    coach: 'Teknik Direktör:',
+    last5Matches: 'Son 5 maç:',
+    playedWdl: 'Maçlar (G-B-M)',
+    goalsDiff: 'Goller (AG:YG)',
+    avg: 'ort.',
+    over25Goals: '2.5 Üst Gol',
+    matchesUnit: 'maç',
+    bttsRate: 'KG Var (BTTS)',
+    cleanSheets: 'Gol yemeden:',
+    loadingClub: 'Resmi kulüp profili yükleniyor:',
+    recentOfficialMatches: 'Son Resmi Maçlar',
+    clickMatchOrTeamHint: 'Akış için maça veya profili için takım adına tıklayın',
+    allMatchesLink: 'Tüm maçlar ›',
+    upcomingScheduled: 'Yaklaşan Maçlar',
+    officialScheduleSub: 'Hafta ve turnuvaya göre resmi fikstür',
+    leagueStandingsTitle: 'Lig Puan Durumu',
+    viewFullTable: 'Tüm tabloyu gör ›',
+    homeAwayTitle: 'İç Saha vs Deplasman Performansı',
+    homeRecord: 'İç Saha',
+    awayRecord: 'Deplasman',
+    goalsLabel: 'Goller:',
+    clubStadium: 'Kulüp Stadyumu',
+    capacityLabel: 'Kapasite:',
+    officialClubSquad: 'Resmi Kulüp Kadrosu',
+    registeredPlayersSub: 'Mevcut sezon kadrosu (istatistikler için oyuncuya tıklayın)',
+    viewAllPlayers: 'Tüm oyuncuları gör ›',
+    yearsShort: 'y.',
+    fullStandingsTitle: 'Tam Puan Durumu',
+    clickAnyTeamSub: 'Profilini açmak için tablodaki herhangi bir takıma tıklayın',
+    filterOverall: 'Genel',
+    filterHome: 'İç Saha',
+    filterAway: 'Deplasman',
+    headCoachLabel: 'Teknik Direktör:',
+    searchPlayerPlaceholder: 'Oyuncu veya numara ara...',
+    filterAll: 'Tümü',
+    filterGK: 'KL',
+    filterDEF: 'DF',
+    filterMID: 'OS',
+    filterATT: 'FV',
+    yearsOld: 'yaş',
+    recentFinishedTitle: 'Son Oynanan Maçlar',
+    upcomingFixturesTitle: 'Gelecek Maçlar',
+    finalScore: 'MAÇ SONUCU',
+    loadingTimeline: 'Resmi maç akışı yükleniyor...',
+    possession: 'Topla Oynama',
+    shotsOnTarget: 'Şut (İsabetli)',
+    corners: 'Korner',
+    yellowCards: 'Sarı Kart',
+  },
+  pl: {
+    tabOverview: 'Przegląd Klubu',
+    tabStandings: 'Tabela',
+    tabSquad: 'Kadra i Piłkarze',
+    tabMatches: 'Mecze',
+    posGK: 'Bramkarz',
+    posDF: 'Obrońca',
+    posMF: 'Pomocnik',
+    posFW: 'Napastnik',
+    clickMatchDetails: 'Kliknij po szczegóły meczu ↗',
+    thClub: 'Klub',
+    thForm: 'Forma',
+    selectedBadge: 'WYBRANY',
+    home: 'Start',
+    back: '← Wstecz',
+    founded: 'Założony:',
+    seats: 'miejsc',
+    coach: 'Trener:',
+    last5Matches: 'Ostatnie 5 meczów:',
+    playedWdl: 'Mecze (Z-R-P)',
+    goalsDiff: 'Bramki (BZ:BS)',
+    avg: 'śr.',
+    over25Goals: 'Powyżej 2.5 Gola',
+    matchesUnit: 'meczów',
+    bttsRate: 'BTTS (Obie strzelą)',
+    cleanSheets: 'Czyste konta:',
+    loadingClub: 'Ładowanie oficjalnego profilu dla',
+    recentOfficialMatches: 'Ostatnie Oficjalne Mecze',
+    clickMatchOrTeamHint: 'Kliknij mecz, aby zobaczyć przebieg, lub nazwę klubu, aby otworzyć profil',
+    allMatchesLink: 'Wszystkie mecze ›',
+    upcomingScheduled: 'Nadchodzące Mecze',
+    officialScheduleSub: 'Oficjalny terminarz według kolejek i rozgrywek',
+    leagueStandingsTitle: 'Pozycja w Tabeli',
+    viewFullTable: 'Zobacz pełną tabelę ›',
+    homeAwayTitle: 'Bilans Dom vs Wyjazd (Oficjalny)',
+    homeRecord: 'U Siebie',
+    awayRecord: 'Na Wyjeździe',
+    goalsLabel: 'Bramki:',
+    clubStadium: 'Stadion Klubu',
+    capacityLabel: 'Pojemność:',
+    officialClubSquad: 'Oficjalna Kadra Klubu',
+    registeredPlayersSub: 'Zarejestrowani piłkarze na obecny sezon (kliknij piłkarza po pełne statystyki)',
+    viewAllPlayers: 'Zobacz wszystkich piłkarzy ›',
+    yearsShort: 'l.',
+    fullStandingsTitle: 'Pełna Tabela',
+    clickAnyTeamSub: 'Kliknij dowolną drużynę w tabeli, aby otworzyć jej profil',
+    filterOverall: 'Ogółem',
+    filterHome: 'Dom',
+    filterAway: 'Wyjazd',
+    headCoachLabel: 'Trener:',
+    searchPlayerPlaceholder: 'Szukaj piłkarza lub nr...',
+    filterAll: 'Wszyscy',
+    filterGK: 'BR',
+    filterDEF: 'OBR',
+    filterMID: 'POM',
+    filterATT: 'NAP',
+    yearsOld: 'lat',
+    recentFinishedTitle: 'Ostatnie Rozegrane Mecze',
+    upcomingFixturesTitle: 'Nadchodzące Mecze',
+    finalScore: 'WYNIK KOŃCOWY',
+    loadingTimeline: 'Ładowanie oficjalnego przebiegu meczu...',
+    possession: 'Posiadanie',
+    shotsOnTarget: 'Strzały (Celne)',
+    corners: 'Rzuty rożne',
+    yellowCards: 'Żółte Kartki',
+  },
+  el: {
+    tabOverview: 'Επισκόπηση Ομάδας',
+    tabStandings: 'Βαθμολογία',
+    tabSquad: 'Ρόστερ & Παίκτες',
+    tabMatches: 'Αγώνες',
+    posGK: 'Τερματοφύλακας',
+    posDF: 'Αμυντικός',
+    posMF: 'Μέσος',
+    posFW: 'Επιθετικός',
+    clickMatchDetails: 'Κλικ για λεπτομέρειες αγώνα ↗',
+    thClub: 'Ομάδα',
+    thForm: 'Φόρμα',
+    selectedBadge: 'ΕΠΙΛΕΓΜΕΝΗ',
+    home: 'Αρχική',
+    back: '← Πίσω',
+    founded: 'Ίδρυση:',
+    seats: 'θέσεις',
+    coach: 'Προπονητής:',
+    last5Matches: 'Τελευταίοι 5 αγώνες:',
+    playedWdl: 'Αγώνες (Ν-Ι-Η)',
+    goalsDiff: 'Γκολ (Υπέρ:Κατά)',
+    avg: 'μ.ο.',
+    over25Goals: 'Over 2.5 Γκολ',
+    matchesUnit: 'αγώνες',
+    bttsRate: 'Goal/Goal (BTTS)',
+    cleanSheets: 'Καθαρές εστίες:',
+    loadingClub: 'Φόρτωση επίσημου προφίλ για',
+    recentOfficialMatches: 'Τελευταίοι Επίσημοι Αγώνες',
+    clickMatchOrTeamHint: 'Κάντε κλικ σε αγώνα για ροή ή σε ομάδα για το προφίλ της',
+    allMatchesLink: 'Όλοι οι αγώνες ›',
+    upcomingScheduled: 'Επερχόμενοι Αγώνες',
+    officialScheduleSub: 'Επίσημο πρόγραμμα ανά αγωνιστική',
+    leagueStandingsTitle: 'Θέση στη Βαθμολογία',
+    viewFullTable: 'Πλήρης βαθμολογία ›',
+    homeAwayTitle: 'Επίδοση Εντός vs Εκτός',
+    homeRecord: 'Εντός Έδρας',
+    awayRecord: 'Εκτός Έδρας',
+    goalsLabel: 'Γκολ:',
+    clubStadium: 'Γήπεδο Ομάδας',
+    capacityLabel: 'Χωρητικότητα:',
+    officialClubSquad: 'Επίσημο Ρόστερ Ομάδας',
+    registeredPlayersSub: 'Δηλωμένοι παίκτες για την τρέχουσα σεζόν (κλικ σε παίκτη για στατιστικά)',
+    viewAllPlayers: 'Όλοι οι παίκτες ›',
+    yearsShort: 'ετ.',
+    fullStandingsTitle: 'Πλήρης Βαθμολογία',
+    clickAnyTeamSub: 'Κάντε κλικ σε οποιαδήποτε ομάδα στον πίνακα για το προφίλ της',
+    filterOverall: 'Σύνολο',
+    filterHome: 'Εντός',
+    filterAway: 'Εκτός',
+    headCoachLabel: 'Προπονητής:',
+    searchPlayerPlaceholder: 'Αναζήτηση παίκτη ή #...',
+    filterAll: 'Όλοι',
+    filterGK: 'ΤΕΡ',
+    filterDEF: 'ΑΜΥ',
+    filterMID: 'ΜΕΣ',
+    filterATT: 'ΕΠΙ',
+    yearsOld: 'ετών',
+    recentFinishedTitle: 'Τελευταίοι Αγώνες',
+    upcomingFixturesTitle: 'Επερχόμενοι Αγώνες',
+    finalScore: 'ΤΕΛΙΚΟ ΣΚΟΡ',
+    loadingTimeline: 'Φόρτωση επίσημης ροής αγώνα...',
+    possession: 'Κατοχή',
+    shotsOnTarget: 'Σουτ (Εστία)',
+    corners: 'Κόρνερ',
+    yellowCards: 'Κίτρινες Κάρτες',
+  },
+  ro: {
+    tabOverview: 'Prezentare Club',
+    tabStandings: 'Clasament',
+    tabSquad: 'Lot & Jucători',
+    tabMatches: 'Meciuri',
+    posGK: 'Portar',
+    posDF: 'Fundaș',
+    posMF: 'Mijlocaș',
+    posFW: 'Atacant',
+    clickMatchDetails: 'Apasă pentru detalii meci ↗',
+    thClub: 'Echipă',
+    thForm: 'Formă',
+    selectedBadge: 'SELECTAT',
+    home: 'Acasă',
+    back: '← Înapoi',
+    founded: 'Fondat:',
+    seats: 'locuri',
+    coach: 'Antrenor:',
+    last5Matches: 'Ultimele 5 meciuri:',
+    playedWdl: 'Meciuri (V-E-Î)',
+    goalsDiff: 'Goluri (GM:GP)',
+    avg: 'med.',
+    over25Goals: 'Peste 2.5 Goluri',
+    matchesUnit: 'meciuri',
+    bttsRate: 'Ambele Marchează',
+    cleanSheets: 'Fără gol primit:',
+    loadingClub: 'Se încarcă profilul oficial pentru',
+    recentOfficialMatches: 'Ultimele Meciuri Oficiale',
+    clickMatchOrTeamHint: 'Apasă pe un meci pentru cronologie sau pe o echipă pentru profil',
+    allMatchesLink: 'Toate meciurile ›',
+    upcomingScheduled: 'Meciuri Următoare',
+    officialScheduleSub: 'Program oficial pe etape și competiții',
+    leagueStandingsTitle: 'Poziția în Clasament',
+    viewFullTable: 'Vezi clasamentul complet ›',
+    homeAwayTitle: 'Performanță Acasă vs Deplasare (Oficial)',
+    homeRecord: 'Acasă',
+    awayRecord: 'Deplasare',
+    goalsLabel: 'Goluri:',
+    clubStadium: 'Stadionul Clubului',
+    capacityLabel: 'Capacitate:',
+    officialClubSquad: 'Lotul Oficial al Clubului',
+    registeredPlayersSub: 'Jucători înregistrați în sezonul actual (apasă pe un jucător pentru statistici)',
+    viewAllPlayers: 'Vezi toți jucătorii ›',
+    yearsShort: 'ani',
+    fullStandingsTitle: 'Clasament Complet',
+    clickAnyTeamSub: 'Apasă pe orice echipă din tabel pentru a deschide profilul',
+    filterOverall: 'Total',
+    filterHome: 'Acasă',
+    filterAway: 'Deplasare',
+    headCoachLabel: 'Antrenor principal:',
+    searchPlayerPlaceholder: 'Caută jucător sau nr...',
+    filterAll: 'Toți',
+    filterGK: 'POR',
+    filterDEF: 'FUN',
+    filterMID: 'MIJ',
+    filterATT: 'ATA',
+    yearsOld: 'ani',
+    recentFinishedTitle: 'Ultimele Meciuri Jucate',
+    upcomingFixturesTitle: 'Meciuri Următoare',
+    finalScore: 'SCOR FINAL',
+    loadingTimeline: 'Se încarcă cronologia oficială a meciului...',
+    possession: 'Posesie',
+    shotsOnTarget: 'Șuturi (Pe Poartă)',
+    corners: 'Cornere',
+    yellowCards: 'Cartonașe Galbene',
+  },
+  ru: {
+    tabOverview: 'Обзор клуба',
+    tabStandings: 'Таблица',
+    tabSquad: 'Состав и игроки',
+    tabMatches: 'Матчи',
+    posGK: 'Вратарь',
+    posDF: 'Защитник',
+    posMF: 'Полузащитник',
+    posFW: 'Нападающий',
+    clickMatchDetails: 'Нажмите для деталей матча ↗',
+    thClub: 'Клуб',
+    thForm: 'Форма',
+    selectedBadge: 'ВЫБРАН',
+    home: 'Главная',
+    back: '← Назад',
+    founded: 'Основан:',
+    seats: 'мест',
+    coach: 'Тренер:',
+    last5Matches: 'Последние 5 матчей:',
+    playedWdl: 'Матчи (В-Н-П)',
+    goalsDiff: 'Голы (ЗГ:ПГ)',
+    avg: 'ср.',
+    over25Goals: 'Тотал Б 2.5',
+    matchesUnit: 'матчей',
+    bttsRate: 'Обе забьют (BTTS)',
+    cleanSheets: 'Сухие матчи:',
+    loadingClub: 'Загрузка официального профиля клуба',
+    recentOfficialMatches: 'Последние официальные матчи',
+    clickMatchOrTeamHint: 'Нажмите на матч для хронологии или на клуб для открытия профиля',
+    allMatchesLink: 'Все матчи ›',
+    upcomingScheduled: 'Предстоящие матчи по расписанию',
+    officialScheduleSub: 'Официальный календарь по турам и турнирам',
+    leagueStandingsTitle: 'Позиция в таблице',
+    viewFullTable: 'Вся таблица ›',
+    homeAwayTitle: 'Статистика Дома vs На выезде',
+    homeRecord: 'Дома',
+    awayRecord: 'На выезде',
+    goalsLabel: 'Голы:',
+    clubStadium: 'Стадион клуба',
+    capacityLabel: 'Вместимость:',
+    officialClubSquad: 'Официальный состав клуба',
+    registeredPlayersSub: 'Заявленные игроки текущего сезона (нажмите на игрока для полной статистики)',
+    viewAllPlayers: 'Все игроки ›',
+    yearsShort: 'л.',
+    fullStandingsTitle: 'Полная таблица',
+    clickAnyTeamSub: 'Нажмите на любую команду в таблице, чтобы открыть ее страницу',
+    filterOverall: 'Всего',
+    filterHome: 'Дома',
+    filterAway: 'В гостях',
+    headCoachLabel: 'Главный тренер:',
+    searchPlayerPlaceholder: 'Поиск игрока или №...',
+    filterAll: 'Все',
+    filterGK: 'ВР',
+    filterDEF: 'ЗАЩ',
+    filterMID: 'ПЗ',
+    filterATT: 'НАП',
+    yearsOld: 'лет',
+    recentFinishedTitle: 'Последние сыгранные матчи',
+    upcomingFixturesTitle: 'Предстоящие матчи',
+    finalScore: 'ИТОГОВЫЙ СЧЕТ',
+    loadingTimeline: 'Загрузка официальной хронологии матча...',
+    possession: 'Владение',
+    shotsOnTarget: 'Удары (В створ)',
+    corners: 'Угловые',
+    yellowCards: 'Желтые карточки',
+  },
+};
+
 export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
   language,
   target,
@@ -189,7 +1051,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
   onSelectMatch,
   setActiveTab,
 }) => {
-  const isBg = language === 'bg';
+  const tt = TEAM_DICT[language] || TEAM_DICT.en;
   const [loading, setLoading] = useState<boolean>(true);
   const [intel, setIntel] = useState<TeamIntelResponse | null>(null);
   const [subTab, setSubTab] = useState<'overview' | 'standings' | 'squad' | 'matches'>('overview');
@@ -311,39 +1173,37 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
     return [
       {
         key: 'overview' as const,
-        label: isBg ? 'Преглед на отбора' : 'Club Overview',
+        label: tt.tabOverview,
         icon: '🛡️',
         visible: true,
       },
       {
         key: 'standings' as const,
-        label: isBg ? `Класиране (${standings.length})` : `Standings (${standings.length})`,
+        label: `${tt.tabStandings} (${standings.length})`,
         icon: '🏆',
         visible: hasStandings,
       },
       {
         key: 'squad' as const,
-        label: isBg ? `Играчи & Състав (${squad.length})` : `Squad (${squad.length})`,
+        label: `${tt.tabSquad} (${squad.length})`,
         icon: '👕',
         visible: hasSquad,
       },
       {
         key: 'matches' as const,
-        label: isBg
-          ? `Мачове (${recentMatches.length + upcomingMatches.length})`
-          : `Matches (${recentMatches.length + upcomingMatches.length})`,
+        label: `${tt.tabMatches} (${recentMatches.length + upcomingMatches.length})`,
         icon: '📅',
         visible: hasMatches,
       },
     ].filter((t) => t.visible);
-  }, [isBg, hasStandings, hasSquad, hasMatches, standings.length, squad.length, recentMatches.length, upcomingMatches.length]);
+  }, [tt, hasStandings, hasSquad, hasMatches, standings.length, squad.length, recentMatches.length, upcomingMatches.length]);
 
   const positionLabel = (pos: string) => {
     const p = pos.toLowerCase();
-    if (p.includes('goal')) return isBg ? 'Вратар' : 'Goalkeeper';
-    if (p.includes('def')) return isBg ? 'Защитник' : 'Defender';
-    if (p.includes('mid')) return isBg ? 'Полузащитник' : 'Midfielder';
-    if (p.includes('att') || p.includes('forw')) return isBg ? 'Нападател' : 'Attacker';
+    if (p.includes('goal')) return tt.posGK;
+    if (p.includes('def')) return tt.posDF;
+    if (p.includes('mid')) return tt.posMF;
+    if (p.includes('att') || p.includes('forw')) return tt.posFW;
     return pos;
   };
 
@@ -416,7 +1276,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                   {m.awayTeam}
                 </div>
                 <div className="text-[9px] font-mono text-[#43f08a] mt-1">
-                  {isBg ? 'Кликни за детайли от мача ↗' : 'Click for match details ↗'}
+                  {tt.clickMatchDetails}
                 </div>
               </div>
             </div>
@@ -489,7 +1349,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
           <thead>
             <tr className="border-b border-[#162232] text-[10px] font-mono text-[#8f9cae] uppercase">
               <th className="py-2 pl-2 pr-1 w-8">#</th>
-              <th className="py-2 px-2">{isBg ? 'Отбор' : 'Club'}</th>
+              <th className="py-2 px-2">{tt.thClub}</th>
               <th className="py-2 px-1.5 text-center">P</th>
               {!compact && (
                 <>
@@ -502,7 +1362,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
               <th className="py-2 px-1.5 text-center">GD</th>
               <th className="py-2 px-2 text-center text-white">PTS</th>
               {!compact && (
-                <th className="py-2 pl-2 pr-2 text-right">{isBg ? 'Форма' : 'Form'}</th>
+                <th className="py-2 pl-2 pr-2 text-right">{tt.thForm}</th>
               )}
             </tr>
           </thead>
@@ -553,7 +1413,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                       </span>
                       {isCurrentTeam && (
                         <span className="px-1.5 py-0.5 rounded bg-[#22c55e]/20 border border-[#22c55e]/40 text-[9px] font-mono font-bold text-[#43f08a] shrink-0">
-                          {isBg ? 'ИЗБРАН' : 'SELECTED'}
+                          {tt.selectedBadge}
                         </span>
                       )}
                     </div>
@@ -604,7 +1464,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                               title={
                                 matchedFx
                                   ? `${matchedFx.date}: ${matchedFx.homeTeam} ${matchedFx.homeScore}-${matchedFx.awayScore} ${matchedFx.awayTeam}`
-                                  : `${row.club} — Кликни за детайли за мача (${f})`
+                                  : `${row.club} (${f})`
                               }
                               onClick={async (e) => {
                                 e.stopPropagation();
@@ -682,7 +1542,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
             onClick={() => setActiveTab('home')}
             className="hover:text-white transition-colors cursor-pointer"
           >
-            {isBg ? 'Начало' : 'Home'}
+            {tt.home}
           </button>
           {intel?.team?.country && (
             <>
@@ -722,7 +1582,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
           onClick={onBack}
           className="px-3.5 py-1.5 rounded-xl border border-[#1e2d40] bg-[#0b131d] hover:border-[#43f08a]/60 text-xs font-semibold text-[#43f08a] transition-colors cursor-pointer"
         >
-          {isBg ? '← Назад' : '← Back'}
+          {tt.back}
         </button>
       </div>
 
@@ -764,7 +1624,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                 )}
                 {teamStanding && (
                   <span className="px-2.5 py-0.5 rounded-md bg-[#0f291e] border border-[#22c55e]/50 font-mono text-xs font-extrabold text-[#43f08a]">
-                    #{teamStanding.rank} {intel?.league?.name ? `в ${intel.league.name}` : ''}
+                    #{teamStanding.rank} {intel?.league?.name ? `· ${intel.league.name}` : ''}
                   </span>
                 )}
               </div>
@@ -798,7 +1658,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0c1622] border border-[#1a2a3a] font-mono">
                     <span>🏛️</span>
                     <span>
-                      {isBg ? 'Основан:' : 'Founded:'}{' '}
+                      {tt.founded}{' '}
                       <strong className="text-white">{intel.team.founded}</strong>
                     </span>
                   </span>
@@ -811,8 +1671,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                     {venue.city && <span className="text-[#8f9cae]">({venue.city})</span>}
                     {venue.capacity && (
                       <span className="font-mono text-[#43f08a]">
-                        · {venue.capacity.toLocaleString('en-US')}{' '}
-                        {isBg ? 'места' : 'seats'}
+                        · {venue.capacity.toLocaleString('en-US')} {tt.seats}
                       </span>
                     )}
                   </span>
@@ -821,9 +1680,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                 {coach?.name && (
                   <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-[#0c1622] border border-[#1a2a3a]">
                     <span>👔</span>
-                    <span className="text-[#8f9cae]">
-                      {isBg ? 'Треньор:' : 'Coach:'}
-                    </span>
+                    <span className="text-[#8f9cae]">{tt.coach}</span>
                     <strong className="text-white">{coach.name}</strong>
                     {coach.nationality && (
                       <span className="text-[#8f9cae]">({coach.nationality})</span>
@@ -836,7 +1693,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
               {recentMatches.length > 0 && (
                 <div className="pt-1 flex items-center gap-2.5">
                   <span className="text-[11px] font-mono text-[#8f9cae] uppercase">
-                    {isBg ? 'Последни 5 мача:' : 'Last 5 matches:'}
+                    {tt.last5Matches}
                   </span>
                   {renderFormPills(recentMatches)}
                 </div>
@@ -849,7 +1706,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 shrink-0">
               <div className="rounded-xl border border-[#1b2c3f] bg-[#081018]/90 px-4 py-3 text-center">
                 <span className="text-[10px] font-mono text-[#8f9cae] uppercase block">
-                  {isBg ? 'Мачове (W-D-L)' : 'Played (W-D-L)'}
+                  {tt.playedWdl}
                 </span>
                 <span className="text-lg font-black font-mono text-white mt-0.5 block">
                   {statsSummary.played}
@@ -861,28 +1718,26 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
 
               <div className="rounded-xl border border-[#1b2c3f] bg-[#081018]/90 px-4 py-3 text-center">
                 <span className="text-[10px] font-mono text-[#8f9cae] uppercase block">
-                  {isBg ? 'Голова разлика' : 'Goals (GF:GA)'}
+                  {tt.goalsDiff}
                 </span>
                 <span className="text-lg font-black font-mono text-white mt-0.5 block">
                   {statsSummary.goalsFor}:{statsSummary.goalsAgainst}
                 </span>
                 <span className="text-[11px] font-mono text-neutral-400">
-                  {statsSummary.avgGoalsFor} / {statsSummary.avgGoalsAgainst}{' '}
-                  {isBg ? 'ср.' : 'avg'}
+                  {statsSummary.avgGoalsFor} / {statsSummary.avgGoalsAgainst} {tt.avg}
                 </span>
               </div>
 
               {statsSummary.over25Percent !== null && (
                 <div className="rounded-xl border border-[#1b2c3f] bg-[#081018]/90 px-4 py-3 text-center">
                   <span className="text-[10px] font-mono text-[#8f9cae] uppercase block">
-                    {isBg ? 'Над 2.5 Гола' : 'Over 2.5 Goals'}
+                    {tt.over25Goals}
                   </span>
                   <span className="text-lg font-black font-mono text-[#43f08a] mt-0.5 block">
                     {statsSummary.over25Percent}%
                   </span>
                   <span className="text-[11px] font-mono text-neutral-400">
-                    {statsSummary.over25Count}/{statsSummary.sampleMatchesCount}{' '}
-                    {isBg ? 'мача' : 'matches'}
+                    {statsSummary.over25Count}/{statsSummary.sampleMatchesCount} {tt.matchesUnit}
                   </span>
                 </div>
               )}
@@ -890,13 +1745,13 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
               {statsSummary.bttsPercent !== null && (
                 <div className="rounded-xl border border-[#1b2c3f] bg-[#081018]/90 px-4 py-3 text-center">
                   <span className="text-[10px] font-mono text-[#8f9cae] uppercase block">
-                    {isBg ? 'Гол/Гол (BTTS)' : 'BTTS Rate'}
+                    {tt.bttsRate}
                   </span>
                   <span className="text-lg font-black font-mono text-cyan-400 mt-0.5 block">
                     {statsSummary.bttsPercent}%
                   </span>
                   <span className="text-[11px] font-mono text-neutral-400">
-                    {isBg ? 'Сухи мрежи:' : 'Clean sheets:'} {statsSummary.cleanSheets}
+                    {tt.cleanSheets} {statsSummary.cleanSheets}
                   </span>
                 </div>
               )}
@@ -935,9 +1790,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
         <div className="rounded-2xl border border-[#182434] bg-[#0b111a] p-10 text-center space-y-3">
           <div className="w-8 h-8 rounded-full border-2 border-[#43f08a] border-t-transparent animate-spin mx-auto" />
           <div className="text-sm font-bold text-white">
-            {isBg
-              ? `Зареждане на официален профил за ${teamName}...`
-              : `Loading official profile for ${teamName}...`}
+            {tt.loadingClub} {teamName}...
           </div>
         </div>
       )}
@@ -959,12 +1812,10 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                 <div className="flex items-center justify-between border-b border-[#162232] pb-3">
                   <div>
                     <h3 className="text-sm font-extrabold text-white">
-                      {isBg ? 'Последни официални мачове' : 'Recent Official Matches'}
+                      {tt.recentOfficialMatches}
                     </h3>
                     <p className="text-[11px] text-[#8f9cae]">
-                      {isBg
-                        ? 'Кликни на мач за хронология или върху отбор за неговия профил'
-                        : 'Click a match for timeline or a team name for its profile'}
+                      {tt.clickMatchOrTeamHint}
                     </p>
                   </div>
                   {recentMatches.length > 5 && (
@@ -973,7 +1824,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                       onClick={() => setSubTab('matches')}
                       className="text-xs text-[#43f08a] hover:underline cursor-pointer"
                     >
-                      {isBg ? 'Всички мачове ›' : 'All matches ›'}
+                      {tt.allMatchesLink}
                     </button>
                   )}
                 </div>
@@ -1079,16 +1930,14 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                 <div className="flex items-center justify-between border-b border-[#162232] pb-3">
                   <div>
                     <h3 className="text-sm font-extrabold text-white">
-                      {isBg ? 'Предстоящи мачове по програма' : 'Upcoming Scheduled Fixtures'}
+                      {tt.upcomingScheduled}
                     </h3>
                     <p className="text-[11px] text-[#8f9cae]">
-                      {isBg
-                        ? 'Официална програма по кръгове и турнири'
-                        : 'Official schedule by round and competition'}
+                      {tt.officialScheduleSub}
                     </p>
                   </div>
                   <span className="px-2 py-0.5 rounded bg-[#0f291e] border border-[#22c55e]/40 text-[10px] font-mono font-bold text-[#43f08a]">
-                    {upcomingMatches.length} {isBg ? 'мача' : 'fixtures'}
+                    {upcomingMatches.length} {tt.matchesUnit}
                   </span>
                 </div>
 
@@ -1193,8 +2042,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                         />
                       )}
                       <h3 className="text-sm font-extrabold text-white">
-                        {isBg ? 'Позиция в класирането' : 'League Standings'} —{' '}
-                        {intel?.league?.name}
+                        {tt.leagueStandingsTitle} — {intel?.league?.name}
                       </h3>
                     </div>
 
@@ -1203,9 +2051,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                       onClick={() => setSubTab('standings')}
                       className="text-xs font-bold text-[#43f08a] hover:underline cursor-pointer"
                     >
-                      {isBg
-                        ? `Виж пълното класиране (${standings.length} отбора) ›`
-                        : `View full table (${standings.length} clubs) ›`}
+                      {tt.viewFullTable}
                     </button>
                   </div>
 
@@ -1224,43 +2070,41 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                   {teamStanding?.home && teamStanding?.away && (
                     <div className="rounded-2xl border border-[#182434] bg-[#0b111a] p-5 space-y-3.5 shadow-xl">
                       <h3 className="text-sm font-extrabold text-white border-b border-[#162232] pb-2.5">
-                        {isBg
-                          ? 'Представяне Домакин vs Гост (Официална статистика)'
-                          : 'Home vs Away Performance (Official)'}
+                        {tt.homeAwayTitle}
                       </h3>
 
                       <div className="grid grid-cols-2 gap-3 text-xs">
                         <div className="p-3.5 rounded-xl bg-[#080e16] border border-[#162232] space-y-1.5">
                           <div className="text-[10px] font-mono text-[#43f08a] uppercase font-bold">
-                            🏠 {isBg ? 'Като Домакин' : 'Home Record'}
+                            🏠 {tt.homeRecord}
                           </div>
                           <div className="text-base font-black font-mono text-white">
                             {teamStanding.home.w}W - {teamStanding.home.d}D -{' '}
                             {teamStanding.home.l}L
                           </div>
                           <div className="text-[11px] font-mono text-[#8f9cae]">
-                            {isBg ? 'Голове:' : 'Goals:'}{' '}
+                            {tt.goalsLabel}{' '}
                             <strong className="text-white">
                               {teamStanding.home.gf}:{teamStanding.home.ga}
                             </strong>{' '}
-                            ({teamStanding.home.p} {isBg ? 'мача' : 'matches'})
+                            ({teamStanding.home.p} {tt.matchesUnit})
                           </div>
                         </div>
 
                         <div className="p-3.5 rounded-xl bg-[#080e16] border border-[#162232] space-y-1.5">
                           <div className="text-[10px] font-mono text-cyan-400 uppercase font-bold">
-                            ✈️ {isBg ? 'Като Гост' : 'Away Record'}
+                            ✈️ {tt.awayRecord}
                           </div>
                           <div className="text-base font-black font-mono text-white">
                             {teamStanding.away.w}W - {teamStanding.away.d}D -{' '}
                             {teamStanding.away.l}L
                           </div>
                           <div className="text-[11px] font-mono text-[#8f9cae]">
-                            {isBg ? 'Голове:' : 'Goals:'}{' '}
+                            {tt.goalsLabel}{' '}
                             <strong className="text-white">
                               {teamStanding.away.gf}:{teamStanding.away.ga}
                             </strong>{' '}
-                            ({teamStanding.away.p} {isBg ? 'мача' : 'matches'})
+                            ({teamStanding.away.p} {tt.matchesUnit})
                           </div>
                         </div>
                       </div>
@@ -1272,7 +2116,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                     <div className="rounded-2xl border border-[#182434] bg-[#0b111a] p-5 space-y-3 shadow-xl flex-1">
                       <div className="flex items-center justify-between border-b border-[#162232] pb-2.5">
                         <h3 className="text-sm font-extrabold text-white">
-                          🏟️ {isBg ? 'Стадион на клуба' : 'Club Stadium'}
+                          🏟️ {tt.clubStadium}
                         </h3>
                         {venue.surface && (
                           <span className="px-2 py-0.5 rounded bg-[#0f291e] border border-[#22c55e]/40 text-[10px] font-mono text-[#43f08a] uppercase">
@@ -1305,7 +2149,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                           )}
                           {venue.capacity && (
                             <div className="text-neutral-300 font-mono pt-1">
-                              👥 {isBg ? 'Капацитет:' : 'Capacity:'}{' '}
+                              👥 {tt.capacityLabel}{' '}
                               <strong className="text-[#43f08a]">
                                 {venue.capacity.toLocaleString('en-US')}
                               </strong>
@@ -1326,13 +2170,10 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
               <div className="flex items-center justify-between border-b border-[#162232] pb-3 flex-wrap gap-2">
                 <div>
                   <h3 className="text-sm font-extrabold text-white">
-                    👕 {isBg ? 'Официален състав на отбора' : 'Official Club Squad'} (
-                    {squad.length})
+                    👕 {tt.officialClubSquad} ({squad.length})
                   </h3>
                   <p className="text-[11px] text-[#8f9cae]">
-                    {isBg
-                      ? 'Картотекирани играчи за текущия сезон'
-                      : 'Registered squad players for the current season'}
+                    {tt.registeredPlayersSub}
                   </p>
                 </div>
                 <button
@@ -1340,9 +2181,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                   onClick={() => setSubTab('squad')}
                   className="text-xs font-bold text-[#43f08a] hover:underline cursor-pointer"
                 >
-                  {isBg
-                    ? `Виж всички ${squad.length} играчи ›`
-                    : `View all ${squad.length} players ›`}
+                  {tt.viewAllPlayers}
                 </button>
               </div>
 
@@ -1366,11 +2205,6 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                         },
                         e
                       )
-                    }
-                    title={
-                      isBg
-                        ? `Отвори официалния профил и статистика на ${player.name}`
-                        : `Open official player profile & stats for ${player.name}`
                     }
                     className="flex items-center gap-3 p-3 rounded-xl border border-[#15202e] bg-[#080e16] hover:border-[#43f08a]/50 hover:bg-[#0c1521] transition-all cursor-pointer group"
                   >
@@ -1400,7 +2234,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                           <>
                             <span>·</span>
                             <span className="font-mono">
-                              {player.age} {isBg ? 'г.' : 'yrs'}
+                              {player.age} {tt.yearsShort}
                             </span>
                           </>
                         )}
@@ -1430,12 +2264,10 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
               )}
               <div>
                 <h3 className="text-base font-extrabold text-white">
-                  {intel?.league?.name} — {isBg ? 'Пълно класиране' : 'Full Standings'}
+                  {intel?.league?.name} — {tt.fullStandingsTitle}
                 </h3>
                 <p className="text-xs text-[#8f9cae]">
-                  {isBg
-                    ? 'Кликни върху който и да е отбор в таблицата, за да отвориш неговата страница'
-                    : 'Click any team in the table to open its dedicated profile page'}
+                  {tt.clickAnyTeamSub}
                 </p>
               </div>
             </div>
@@ -1443,9 +2275,9 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
             {/* All / Home / Away Switcher */}
             <div className="flex items-center gap-1.5 bg-[#080e16] p-1 rounded-xl border border-[#162232]">
               {[
-                { key: 'all' as const, label: isBg ? 'Общо' : 'Overall' },
-                { key: 'home' as const, label: isBg ? 'Домакин' : 'Home' },
-                { key: 'away' as const, label: isBg ? 'Гост' : 'Away' },
+                { key: 'all' as const, label: tt.filterOverall },
+                { key: 'home' as const, label: tt.filterHome },
+                { key: 'away' as const, label: tt.filterAway },
               ].map((m) => (
                 <button
                   key={m.key}
@@ -1475,11 +2307,11 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#162232] pb-4">
             <div>
               <h3 className="text-base font-extrabold text-white">
-                👕 {teamName} — {isBg ? 'Официален състав' : 'Official Squad'} ({squad.length})
+                👕 {teamName} — {tt.officialClubSquad} ({squad.length})
               </h3>
               {coach?.name && (
                 <p className="text-xs text-[#8f9cae] mt-0.5">
-                  {isBg ? 'Старши треньор:' : 'Head Coach:'}{' '}
+                  {tt.headCoachLabel}{' '}
                   <strong className="text-white">{coach.name}</strong>
                   {coach.nationality ? ` (${coach.nationality})` : ''}
                 </p>
@@ -1491,16 +2323,16 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                 type="text"
                 value={playerSearch}
                 onChange={(e) => setPlayerSearch(e.target.value)}
-                placeholder={isBg ? 'Търси играч или номер...' : 'Search player or #...'}
+                placeholder={tt.searchPlayerPlaceholder}
                 className="px-3 py-1.5 rounded-xl bg-[#080e16] border border-[#1a293a] text-xs text-white placeholder-[#8f9cae] focus:outline-none focus:border-[#43f08a]"
               />
 
               {[
-                { key: 'ALL', label: isBg ? 'Всички' : 'All' },
-                { key: 'Goalkeeper', label: isBg ? 'Вратари' : 'GK' },
-                { key: 'Defender', label: isBg ? 'Защитници' : 'DEF' },
-                { key: 'Midfielder', label: isBg ? 'Халфове' : 'MID' },
-                { key: 'Attacker', label: isBg ? 'Нападатели' : 'ATT' },
+                { key: 'ALL', label: tt.filterAll },
+                { key: 'Goalkeeper', label: tt.filterGK },
+                { key: 'Defender', label: tt.filterDEF },
+                { key: 'Midfielder', label: tt.filterMID },
+                { key: 'Attacker', label: tt.filterATT },
               ].map((pf) => (
                 <button
                   key={pf.key}
@@ -1539,11 +2371,6 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                     e
                   )
                 }
-                title={
-                  isBg
-                    ? `Отвори официалния профил, статистика, трансфери и трофеи на ${player.name}`
-                    : `Open official player profile, stats, transfers & trophies for ${player.name}`
-                }
                 className="flex items-center gap-3.5 p-3.5 rounded-xl border border-[#15202e] bg-[#080e16] hover:border-[#43f08a]/50 hover:bg-[#0c1521] transition-all cursor-pointer group"
               >
                 <img
@@ -1574,7 +2401,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                       <>
                         <span>·</span>
                         <span className="font-mono">
-                          {player.age} {isBg ? 'години' : 'years old'}
+                          {player.age} {tt.yearsOld}
                         </span>
                       </>
                     )}
@@ -1594,8 +2421,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
           {recentMatches.length > 0 && (
             <div className="rounded-2xl border border-[#182434] bg-[#0b111a] p-5 space-y-3.5 shadow-xl">
               <h3 className="text-sm font-extrabold text-white border-b border-[#162232] pb-2.5">
-                {isBg ? 'Последни изиграни срещи' : 'Recent Finished Matches'} (
-                {recentMatches.length})
+                {tt.recentFinishedTitle} ({recentMatches.length})
               </h3>
               <div className="space-y-2">
                 {recentMatches.map((m) => (
@@ -1686,7 +2512,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
           {upcomingMatches.length > 0 && (
             <div className="rounded-2xl border border-[#182434] bg-[#0b111a] p-5 space-y-3.5 shadow-xl">
               <h3 className="text-sm font-extrabold text-white border-b border-[#162232] pb-2.5">
-                {isBg ? 'Предстоящи мачове' : 'Upcoming Fixtures'} ({upcomingMatches.length})
+                {tt.upcomingFixturesTitle} ({upcomingMatches.length})
               </h3>
               <div className="space-y-2">
                 {upcomingMatches.map((m) => (
@@ -1828,9 +2654,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                     <div className="text-[10px] font-mono font-bold text-[#43f08a] uppercase">
                       {fixtureModalIntel?.halftimeScore ||
                         (selectedFixture.status === 'FINISHED'
-                          ? isBg
-                            ? 'КРАЕН РЕЗУЛТАТ'
-                            : 'FINAL SCORE'
+                          ? tt.finalScore
                           : selectedFixture.time)}
                     </div>
                     <div className="text-2xl sm:text-3xl font-black text-white font-mono">
@@ -1872,9 +2696,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
             <div className="p-5 max-h-[55vh] overflow-y-auto space-y-4">
               {fixtureModalLoading ? (
                 <div className="py-8 text-center text-xs text-[#8f9cae] font-mono">
-                  {isBg
-                    ? 'Зареждане на официална хронология на мача...'
-                    : 'Loading official match timeline...'}
+                  {tt.loadingTimeline}
                 </div>
               ) : (
                 <>
@@ -1911,7 +2733,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center font-mono text-xs pt-2 border-t border-[#162232]">
                       <div className="p-2.5 rounded-xl bg-[#0b121c] border border-[#15202e]">
                         <span className="text-[10px] text-[#8f9cae] block">
-                          {isBg ? 'Владеене' : 'Possession'}
+                          {tt.possession}
                         </span>
                         <span className="font-bold text-white">
                           {fixtureModalIntel.stats.possessionHome}% -{' '}
@@ -1920,7 +2742,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                       </div>
                       <div className="p-2.5 rounded-xl bg-[#0b121c] border border-[#15202e]">
                         <span className="text-[10px] text-[#8f9cae] block">
-                          {isBg ? 'Удари (Точни)' : 'Shots (On Target)'}
+                          {tt.shotsOnTarget}
                         </span>
                         <span className="font-bold text-white">
                           {fixtureModalIntel.stats.shotsHome} (
@@ -1931,7 +2753,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                       </div>
                       <div className="p-2.5 rounded-xl bg-[#0b121c] border border-[#15202e]">
                         <span className="text-[10px] text-[#8f9cae] block">
-                          {isBg ? 'Корнери' : 'Corners'}
+                          {tt.corners}
                         </span>
                         <span className="font-bold text-white">
                           {fixtureModalIntel.stats.cornersHome} -{' '}
@@ -1940,7 +2762,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                       </div>
                       <div className="p-2.5 rounded-xl bg-[#0b121c] border border-[#15202e]">
                         <span className="text-[10px] text-[#8f9cae] block">
-                          🟨 {isBg ? 'Жълти картони' : 'Yellow Cards'}
+                          🟨 {tt.yellowCards}
                         </span>
                         <span className="font-bold text-white">
                           {fixtureModalIntel.stats.yellowCardsHome} -{' '}

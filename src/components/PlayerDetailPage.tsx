@@ -159,42 +159,99 @@ interface PlayerDetailPageProps {
 
 type SubTab = 'stats' | 'transfers' | 'trophies' | 'sidelined';
 
-const POSITION_BG_LABELS: Record<string, string> = {
-  Goalkeeper: 'Вратар (GK)',
-  Defender: 'Защитник (DF)',
-  Midfielder: 'Полузащитник (MF)',
-  Attacker: 'Нападател (FW)',
-};
+interface PlayerI18nEntry {
+  home: string;
+  back: string;
+  searchPlaceholder: string;
+  searchingGlobal: string;
+  noPlayersFound: string;
+  injuredBadge: string;
+  nationality: string;
+  age: string;
+  yearsSuffix: string;
+  birthPlace: string;
+  height: string;
+  weight: string;
+  wonTrophies: string;
+  matchesStarter: string;
+  goalsAssists: string;
+  shotsOnTarget: string;
+  keyPasses: string;
+  penScored: string;
+  dribblesSub: string;
+  duelsSub: string;
+  tabStats: string;
+  tabTransfers: string;
+  tabTrophies: string;
+  tabSidelined: string;
+  seasonLabel: string;
+  currentSeason: string;
+  loadingDossier: string;
+  errorSearchHint: string;
+  seasonStatsTitle: string;
+  seasonStatsSub: string;
+  noStatsForSeason: string;
+  thTournament: string;
+  thClub: string;
+  thMatches: string;
+  thMinutes: string;
+  thGoals: string;
+  thAssists: string;
+  thShots: string;
+  thKeyPasses: string;
+  thDribbles: string;
+  thDuels: string;
+  thCards: string;
+  thRating: string;
+  cardAttackTitle: string;
+  rowGoalsScored: string;
+  rowGoalAssists: string;
+  rowShotsTotalOn: string;
+  rowShotAccuracy: string;
+  rowPenaltiesScoredMissed: string;
+  cardPlaymakingTitle: string;
+  rowTotalPasses: string;
+  rowKeyPassesChances: string;
+  rowDribblesSuccessAtt: string;
+  rowDribbleSuccessRate: string;
+  rowFoulsDrawn: string;
+  cardDefenseTitle: string;
+  rowTacklesTotal: string;
+  rowInterceptions: string;
+  rowDuelsWon: string;
+  rowFoulsCommitted: string;
+  rowYellowRedCards: string;
+  transfersTitle: string;
+  transfersSub: string;
+  noTransfers: string;
+  fromClub: string;
+  toClub: string;
+  transferDefault: string;
+  trophiesTitle: string;
+  trophiesSub: string;
+  noTrophies: string;
+  championBadge: string;
+  sidelinedTitle: string;
+  sidelinedSub: string;
+  noSidelined: string;
+  officialAbsence: string;
+  fromDate: string;
+  toDate: string;
+  activeInjury: string;
+  posGK: string;
+  posDF: string;
+  posMF: string;
+  posFW: string;
+}
 
-const PLAYER_DICT: Record<
-  Language,
-  {
-    home: string;
-    back: string;
-    searchPlaceholder: string;
-    nationality: string;
-    age: string;
-    yearsSuffix: string;
-    birthPlace: string;
-    height: string;
-    weight: string;
-    wonTrophies: string;
-    matchesStarter: string;
-    goalsAssists: string;
-    shotsOnTarget: string;
-    keyPasses: string;
-    tabStats: string;
-    tabTransfers: string;
-    tabTrophies: string;
-    tabSidelined: string;
-    seasonLabel: string;
-    currentSeason: string;
-  }
-> = {
+const PLAYER_DICT: Record<Language, PlayerI18nEntry> = {
   bg: {
     home: 'Начало',
     back: '← Назад',
     searchPlaceholder: '🔍 Потърси всеки футболист по име...',
+    searchingGlobal: 'Търсене в глобалната база от футболисти...',
+    noPlayersFound: 'Няма намерени футболисти за',
+    injuredBadge: '🏥 Контузен / Извън групата',
     nationality: 'Националност',
     age: 'Възраст',
     yearsSuffix: 'г.',
@@ -206,17 +263,79 @@ const PLAYER_DICT: Record<
     goalsAssists: 'ГОЛОВЕ / АСИСТЕНЦИИ',
     shotsOnTarget: 'УДАРИ (ТОЧНИ)',
     keyPasses: 'КЛЮЧОВИ ПАСОВЕ',
+    penScored: 'Дузпи',
+    dribblesSub: 'Дрибъли',
+    duelsSub: 'Единоборства',
     tabStats: 'Статистика по турнири',
     tabTransfers: 'Трансферна история',
     tabTrophies: 'Трофеи и отличия',
     tabSidelined: 'Контузии и отсъствия',
     seasonLabel: 'Сезон:',
     currentSeason: 'Актуален',
+    loadingDossier: 'Зареждане на пълно досие, сезонна статистика, трансфери и трофеи за',
+    errorSearchHint: 'Можете да използвате търсачката горе вдясно, за да потърсите футболиста по име на латиница.',
+    seasonStatsTitle: 'Сезонна статистика по първенства и турнири',
+    seasonStatsSub: 'Кликни върху турнир или отбор, за да отвориш техния официален профил',
+    noStatsForSeason: 'Няма записана статистика за избрания сезон. Избери друг сезон от бутоните горе вдясно (напр. 2024/25 или 2023/24).',
+    thTournament: 'ТУРНИР',
+    thClub: 'КЛУБ',
+    thMatches: 'МАЧОВЕ (ТИТ.)',
+    thMinutes: 'МИНУТИ',
+    thGoals: 'ГОЛОВЕ',
+    thAssists: 'АСИСТ.',
+    thShots: 'УДАРИ (ТОЧНИ)',
+    thKeyPasses: 'КЛЮЧ. ПАСОВЕ',
+    thDribbles: 'ДРИБЪЛИ',
+    thDuels: 'ЕДИНОБОРСТВА',
+    thCards: 'КАРТОНИ',
+    thRating: 'РЕЙТИНГ',
+    cardAttackTitle: '⚽ Атака & Завършващ удар',
+    rowGoalsScored: 'Отбелязани голове',
+    rowGoalAssists: 'Голови асистенции',
+    rowShotsTotalOn: 'Общо удари / Точни удари',
+    rowShotAccuracy: 'Точност на ударите',
+    rowPenaltiesScoredMissed: 'Дузпи (Вкарани / Пропуснати)',
+    cardPlaymakingTitle: '🎯 Креативност, Пасове & Дрибъл',
+    rowTotalPasses: 'Общо пасове',
+    rowKeyPassesChances: 'Ключови пасове (Голови положения)',
+    rowDribblesSuccessAtt: 'Успешни дрибъли / Опити',
+    rowDribbleSuccessRate: 'Успеваемост при дрибъл',
+    rowFoulsDrawn: 'Спечелени фалове',
+    cardDefenseTitle: '🛡️ Защита, Единоборства & Дисциплина',
+    rowTacklesTotal: 'Шпагати / Отнети топки',
+    rowInterceptions: 'Пресечени пасове',
+    rowDuelsWon: 'Спечелени единоборства',
+    rowFoulsCommitted: 'Извършени нарушения',
+    rowYellowRedCards: 'Жълти / Червени картони',
+    transfersTitle: 'Пълна трансферна история',
+    transfersSub: 'Всички официални трансфери и наеми в кариерата на футболиста (кликни върху отбор за неговия профил)',
+    noTransfers: 'Няма регистрирани трансфери за този футболист.',
+    fromClub: 'ОТ КЛУБ',
+    toClub: 'В КЛУБ',
+    transferDefault: 'Трансфер',
+    trophiesTitle: 'Спечелени трофеи и отличия',
+    trophiesSub: 'Всички шампионски титли, купи и финали в кариерата на футболиста',
+    noTrophies: 'Няма регистрирани трофеи и финали за този футболист.',
+    championBadge: 'Шампион',
+    sidelinedTitle: 'История на контузиите и наказанията',
+    sidelinedSub: 'Хронологичен архив на всички контузии, заболявания и дисциплинарни наказания',
+    noSidelined: 'Няма регистрирани контузии или наказания за този футболист.',
+    officialAbsence: 'Официално регистрирано отсъствие',
+    fromDate: 'От:',
+    toDate: 'До:',
+    activeInjury: 'Активна',
+    posGK: 'Вратар (GK)',
+    posDF: 'Защитник (DF)',
+    posMF: 'Полузащитник (MF)',
+    posFW: 'Нападател (FW)',
   },
   en: {
     home: 'Home',
     back: '← Back',
     searchPlaceholder: '🔍 Search any player by name...',
+    searchingGlobal: 'Searching global player database...',
+    noPlayersFound: 'No players found for',
+    injuredBadge: '🏥 Injured / Sidelined',
     nationality: 'Nationality',
     age: 'Age',
     yearsSuffix: 'y',
@@ -228,20 +347,82 @@ const PLAYER_DICT: Record<
     goalsAssists: 'GOALS / ASSISTS',
     shotsOnTarget: 'SHOTS (ON TARGET)',
     keyPasses: 'KEY PASSES',
+    penScored: 'Penalties',
+    dribblesSub: 'Dribbles',
+    duelsSub: 'Duels',
     tabStats: 'Competition Stats',
     tabTransfers: 'Transfer History',
     tabTrophies: 'Trophies & Honours',
     tabSidelined: 'Injuries & Sidelined',
     seasonLabel: 'Season:',
     currentSeason: 'Current',
+    loadingDossier: 'Loading official dossier, season statistics, transfers and trophies for',
+    errorSearchHint: 'Use the search bar in the top right to search for any player by name.',
+    seasonStatsTitle: 'Seasonal Statistics by League & Competition',
+    seasonStatsSub: 'Click on any competition or club to open its official profile',
+    noStatsForSeason: 'No recorded statistics for the selected season. Choose another season from the top-right buttons (e.g. 2024/25 or 2023/24).',
+    thTournament: 'COMPETITION',
+    thClub: 'CLUB',
+    thMatches: 'APPS (START)',
+    thMinutes: 'MINUTES',
+    thGoals: 'GOALS',
+    thAssists: 'ASSISTS',
+    thShots: 'SHOTS (ON)',
+    thKeyPasses: 'KEY PASSES',
+    thDribbles: 'DRIBBLES',
+    thDuels: 'DUELS',
+    thCards: 'CARDS',
+    thRating: 'RATING',
+    cardAttackTitle: '⚽ Attacking & Finishing',
+    rowGoalsScored: 'Goals Scored',
+    rowGoalAssists: 'Goal Assists',
+    rowShotsTotalOn: 'Total Shots / Shots on Target',
+    rowShotAccuracy: 'Shot Accuracy',
+    rowPenaltiesScoredMissed: 'Penalties (Scored / Missed)',
+    cardPlaymakingTitle: '🎯 Playmaking, Passing & Dribbles',
+    rowTotalPasses: 'Total Passes',
+    rowKeyPassesChances: 'Key Passes (Chances Created)',
+    rowDribblesSuccessAtt: 'Successful Dribbles / Attempts',
+    rowDribbleSuccessRate: 'Dribble Success Rate',
+    rowFoulsDrawn: 'Fouls Drawn',
+    cardDefenseTitle: '🛡️ Defending, Duels & Discipline',
+    rowTacklesTotal: 'Tackles Won',
+    rowInterceptions: 'Interceptions',
+    rowDuelsWon: 'Duels Won',
+    rowFoulsCommitted: 'Fouls Committed',
+    rowYellowRedCards: 'Yellow / Red Cards',
+    transfersTitle: 'Complete Transfer History',
+    transfersSub: 'All official transfers and loan moves in the player career (click any club to view its profile)',
+    noTransfers: 'No recorded transfers for this player.',
+    fromClub: 'FROM CLUB',
+    toClub: 'TO CLUB',
+    transferDefault: 'Transfer',
+    trophiesTitle: 'Trophies & Career Honours',
+    trophiesSub: 'All championship titles, domestic cups and finals in the player career',
+    noTrophies: 'No recorded trophies or finals for this player.',
+    championBadge: 'Winner',
+    sidelinedTitle: 'Injury & Suspension History',
+    sidelinedSub: 'Chronological archive of all recorded injuries, illnesses and suspensions',
+    noSidelined: 'No recorded injuries or suspensions for this player.',
+    officialAbsence: 'Officially recorded absence',
+    fromDate: 'From:',
+    toDate: 'To:',
+    activeInjury: 'Active',
+    posGK: 'Goalkeeper (GK)',
+    posDF: 'Defender (DF)',
+    posMF: 'Midfielder (MF)',
+    posFW: 'Forward (FW)',
   },
   es: {
     home: 'Inicio',
     back: '← Volver',
     searchPlaceholder: '🔍 Buscar cualquier jugador...',
+    searchingGlobal: 'Buscando en la base global de jugadores...',
+    noPlayersFound: 'No se encontraron jugadores para',
+    injuredBadge: '🏥 Lesionado / Baja',
     nationality: 'Nacionalidad',
     age: 'Edad',
-    yearsSuffix: 'a.',
+    yearsSuffix: 'años',
     birthPlace: 'Lugar de nacimiento',
     height: 'Altura',
     weight: 'Peso',
@@ -250,17 +431,79 @@ const PLAYER_DICT: Record<
     goalsAssists: 'GOLES / ASISTENCIAS',
     shotsOnTarget: 'TIROS (A PUERTA)',
     keyPasses: 'PASES CLAVE',
+    penScored: 'Penaltis',
+    dribblesSub: 'Regates',
+    duelsSub: 'Duelos',
     tabStats: 'Estadísticas por Torneo',
     tabTransfers: 'Historial de Fichajes',
     tabTrophies: 'Trofeos y Palmarés',
     tabSidelined: 'Lesiones y Bajas',
     seasonLabel: 'Temporada:',
     currentSeason: 'Actual',
+    loadingDossier: 'Cargando perfil completo, estadísticas, fichajes y trofeos de',
+    errorSearchHint: 'Puedes usar el buscador arriba a la derecha para buscar al jugador por su nombre.',
+    seasonStatsTitle: 'Estadísticas de la Temporada por Competición',
+    seasonStatsSub: 'Haz clic en cualquier torneo o club para abrir su perfil oficial',
+    noStatsForSeason: 'No hay estadísticas registradas para la temporada seleccionada. Elige otra temporada arriba a la derecha.',
+    thTournament: 'TORNEO',
+    thClub: 'CLUB',
+    thMatches: 'PART. (TIT.)',
+    thMinutes: 'MINUTOS',
+    thGoals: 'GOLES',
+    thAssists: 'ASIST.',
+    thShots: 'TIROS (PUERTA)',
+    thKeyPasses: 'PASES CLAVE',
+    thDribbles: 'REGATES',
+    thDuels: 'DUELOS',
+    thCards: 'TARJETAS',
+    thRating: 'RATING',
+    cardAttackTitle: '⚽ Ataque y Definición',
+    rowGoalsScored: 'Goles Marcados',
+    rowGoalAssists: 'Asistencias de Gol',
+    rowShotsTotalOn: 'Tiros Totales / A Puerta',
+    rowShotAccuracy: 'Precisión de Tiro',
+    rowPenaltiesScoredMissed: 'Penaltis (Anotados / Fallados)',
+    cardPlaymakingTitle: '🎯 Creación, Pases y Regates',
+    rowTotalPasses: 'Pases Totales',
+    rowKeyPassesChances: 'Pases Clave (Ocasiones)',
+    rowDribblesSuccessAtt: 'Regates Exitosos / Intentos',
+    rowDribbleSuccessRate: 'Éxito en Regates',
+    rowFoulsDrawn: 'Faltas Recibidas',
+    cardDefenseTitle: '🛡️ Defensa, Duelos y Disciplina',
+    rowTacklesTotal: 'Entradas Ganadas',
+    rowInterceptions: 'Intercepciones',
+    rowDuelsWon: 'Duelos Ganados',
+    rowFoulsCommitted: 'Faltas Cometidas',
+    rowYellowRedCards: 'Tarjetas Amarillas / Rojas',
+    transfersTitle: 'Historial Completo de Fichajes',
+    transfersSub: 'Todos los traspasos y cesiones oficiales en la carrera del jugador',
+    noTransfers: 'No hay traspasos registrados para este jugador.',
+    fromClub: 'CLUB ORIGEN',
+    toClub: 'CLUB DESTINO',
+    transferDefault: 'Traspaso',
+    trophiesTitle: 'Trofeos y Palmarés',
+    trophiesSub: 'Todos los títulos de liga, copas y finales en la carrera del jugador',
+    noTrophies: 'No hay trofeos registrados para este jugador.',
+    championBadge: 'Campeón',
+    sidelinedTitle: 'Historial de Lesiones y Sanciones',
+    sidelinedSub: 'Archivo cronológico de todas las lesiones, bajas y sanciones',
+    noSidelined: 'No hay lesiones registradas para este jugador.',
+    officialAbsence: 'Ausencia oficial registrada',
+    fromDate: 'Desde:',
+    toDate: 'Hasta:',
+    activeInjury: 'Activa',
+    posGK: 'Portero (GK)',
+    posDF: 'Defensa (DF)',
+    posMF: 'Centrocampista (MF)',
+    posFW: 'Delantero (FW)',
   },
   de: {
     home: 'Start',
     back: '← Zurück',
     searchPlaceholder: '🔍 Spieler nach Namen suchen...',
+    searchingGlobal: 'Suche in der globalen Spielerdatenbank...',
+    noPlayersFound: 'Keine Spieler gefunden für',
+    injuredBadge: '🏥 Verletzt / Ausfall',
     nationality: 'Nationalität',
     age: 'Alter',
     yearsSuffix: 'J.',
@@ -272,20 +515,82 @@ const PLAYER_DICT: Record<
     goalsAssists: 'TORE / VORLAGEN',
     shotsOnTarget: 'SCHÜSSE (AUFS TOR)',
     keyPasses: 'SCHLÜSSELPÄSSE',
+    penScored: 'Elfmeter',
+    dribblesSub: 'Dribblings',
+    duelsSub: 'Zweikämpfe',
     tabStats: 'Wettbewerbs-Statistik',
     tabTransfers: 'Transferhistorie',
     tabTrophies: 'Titel & Erfolge',
     tabSidelined: 'Verletzungen',
     seasonLabel: 'Saison:',
     currentSeason: 'Aktuell',
+    loadingDossier: 'Lade Spielerprofil, Saisonstatistiken, Transfers und Titel für',
+    errorSearchHint: 'Nutzen Sie das Suchfeld oben rechts, um nach einem Spieler zu suchen.',
+    seasonStatsTitle: 'Saisonstatistik nach Liga & Wettbewerb',
+    seasonStatsSub: 'Klicken Sie auf einen Wettbewerb oder Verein, um das offizielle Profil zu öffnen',
+    noStatsForSeason: 'Keine Statistiken für die gewählte Saison vorhanden. Wählen Sie oben rechts eine andere Saison (z.B. 2024/25).',
+    thTournament: 'WETTBEWERB',
+    thClub: 'VEREIN',
+    thMatches: 'SPIELE (START)',
+    thMinutes: 'MINUTEN',
+    thGoals: 'TORE',
+    thAssists: 'VORL.',
+    thShots: 'SCHÜSSE (TOR)',
+    thKeyPasses: 'KEY-PÄSSE',
+    thDribbles: 'DRIBBLINGS',
+    thDuels: 'ZWEIKÄMPFE',
+    thCards: 'KARTEN',
+    thRating: 'RATING',
+    cardAttackTitle: '⚽ Angriff & Abschluss',
+    rowGoalsScored: 'Erzielte Tore',
+    rowGoalAssists: 'Torvorlagen',
+    rowShotsTotalOn: 'Schüsse Gesamt / Aufs Tor',
+    rowShotAccuracy: 'Schussgenauigkeit',
+    rowPenaltiesScoredMissed: 'Elfmeter (Verwandelt / Verschossen)',
+    cardPlaymakingTitle: '🎯 Spielaufbau, Pässe & Dribblings',
+    rowTotalPasses: 'Pässe Gesamt',
+    rowKeyPassesChances: 'Schlüsselpässe (Torvorbereitungen)',
+    rowDribblesSuccessAtt: 'Erfolgreiche Dribblings / Versuche',
+    rowDribbleSuccessRate: 'Dribbling-Erfolgsquote',
+    rowFoulsDrawn: 'Gezogene Fouls',
+    cardDefenseTitle: '🛡️ Defensive, Zweikämpfe & Disziplin',
+    rowTacklesTotal: 'Tacklings',
+    rowInterceptions: 'Abgefangene Bälle',
+    rowDuelsWon: 'Gewonnene Zweikämpfe',
+    rowFoulsCommitted: 'Begangene Fouls',
+    rowYellowRedCards: 'Gelbe / Rote Karten',
+    transfersTitle: 'Komplette Transferhistorie',
+    transfersSub: 'Alle offiziellen Transfers und Leihen in der Spielerkarriere',
+    noTransfers: 'Keine registrierten Transfers für diesen Spieler.',
+    fromClub: 'ABGEBENDER KLUB',
+    toClub: 'NEUER KLUB',
+    transferDefault: 'Transfer',
+    trophiesTitle: 'Titel & Erfolge',
+    trophiesSub: 'Alle Meisterschaften, Pokalsiege und Finals in der Karriere',
+    noTrophies: 'Keine registrierten Titel für diesen Spieler.',
+    championBadge: 'Sieger',
+    sidelinedTitle: 'Verletzungs- & Sperrenhistorie',
+    sidelinedSub: 'Chronologisches Archiv aller Verletzungen und Sperren',
+    noSidelined: 'Keine registrierten Verletzungen für diesen Spieler.',
+    officialAbsence: 'Offiziell registrierter Ausfall',
+    fromDate: 'Von:',
+    toDate: 'Bis:',
+    activeInjury: 'Aktiv',
+    posGK: 'Torwart (GK)',
+    posDF: 'Verteidiger (DF)',
+    posMF: 'Mittelfeld (MF)',
+    posFW: 'Stürmer (FW)',
   },
   it: {
     home: 'Home',
     back: '← Indietro',
     searchPlaceholder: '🔍 Cerca qualsiasi giocatore...',
+    searchingGlobal: 'Ricerca nel database globale giocatori...',
+    noPlayersFound: 'Nessun giocatore trovato per',
+    injuredBadge: '🏥 Infortunato / Indisponibile',
     nationality: 'Nazionalità',
     age: 'Età',
-    yearsSuffix: 'a.',
+    yearsSuffix: 'anni',
     birthPlace: 'Luogo di nascita',
     height: 'Altezza',
     weight: 'Peso',
@@ -294,20 +599,82 @@ const PLAYER_DICT: Record<
     goalsAssists: 'GOL / ASSIST',
     shotsOnTarget: 'TIRI (IN PORTA)',
     keyPasses: 'PASSAGGI CHIAVE',
+    penScored: 'Rigori',
+    dribblesSub: 'Dribbling',
+    duelsSub: 'Duelli',
     tabStats: 'Statistiche per Torneo',
     tabTransfers: 'Storico Trasferimenti',
     tabTrophies: 'Trofei e Palmarès',
     tabSidelined: 'Infortuni e Assenze',
     seasonLabel: 'Stagione:',
     currentSeason: 'Attuale',
+    loadingDossier: 'Caricamento profilo completo, statistiche, trasferimenti e trofei per',
+    errorSearchHint: 'Usa la barra di ricerca in alto a destra per cercare qualsiasi giocatore.',
+    seasonStatsTitle: 'Statistiche Stagionali per Campionato e Coppa',
+    seasonStatsSub: 'Clicca su un torneo o una squadra per aprire il profilo ufficiale',
+    noStatsForSeason: 'Nessuna statistica registrata per la stagione selezionata. Scegli un’altra stagione in alto a destra.',
+    thTournament: 'TORNEO',
+    thClub: 'SQUADRA',
+    thMatches: 'PRES. (TIT.)',
+    thMinutes: 'MINUTI',
+    thGoals: 'GOL',
+    thAssists: 'ASSIST',
+    thShots: 'TIRI (PORTA)',
+    thKeyPasses: 'PASS. CHIAVE',
+    thDribbles: 'DRIBBLING',
+    thDuels: 'DUELLI',
+    thCards: 'CARTELLINI',
+    thRating: 'RATING',
+    cardAttackTitle: '⚽ Attacco e Finalizzazione',
+    rowGoalsScored: 'Gol Segnati',
+    rowGoalAssists: 'Assist',
+    rowShotsTotalOn: 'Tiri Totali / In Porta',
+    rowShotAccuracy: 'Precisione Tiri',
+    rowPenaltiesScoredMissed: 'Rigori (Segnati / Sbagliati)',
+    cardPlaymakingTitle: '🎯 Regia, Passaggi e Dribbling',
+    rowTotalPasses: 'Passaggi Totali',
+    rowKeyPassesChances: 'Passaggi Chiave (Occasioni)',
+    rowDribblesSuccessAtt: 'Dribbling Riusciti / Tentati',
+    rowDribbleSuccessRate: '% Successo Dribbling',
+    rowFoulsDrawn: 'Falli Subiti',
+    cardDefenseTitle: '🛡️ Difesa, Duelli e Disciplina',
+    rowTacklesTotal: 'Contrasti Vinti',
+    rowInterceptions: 'Palloni Intercettati',
+    rowDuelsWon: 'Duelli Vinti',
+    rowFoulsCommitted: 'Falli Commessi',
+    rowYellowRedCards: 'Cartellini Gialli / Rossi',
+    transfersTitle: 'Storico Completo Trasferimenti',
+    transfersSub: 'Tutti i trasferimenti ufficiali e i prestiti nella carriera del giocatore',
+    noTransfers: 'Nessun trasferimento registrato per questo giocatore.',
+    fromClub: 'DA SQUADRA',
+    toClub: 'A SQUADRA',
+    transferDefault: 'Trasferimento',
+    trophiesTitle: 'Trofei e Palmarès',
+    trophiesSub: 'Tutti i campionati, le coppe e le finali in carriera',
+    noTrophies: 'Nessun trofeo registrato per questo giocatore.',
+    championBadge: 'Vincitore',
+    sidelinedTitle: 'Storico Infortuni e Squalifiche',
+    sidelinedSub: 'Archivio cronologico di tutti gli infortuni e le squalifiche',
+    noSidelined: 'Nessun infortunio registrato per questo giocatore.',
+    officialAbsence: 'Assenza ufficiale registrata',
+    fromDate: 'Dal:',
+    toDate: 'Al:',
+    activeInjury: 'Attivo',
+    posGK: 'Portiere (GK)',
+    posDF: 'Difensore (DF)',
+    posMF: 'Centrocampista (MF)',
+    posFW: 'Attaccante (FW)',
   },
   pt: {
     home: 'Início',
     back: '← Voltar',
     searchPlaceholder: '🔍 Pesquisar qualquer jogador...',
+    searchingGlobal: 'Pesquisando no banco de dados global de jogadores...',
+    noPlayersFound: 'Nenhum jogador encontrado para',
+    injuredBadge: '🏥 Lesionado / Indisponível',
     nationality: 'Nacionalidade',
     age: 'Idade',
-    yearsSuffix: 'a.',
+    yearsSuffix: 'anos',
     birthPlace: 'Local de nascimento',
     height: 'Altura',
     weight: 'Peso',
@@ -316,17 +683,79 @@ const PLAYER_DICT: Record<
     goalsAssists: 'GOLS / ASSISTÊNCIAS',
     shotsOnTarget: 'CHUTES (NO GOL)',
     keyPasses: 'PASSES DECISIVOS',
+    penScored: 'Pênaltis',
+    dribblesSub: 'Dribles',
+    duelsSub: 'Duelos',
     tabStats: 'Estatísticas por Torneio',
     tabTransfers: 'Histórico de Transferências',
     tabTrophies: 'Troféus e Títulos',
     tabSidelined: 'Lesões e Ausências',
     seasonLabel: 'Temporada:',
     currentSeason: 'Atual',
+    loadingDossier: 'Carregando perfil completo, estatísticas, transferências e troféus de',
+    errorSearchHint: 'Use a busca no canto superior direito para procurar qualquer jogador.',
+    seasonStatsTitle: 'Estatísticas da Temporada por Campeonato e Copa',
+    seasonStatsSub: 'Clique em qualquer competição ou clube para abrir o perfil oficial',
+    noStatsForSeason: 'Nenhuma estatística registrada para a temporada selecionada. Escolha outra temporada acima à direita.',
+    thTournament: 'TORNEIO',
+    thClub: 'CLUBE',
+    thMatches: 'JOGOS (TIT.)',
+    thMinutes: 'MINUTOS',
+    thGoals: 'GOLS',
+    thAssists: 'ASSIST.',
+    thShots: 'CHUTES (GOL)',
+    thKeyPasses: 'PASSES DEC.',
+    thDribbles: 'DRIBLES',
+    thDuels: 'DUELOS',
+    thCards: 'CARTÕES',
+    thRating: 'NOTA',
+    cardAttackTitle: '⚽ Ataque e Finalização',
+    rowGoalsScored: 'Gols Marcados',
+    rowGoalAssists: 'Assistências',
+    rowShotsTotalOn: 'Finalizações Totais / No Gol',
+    rowShotAccuracy: 'Precisão de Finalização',
+    rowPenaltiesScoredMissed: 'Pênaltis (Convertidos / Perdidos)',
+    cardPlaymakingTitle: '🎯 Criação, Passes e Dribles',
+    rowTotalPasses: 'Total de Passes',
+    rowKeyPassesChances: 'Passes Decisivos (Chances)',
+    rowDribblesSuccessAtt: 'Dribles Certos / Tentativas',
+    rowDribbleSuccessRate: '% Sucesso em Dribles',
+    rowFoulsDrawn: 'Faltas Sofridas',
+    cardDefenseTitle: '🛡️ Defesa, Duelos e Disciplina',
+    rowTacklesTotal: 'Desarmes',
+    rowInterceptions: 'Interceptações',
+    rowDuelsWon: 'Duelos Ganhos',
+    rowFoulsCommitted: 'Faltas Cometidas',
+    rowYellowRedCards: 'Cartões Amarelos / Vermelhos',
+    transfersTitle: 'Histórico Completo de Transferências',
+    transfersSub: 'Todas as transferências oficiais e empréstimos na carreira do jogador',
+    noTransfers: 'Nenhuma transferência registrada para este jogador.',
+    fromClub: 'CLUBE ORIGEM',
+    toClub: 'CLUBE DESTINO',
+    transferDefault: 'Transferência',
+    trophiesTitle: 'Troféus e Títulos Conquistados',
+    trophiesSub: 'Todos os títulos de liga, copas e finais na carreira do jogador',
+    noTrophies: 'Nenhum troféu registrado para este jogador.',
+    championBadge: 'Campeão',
+    sidelinedTitle: 'Histórico de Lesões e Suspensões',
+    sidelinedSub: 'Arquivo cronológico de todas as lesões e suspensões',
+    noSidelined: 'Nenhuma lesão registrada para este jogador.',
+    officialAbsence: 'Ausência oficial registrada',
+    fromDate: 'De:',
+    toDate: 'Até:',
+    activeInjury: 'Ativa',
+    posGK: 'Goleiro (GK)',
+    posDF: 'Defensor (DF)',
+    posMF: 'Meio-campista (MF)',
+    posFW: 'Atacante (FW)',
   },
   fr: {
     home: 'Accueil',
     back: '← Retour',
     searchPlaceholder: '🔍 Rechercher un joueur...',
+    searchingGlobal: 'Recherche dans la base mondiale de joueurs...',
+    noPlayersFound: 'Aucun joueur trouvé pour',
+    injuredBadge: '🏥 Blessé / Indisponible',
     nationality: 'Nationalité',
     age: 'Âge',
     yearsSuffix: 'ans',
@@ -338,20 +767,82 @@ const PLAYER_DICT: Record<
     goalsAssists: 'BUTS / PASSES DÉC.',
     shotsOnTarget: 'TIRS (CADRÉS)',
     keyPasses: 'PASSES CLÉS',
+    penScored: 'Penaltys',
+    dribblesSub: 'Dribbles',
+    duelsSub: 'Duels',
     tabStats: 'Stats par Compétition',
     tabTransfers: 'Historique des Transferts',
     tabTrophies: 'Trophées et Palmarès',
     tabSidelined: 'Blessures et Absences',
     seasonLabel: 'Saison :',
     currentSeason: 'Actuelle',
+    loadingDossier: 'Chargement du profil officiel, des statistiques, transferts et trophées de',
+    errorSearchHint: 'Utilisez la barre de recherche en haut à droite pour chercher un joueur par son nom.',
+    seasonStatsTitle: 'Statistiques Saisonnières par Championnat et Coupe',
+    seasonStatsSub: 'Cliquez sur une compétition ou un club pour ouvrir son profil officiel',
+    noStatsForSeason: 'Aucune statistique enregistrée pour la saison sélectionnée. Choisissez une autre saison en haut à droite (ex. 2024/25).',
+    thTournament: 'COMPÉTITION',
+    thClub: 'CLUB',
+    thMatches: 'MATCHS (TIT.)',
+    thMinutes: 'MINUTES',
+    thGoals: 'BUTS',
+    thAssists: 'PASSES D.',
+    thShots: 'TIRS (CADRÉS)',
+    thKeyPasses: 'PASSES CLÉS',
+    thDribbles: 'DRIBBLES',
+    thDuels: 'DUELS',
+    thCards: 'CARTONS',
+    thRating: 'NOTE',
+    cardAttackTitle: '⚽ Attaque & Finition',
+    rowGoalsScored: 'Buts Marqués',
+    rowGoalAssists: 'Passes Décisives',
+    rowShotsTotalOn: 'Tirs Totaux / Tirs Cadrés',
+    rowShotAccuracy: 'Précision des Tirs',
+    rowPenaltiesScoredMissed: 'Penaltys (Marqués / Manqués)',
+    cardPlaymakingTitle: '🎯 Création, Passes & Dribbles',
+    rowTotalPasses: 'Passes Totales',
+    rowKeyPassesChances: 'Passes Clés (Occasions Créées)',
+    rowDribblesSuccessAtt: 'Dribbles Réussis / Tentés',
+    rowDribbleSuccessRate: '% de Réussite aux Dribbles',
+    rowFoulsDrawn: 'Fautes Subies',
+    cardDefenseTitle: '🛡️ Défense, Duels & Discipline',
+    rowTacklesTotal: 'Tacles Réussis',
+    rowInterceptions: 'Interceptions',
+    rowDuelsWon: 'Duels Gagnés',
+    rowFoulsCommitted: 'Fautes Commises',
+    rowYellowRedCards: 'Cartons Jaunes / Rouges',
+    transfersTitle: 'Historique Complet des Transferts',
+    transfersSub: 'Tous les transferts officiels et prêts dans la carrière du joueur (cliquez sur un club pour voir son profil)',
+    noTransfers: 'Aucun transfert enregistré pour ce joueur.',
+    fromClub: 'CLUB DÉPART',
+    toClub: 'CLUB ARRIVÉE',
+    transferDefault: 'Transfert',
+    trophiesTitle: 'Trophées et Palmarès',
+    trophiesSub: 'Tous les titres de champion, coupes et finales dans la carrière du joueur',
+    noTrophies: 'Aucun trophée enregistré pour ce joueur.',
+    championBadge: 'Vainqueur',
+    sidelinedTitle: 'Historique des Blessures et Suspensions',
+    sidelinedSub: 'Archive chronologique de toutes les blessures et suspensions',
+    noSidelined: 'Aucune blessure ou suspension enregistrée pour ce joueur.',
+    officialAbsence: 'Absence officiellement enregistrée',
+    fromDate: 'Du :',
+    toDate: 'Au :',
+    activeInjury: 'Active',
+    posGK: 'Gardien (GK)',
+    posDF: 'Défenseur (DF)',
+    posMF: 'Milieu (MF)',
+    posFW: 'Attaquant (FW)',
   },
   tr: {
     home: 'Ana Sayfa',
     back: '← Geri',
     searchPlaceholder: '🔍 Oyuncu adına göre ara...',
+    searchingGlobal: 'Küresel oyuncu veritabanında aranıyor...',
+    noPlayersFound: 'Oyuncu bulunamadı:',
+    injuredBadge: '🏥 Sakat / Kadro Dışı',
     nationality: 'Uyruk',
     age: 'Yaş',
-    yearsSuffix: 'y.',
+    yearsSuffix: 'yaş',
     birthPlace: 'Doğum Yeri',
     height: 'Boy',
     weight: 'Kilo',
@@ -360,17 +851,79 @@ const PLAYER_DICT: Record<
     goalsAssists: 'GOL / ASİST',
     shotsOnTarget: 'ŞUT (İSABETLİ)',
     keyPasses: 'KİLİT PAS',
+    penScored: 'Penaltı',
+    dribblesSub: 'Çalım',
+    duelsSub: 'İkili Mücadele',
     tabStats: 'Turnuva İstatistikleri',
     tabTransfers: 'Transfer Geçmişi',
     tabTrophies: 'Kupalar ve Başarılar',
     tabSidelined: 'Sakatlık Geçmişi',
     seasonLabel: 'Sezon:',
     currentSeason: 'Güncel',
+    loadingDossier: 'Oyuncu profili, sezon istatistikleri, transferler ve kupalar yükleniyor:',
+    errorSearchHint: 'Sağ üstteki arama kutusunu kullanarak oyuncuyu adıyla arayabilirsiniz.',
+    seasonStatsTitle: 'Lig ve Turnuvalara Göre Sezon İstatistikleri',
+    seasonStatsSub: 'Resmi profilini açmak için herhangi bir turnuvaya veya kulübe tıklayın',
+    noStatsForSeason: 'Seçilen sezon için kayıtlı istatistik bulunamadı. Sağ üstten başka bir sezon seçin (örn. 2024/25).',
+    thTournament: 'TURNUVA',
+    thClub: 'KULÜP',
+    thMatches: 'MAÇ (İLK 11)',
+    thMinutes: 'DAKİKA',
+    thGoals: 'GOL',
+    thAssists: 'ASİST',
+    thShots: 'ŞUT (İSABET)',
+    thKeyPasses: 'KİLİT PAS',
+    thDribbles: 'ÇALIM',
+    thDuels: 'İKİLİ MÜC.',
+    thCards: 'KARTLAR',
+    thRating: 'PUAN',
+    cardAttackTitle: '⚽ Hücum ve Bitiricilik',
+    rowGoalsScored: 'Atılan Goller',
+    rowGoalAssists: 'Asistler',
+    rowShotsTotalOn: 'Toplam Şut / İsabetli Şut',
+    rowShotAccuracy: 'Şut İsabet Oranı',
+    rowPenaltiesScoredMissed: 'Penaltılar (Atılan / Kaçan)',
+    cardPlaymakingTitle: '🎯 Oyun Kurma, Pas ve Çalım',
+    rowTotalPasses: 'Toplam Pas',
+    rowKeyPassesChances: 'Kilit Pas (Gol Pozisyonu)',
+    rowDribblesSuccessAtt: 'Başarılı Çalım / Deneme',
+    rowDribbleSuccessRate: 'Çalım Başarı Oranı',
+    rowFoulsDrawn: 'Kazanılan Faul',
+    cardDefenseTitle: '🛡️ Savunma, İkili Mücadele ve Disiplin',
+    rowTacklesTotal: 'Top Çalma',
+    rowInterceptions: 'Pas Arası',
+    rowDuelsWon: 'Kazanılan İkili Mücadele',
+    rowFoulsCommitted: 'Yapılan Faul',
+    rowYellowRedCards: 'Sarı / Kırmızı Kartlar',
+    transfersTitle: 'Tüm Transfer Geçmişi',
+    transfersSub: 'Oyuncunun kariyerindeki tüm resmi transferler ve kiralamalar',
+    noTransfers: 'Bu oyuncu için kayıtlı transfer bulunamadı.',
+    fromClub: 'ESKİ KULÜP',
+    toClub: 'YENİ KULÜP',
+    transferDefault: 'Transfer',
+    trophiesTitle: 'Kazanılan Kupalar ve Başarılar',
+    trophiesSub: 'Oyuncunun kariyerindeki tüm şampiyonluklar, kupalar ve finaller',
+    noTrophies: 'Bu oyuncu için kayıtlı kupa bulunamadı.',
+    championBadge: 'Şampiyon',
+    sidelinedTitle: 'Sakatlık ve Ceza Geçmişi',
+    sidelinedSub: 'Tüm sakatlıkların ve cezaların kronolojik arşivi',
+    noSidelined: 'Bu oyuncu için kayıtlı sakatlık bulunamadı.',
+    officialAbsence: 'Resmi kayıtlı eksiklik',
+    fromDate: 'Başlangıç:',
+    toDate: 'Bitiş:',
+    activeInjury: 'Aktif',
+    posGK: 'Kaleci (GK)',
+    posDF: 'Defans (DF)',
+    posMF: 'Orta Saha (MF)',
+    posFW: 'Forvet (FW)',
   },
   pl: {
     home: 'Start',
     back: '← Wstecz',
     searchPlaceholder: '🔍 Szukaj piłkarza po nazwisku...',
+    searchingGlobal: 'Wyszukiwanie w globalnej bazie piłkarzy...',
+    noPlayersFound: 'Nie znaleziono piłkarzy dla',
+    injuredBadge: '🏥 Kontuzjowany / Poza kadrą',
     nationality: 'Narodowość',
     age: 'Wiek',
     yearsSuffix: 'l.',
@@ -382,17 +935,79 @@ const PLAYER_DICT: Record<
     goalsAssists: 'GOLE / ASYSTY',
     shotsOnTarget: 'STRZAŁY (CELNE)',
     keyPasses: 'KLUCZOWE PODANIA',
+    penScored: 'Karne',
+    dribblesSub: 'Dryblingi',
+    duelsSub: 'Pojedynki',
     tabStats: 'Statystyki w Rozgrywkach',
     tabTransfers: 'Historia Transferów',
     tabTrophies: 'Trofea i Sukcesy',
     tabSidelined: 'Kontuzje i Absencje',
     seasonLabel: 'Sezon:',
     currentSeason: 'Aktualny',
+    loadingDossier: 'Ładowanie pełnego profilu, statystyk sezonowych, transferów i trofeów dla',
+    errorSearchHint: 'Użyj wyszukiwarki w prawym górnym rogu, aby wyszukać piłkarza po nazwisku.',
+    seasonStatsTitle: 'Statystyki Sezonowe według Lig i Rozgrywek',
+    seasonStatsSub: 'Kliknij na rozgrywki lub klub, aby otworzyć ich oficjalny profil',
+    noStatsForSeason: 'Brak zapisanych statystyk dla wybranego sezonu. Wybierz inny sezon z przycisków w prawym górnym rogu (np. 2024/25).',
+    thTournament: 'ROZGRYWKI',
+    thClub: 'KLUB',
+    thMatches: 'MECZE (1. SKŁ.)',
+    thMinutes: 'MINUTY',
+    thGoals: 'GOLE',
+    thAssists: 'ASYSTY',
+    thShots: 'STRZAŁY (CEL.)',
+    thKeyPasses: 'KLUCZ. POD.',
+    thDribbles: 'DRYBLINGI',
+    thDuels: 'POJEDYNKI',
+    thCards: 'KARTKI',
+    thRating: 'OCENA',
+    cardAttackTitle: '⚽ Atak i Wykończenie',
+    rowGoalsScored: 'Strzelone Gole',
+    rowGoalAssists: 'Asysty Bramkowe',
+    rowShotsTotalOn: 'Strzały Ogółem / Celne',
+    rowShotAccuracy: 'Celność Strzałów',
+    rowPenaltiesScoredMissed: 'Rzuty Karne (Trafione / Nietrafione)',
+    cardPlaymakingTitle: '🎯 Rozegranie, Podania i Drybling',
+    rowTotalPasses: 'Podania Ogółem',
+    rowKeyPassesChances: 'Kluczowe Podania (Okazje)',
+    rowDribblesSuccessAtt: 'Udane Dryblingi / Próby',
+    rowDribbleSuccessRate: 'Skuteczność Dryblingów',
+    rowFoulsDrawn: 'Wywalczone Faule',
+    cardDefenseTitle: '🛡️ Obrona, Pojedynki i Dyscyplina',
+    rowTacklesTotal: 'Odbiory Piłki',
+    rowInterceptions: 'Przechwyty',
+    rowDuelsWon: 'Wygrane Pojedynki',
+    rowFoulsCommitted: 'Popełnione Faule',
+    rowYellowRedCards: 'Żółte / Czerwone Kartki',
+    transfersTitle: 'Pełna Historia Transferów',
+    transfersSub: 'Wszystkie oficjalne transfery i wypożyczenia w karierze zawodnika (kliknij klub, aby otworzyć profil)',
+    noTransfers: 'Brak zarejestrowanych transferów dla tego zawodnika.',
+    fromClub: 'Z KLUBU',
+    toClub: 'DO KLUBU',
+    transferDefault: 'Transfer',
+    trophiesTitle: 'Zdobyte Trofea i Sukcesy',
+    trophiesSub: 'Wszystkie tytuły mistrzowskie, puchary i finały w karierze zawodnika',
+    noTrophies: 'Brak zarejestrowanych trofeów dla tego zawodnika.',
+    championBadge: 'Mistrz',
+    sidelinedTitle: 'Historia Kontuzji i Zawieszeń',
+    sidelinedSub: 'Chronologiczne archiwum wszystkich kontuzji i zawieszeń',
+    noSidelined: 'Brak zarejestrowanych kontuzji dla tego zawodnika.',
+    officialAbsence: 'Oficjalnie zarejestrowana absencja',
+    fromDate: 'Od:',
+    toDate: 'Do:',
+    activeInjury: 'Aktywna',
+    posGK: 'Bramkarz (GK)',
+    posDF: 'Obrońca (DF)',
+    posMF: 'Pomocnik (MF)',
+    posFW: 'Napastnik (FW)',
   },
   el: {
     home: 'Αρχική',
     back: '← Πίσω',
     searchPlaceholder: '🔍 Αναζήτηση παίκτη...',
+    searchingGlobal: 'Αναζήτηση στην παγκόσμια βάση παικτών...',
+    noPlayersFound: 'Δεν βρέθηκαν παίκτες για',
+    injuredBadge: '🏥 Τραυματίας / Εκτός',
     nationality: 'Εθνικότητα',
     age: 'Ηλικία',
     yearsSuffix: 'ετ.',
@@ -404,17 +1019,79 @@ const PLAYER_DICT: Record<
     goalsAssists: 'ΓΚΟΛ / ΑΣΙΣΤ',
     shotsOnTarget: 'ΣΟΥΤ (ΣΤΗΝ ΕΣΤΙΑ)',
     keyPasses: 'ΠΑΣΕΣ ΚΛΕΙΔΙΑ',
+    penScored: 'Πέναλτι',
+    dribblesSub: 'Ντρίμπλες',
+    duelsSub: 'Μονομαχίες',
     tabStats: 'Στατιστικά ανά Διοργάνωση',
     tabTransfers: 'Ιστορικό Μεταγραφών',
     tabTrophies: 'Τρόπαια & Διακρίσεις',
     tabSidelined: 'Τραυματισμοί',
     seasonLabel: 'Σεζόν:',
     currentSeason: 'Τρέχουσα',
+    loadingDossier: 'Φόρτωση πλήρους προφίλ, στατιστικών, μεταγραφών και τροπαίων για',
+    errorSearchHint: 'Χρησιμοποιήστε την αναζήτηση πάνω δεξιά για να βρείτε παίκτη με λατινικούς χαρακτήρες.',
+    seasonStatsTitle: 'Στατιστικά Σεζόν ανά Πρωτάθλημα & Διοργάνωση',
+    seasonStatsSub: 'Κάντε κλικ σε διοργάνωση ή ομάδα για να ανοίξετε το επίσημο προφίλ',
+    noStatsForSeason: 'Δεν υπάρχουν στατιστικά για την επιλεγμένη σεζόν. Επιλέξτε άλλη σεζόν πάνω δεξιά.',
+    thTournament: 'ΔΙΟΡΓΑΝΩΣΗ',
+    thClub: 'ΟΜΑΔΑ',
+    thMatches: 'ΑΓ. (ΒΑΣ.)',
+    thMinutes: 'ΛΕΠΤΑ',
+    thGoals: 'ΓΚΟΛ',
+    thAssists: 'ΑΣΙΣΤ',
+    thShots: 'ΣΟΥΤ (ΕΣΤΙΑ)',
+    thKeyPasses: 'ΠΑΣΕΣ ΚΛ.',
+    thDribbles: 'ΝΤΡΙΜΠΛΕΣ',
+    thDuels: 'ΜΟΝΟΜΑΧΙΕΣ',
+    thCards: 'ΚΑΡΤΕΣ',
+    thRating: 'ΒΑΘΜΟΣ',
+    cardAttackTitle: '⚽ Επίθεση & Εκτέλεση',
+    rowGoalsScored: 'Γκολ',
+    rowGoalAssists: 'Ασίστ',
+    rowShotsTotalOn: 'Συνολικά Σουτ / Στην Εστία',
+    rowShotAccuracy: 'Ευστοχία Σουτ',
+    rowPenaltiesScoredMissed: 'Πέναλτι (Εύστοχα / Άστοχα)',
+    cardPlaymakingTitle: '🎯 Δημιουργία, Πάσες & Ντρίμπλες',
+    rowTotalPasses: 'Συνολικές Πάσες',
+    rowKeyPassesChances: 'Πάσες Κλειδιά (Ευκαιρίες)',
+    rowDribblesSuccessAtt: 'Επιτυχημένες Ντρίμπλες / Προσπάθειες',
+    rowDribbleSuccessRate: '% Επιτυχίας Ντρίμπλας',
+    rowFoulsDrawn: 'Κερδισμένα Φάουλ',
+    cardDefenseTitle: '🛡️ Άμυνα, Μονομαχίες & Πειθαρχία',
+    rowTacklesTotal: 'Τάκλιν',
+    rowInterceptions: 'Κλεψίματα',
+    rowDuelsWon: 'Κερδισμένες Μονομαχίες',
+    rowFoulsCommitted: 'Φάουλ',
+    rowYellowRedCards: 'Κίτρινες / Κόκκινες Κάρτες',
+    transfersTitle: 'Πλήρες Ιστορικό Μεταγραφών',
+    transfersSub: 'Όλες οι επίσημες μεταγραφές και δανεισμοί στην καριέρα του παίκτη',
+    noTransfers: 'Δεν υπάρχουν καταγεγραμμένες μεταγραφές.',
+    fromClub: 'ΑΠΟ ΟΜΑΔΑ',
+    toClub: 'ΣΕ ΟΜΑΔΑ',
+    transferDefault: 'Μεταγραφή',
+    trophiesTitle: 'Τρόπαια & Διακρίσεις',
+    trophiesSub: 'Όλοι οι τίτλοι πρωταθλήματος, κύπελλα και τελικοί στην καριέρα του παίκτη',
+    noTrophies: 'Δεν υπάρχουν καταγεγραμμένα τρόπαια.',
+    championBadge: 'Πρωταθλητής',
+    sidelinedTitle: 'Ιστορικό Τραυματισμών & Απουσιών',
+    sidelinedSub: 'Χρονολογικό αρχείο όλων των τραυματισμών και τιμωριών',
+    noSidelined: 'Δεν υπάρχουν καταγεγραμμένοι τραυματισμοί.',
+    officialAbsence: 'Επίσημα καταγεγραμμένη απουσία',
+    fromDate: 'Από:',
+    toDate: 'Έως:',
+    activeInjury: 'Ενεργός',
+    posGK: 'Τερματοφύλακας (GK)',
+    posDF: 'Αμυντικός (DF)',
+    posMF: 'Μέσος (MF)',
+    posFW: 'Επιθετικός (FW)',
   },
   ro: {
     home: 'Acasă',
     back: '← Înapoi',
     searchPlaceholder: '🔍 Caută orice jucător...',
+    searchingGlobal: 'Se caută în baza globală de jucători...',
+    noPlayersFound: 'Niciun jucător găsit pentru',
+    injuredBadge: '🏥 Accidentat / Indisponibil',
     nationality: 'Naționalitate',
     age: 'Vârstă',
     yearsSuffix: 'ani',
@@ -426,17 +1103,79 @@ const PLAYER_DICT: Record<
     goalsAssists: 'GOLURI / PASE DEC.',
     shotsOnTarget: 'ȘUTURI (PE POARTĂ)',
     keyPasses: 'PASE CHEIE',
+    penScored: 'Penalty-uri',
+    dribblesSub: 'Driblinguri',
+    duelsSub: 'Dueluri',
     tabStats: 'Statistici pe Competiții',
     tabTransfers: 'Istoric Transferuri',
     tabTrophies: 'Trofee și Palmares',
     tabSidelined: 'Accidentări',
     seasonLabel: 'Sezon:',
     currentSeason: 'Actual',
+    loadingDossier: 'Se încarcă profilul oficial, statisticile, transferurile și trofeele pentru',
+    errorSearchHint: 'Folosește bara de căutare din dreapta sus pentru a căuta orice jucător.',
+    seasonStatsTitle: 'Statistici Sezoniere pe Ligi și Competiții',
+    seasonStatsSub: 'Apasă pe o competiție sau echipă pentru a deschide profilul oficial',
+    noStatsForSeason: 'Nu există statistici pentru sezonul selectat. Alege alt sezon din dreapta sus (ex. 2024/25).',
+    thTournament: 'COMPETIȚIE',
+    thClub: 'CLUB',
+    thMatches: 'MECIURI (TIT.)',
+    thMinutes: 'MINUTE',
+    thGoals: 'GOLURI',
+    thAssists: 'PASE D.',
+    thShots: 'ȘUTURI (POARTĂ)',
+    thKeyPasses: 'PASE CHEIE',
+    thDribbles: 'DRIBLINGURI',
+    thDuels: 'DUELURI',
+    thCards: 'CARTONAȘE',
+    thRating: 'NOTĂ',
+    cardAttackTitle: '⚽ Atac și Finalizare',
+    rowGoalsScored: 'Goluri Marcate',
+    rowGoalAssists: 'Pase de Gol',
+    rowShotsTotalOn: 'Șuturi Totale / Pe Poartă',
+    rowShotAccuracy: 'Precizia Șuturilor',
+    rowPenaltiesScoredMissed: 'Penalty-uri (Marcate / Ratate)',
+    cardPlaymakingTitle: '🎯 Creație, Pase și Dribling',
+    rowTotalPasses: 'Pase Totale',
+    rowKeyPassesChances: 'Pase Cheie (Ocazii Create)',
+    rowDribblesSuccessAtt: 'Driblinguri Reușite / Încercări',
+    rowDribbleSuccessRate: '% Reușită Dribling',
+    rowFoulsDrawn: 'Faulturi Obținute',
+    cardDefenseTitle: '🛡️ Apărare, Dueluri și Disciplină',
+    rowTacklesTotal: 'Deposedări',
+    rowInterceptions: 'Intercepții',
+    rowDuelsWon: 'Dueluri Câștigate',
+    rowFoulsCommitted: 'Faulturi Comise',
+    rowYellowRedCards: 'Cartonașe Galbene / Roșii',
+    transfersTitle: 'Istoric Complet al Transferurilor',
+    transfersSub: 'Toate transferurile oficiale și împrumuturile din cariera jucătorului',
+    noTransfers: 'Niciun transfer înregistrat pentru acest jucător.',
+    fromClub: 'DE LA CLUBUL',
+    toClub: 'LA CLUBUL',
+    transferDefault: 'Transfer',
+    trophiesTitle: 'Trofee și Palmares',
+    trophiesSub: 'Toate titlurile de campion, cupele și finalele din carieră',
+    noTrophies: 'Niciun trofeu înregistrat pentru acest jucător.',
+    championBadge: 'Campion',
+    sidelinedTitle: 'Istoric Accidentări și Suspendări',
+    sidelinedSub: 'Arhiva cronologică a tuturor accidentărilor și suspendărilor',
+    noSidelined: 'Nicio accidentare înregistrată pentru acest jucător.',
+    officialAbsence: 'Absență înregistrată oficial',
+    fromDate: 'De la:',
+    toDate: 'Până la:',
+    activeInjury: 'Activă',
+    posGK: 'Portar (GK)',
+    posDF: 'Fundaș (DF)',
+    posMF: 'Mijlocaș (MF)',
+    posFW: 'Atacant (FW)',
   },
   ru: {
     home: 'Главная',
     back: '← Назад',
     searchPlaceholder: '🔍 Поиск любого игрока по имени...',
+    searchingGlobal: 'Поиск в глобальной базе игроков...',
+    noPlayersFound: 'Игроки не найдены по запросу',
+    injuredBadge: '🏥 Травмирован / Вне заявки',
     nationality: 'Национальность',
     age: 'Возраст',
     yearsSuffix: 'л.',
@@ -448,24 +1187,82 @@ const PLAYER_DICT: Record<
     goalsAssists: 'ГОЛЫ / АССИСТЫ',
     shotsOnTarget: 'УДАРЫ (В СТВОР)',
     keyPasses: 'КЛЮЧЕВЫЕ ПАСЫ',
+    penScored: 'Пенальти',
+    dribblesSub: 'Дриблинг',
+    duelsSub: 'Единоборства',
     tabStats: 'Статистика по турнирам',
     tabTransfers: 'История трансферов',
     tabTrophies: 'Трофеи и награды',
     tabSidelined: 'Травмы и пропуски',
     seasonLabel: 'Сезон:',
     currentSeason: 'Текущий',
+    loadingDossier: 'Загрузка полного досье, сезонной статистики, трансферов и трофеев:',
+    errorSearchHint: 'Используйте поиск справа вверху, чтобы найти игрока по имени на латинице.',
+    seasonStatsTitle: 'Сезонная статистика по лигам и турнирам',
+    seasonStatsSub: 'Нажмите на турнир или клуб, чтобы открыть его официальный профиль',
+    noStatsForSeason: 'Нет статистики за выбранный сезон. Выберите другой сезон справа вверху (напр. 2024/25).',
+    thTournament: 'ТУРНИР',
+    thClub: 'КЛУБ',
+    thMatches: 'МАТЧИ (СТАРТ)',
+    thMinutes: 'МИНУТЫ',
+    thGoals: 'ГОЛЫ',
+    thAssists: 'АССИСТЫ',
+    thShots: 'УДАРЫ (СТВОР)',
+    thKeyPasses: 'КЛЮЧ. ПАСЫ',
+    thDribbles: 'ДРИБЛИНГ',
+    thDuels: 'ДУЭЛИ',
+    thCards: 'КАРТОЧКИ',
+    thRating: 'РЕЙТИНГ',
+    cardAttackTitle: '⚽ Атака и Завершение',
+    rowGoalsScored: 'Забитые голы',
+    rowGoalAssists: 'Голевые передачи',
+    rowShotsTotalOn: 'Всего ударов / В створ',
+    rowShotAccuracy: 'Точность ударов',
+    rowPenaltiesScoredMissed: 'Пенальти (Забито / Не забито)',
+    cardPlaymakingTitle: '🎯 Созидание, Пасы и Дриблинг',
+    rowTotalPasses: 'Всего передач',
+    rowKeyPassesChances: 'Ключевые пасы (Голевые моменты)',
+    rowDribblesSuccessAtt: 'Успешный дриблинг / Попытки',
+    rowDribbleSuccessRate: '% Успешного дриблинга',
+    rowFoulsDrawn: 'Заработано фолов',
+    cardDefenseTitle: '🛡️ Защита, Единоборства и Дисциплина',
+    rowTacklesTotal: 'Отборы мяча',
+    rowInterceptions: 'Перехваты',
+    rowDuelsWon: 'Выигранные единоборства',
+    rowFoulsCommitted: 'Совершено фолов',
+    rowYellowRedCards: 'Желтые / Красные карточки',
+    transfersTitle: 'Полная история трансферов',
+    transfersSub: 'Все официальные переходы и аренды в карьере игрока (нажмите на клуб для просмотра профиля)',
+    noTransfers: 'Нет зарегистрированных трансферов для этого игрока.',
+    fromClub: 'ИЗ КЛУБА',
+    toClub: 'В КЛУБ',
+    transferDefault: 'Трансфер',
+    trophiesTitle: 'Трофеи и титулы',
+    trophiesSub: 'Все чемпионские титулы, кубки и финалы в карьере игрока',
+    noTrophies: 'Нет зарегистрированных трофеев для этого игрока.',
+    championBadge: 'Чемпион',
+    sidelinedTitle: 'История травм и дисквалификаций',
+    sidelinedSub: 'Хронологический архив всех травм, болезней и дисквалификаций',
+    noSidelined: 'Нет зарегистрированных травм для этого игрока.',
+    officialAbsence: 'Официально зарегистрированный пропуск',
+    fromDate: 'С:',
+    toDate: 'По:',
+    activeInjury: 'Активна',
+    posGK: 'Вратарь (GK)',
+    posDF: 'Защитник (DF)',
+    posMF: 'Полузащитник (MF)',
+    posFW: 'Нападающий (FW)',
   },
 };
 
-function formatDateBg(dateStr: string): string {
+function formatDateByLang(dateStr: string, lang: Language): string {
   if (!dateStr) return '—';
   const parsed = new Date(dateStr);
   if (Number.isNaN(parsed.getTime())) return dateStr;
-  return parsed.toLocaleDateString('bg-BG', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
+  const d = String(parsed.getDate()).padStart(2, '0');
+  const m = String(parsed.getMonth() + 1).padStart(2, '0');
+  const y = parsed.getFullYear();
+  return lang === 'bg' ? `${d}.${m}.${y} г.` : `${d}.${m}.${y}`;
 }
 
 function formatHeight(val?: string | null): string {
@@ -499,6 +1296,15 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
   const [searching, setSearching] = useState<boolean>(false);
   const [searchDropdownOpen, setSearchDropdownOpen] = useState<boolean>(false);
 
+  const translatePosition = (pos: string): string => {
+    const p = pos.toLowerCase();
+    if (p.includes('goal') || p === 'gk') return pt.posGK;
+    if (p.includes('def') || p === 'df') return pt.posDF;
+    if (p.includes('mid') || p === 'mf') return pt.posMF;
+    if (p.includes('att') || p.includes('forw') || p === 'fw') return pt.posFW;
+    return pos;
+  };
+
   useEffect(() => {
     let cancelled = false;
     const fetchPlayerIntel = async () => {
@@ -515,7 +1321,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
         const res = await fetch(`/api/football/player-intel?${params.toString()}`);
         if (!res.ok) {
           const errJson = await res.json().catch(() => ({}));
-          throw new Error(errJson.error || 'Неуспешно зареждане на профила на футболиста');
+          throw new Error(errJson.error || 'Failed to load player profile');
         }
         const data: PlayerIntelResponse = await res.json();
         if (!cancelled) {
@@ -523,7 +1329,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
         }
       } catch (err: any) {
         if (!cancelled) {
-          setErrorMsg(err?.message || 'Възникна грешка при зареждане на данните за футболиста.');
+          setErrorMsg(err?.message || 'Error loading player data.');
         }
       } finally {
         if (!cancelled) {
@@ -725,7 +1531,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                       textAlign: 'center',
                     }}
                   >
-                    Търсене в глобалната база от футболисти...
+                    {pt.searchingGlobal}
                   </div>
                 ) : searchResults.length === 0 ? (
                   <div
@@ -736,7 +1542,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                       textAlign: 'center',
                     }}
                   >
-                    Няма намерени футболисти за „{searchQuery}“ (пишете на латиница, напр. Saka, Haaland, Despodov)
+                    {pt.noPlayersFound} „{searchQuery}“ (Saka, Haaland, Despodov)
                   </div>
                 ) : (
                   searchResults.map((hit) => (
@@ -823,9 +1629,9 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                         </div>
                         <div style={{ fontSize: '11px', color: '#8f9cae' }}>
                           {[
-                            hit.position,
+                            hit.position ? translatePosition(hit.position) : '',
                             hit.nationality,
-                            hit.age ? `${hit.age} г.` : '',
+                            hit.age ? `${hit.age} ${pt.yearsSuffix}` : '',
                           ]
                             .filter(Boolean)
                             .join(' · ')}
@@ -961,7 +1767,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                     borderRadius: '6px',
                   }}
                 >
-                  {POSITION_BG_LABELS[displayPosition] || displayPosition}
+                  {translatePosition(displayPosition)}
                 </span>
               )}
 
@@ -981,7 +1787,6 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                     padding: '3px 9px',
                     borderRadius: '6px',
                   }}
-                  title="Среден официален рейтинг за сезона"
                 >
                   ★ {Number(totals.avgRating).toFixed(2)}
                 </span>
@@ -999,7 +1804,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                     borderRadius: '6px',
                   }}
                 >
-                  🏥 Контузен / Извън групата
+                  {pt.injuredBadge}
                 </span>
               )}
             </div>
@@ -1040,7 +1845,6 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                     fontWeight: 700,
                     color: '#ffffff',
                   }}
-                  title="Отвори профила на клуба"
                 >
                   {currentTeamLogo && (
                     <img
@@ -1077,7 +1881,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                   }}
                 >
                   🎂 {pt.age}: <strong style={{ color: '#ffffff' }}>{player.age} {pt.yearsSuffix}</strong>
-                  {player.birthDate ? ` (${formatDateBg(player.birthDate)})` : ''}
+                  {player.birthDate ? ` (${formatDateByLang(player.birthDate, language)})` : ''}
                 </span>
               )}
             </div>
@@ -1216,7 +2020,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                 <span style={{ color: '#38bdf8' }}>{totals.assists}</span>
               </div>
               <div style={{ fontSize: '11px', color: '#8f9cae', marginTop: '4px' }}>
-                Pen: {totals.penaltiesScored}
+                {pt.penScored}: {totals.penaltiesScored}
               </div>
             </div>
 
@@ -1246,7 +2050,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                 </span>
               </div>
               <div style={{ fontSize: '11px', color: '#8f9cae', marginTop: '4px' }}>
-                Dribbles: {totals.dribblesSuccess}/{totals.dribblesAttempts}
+                {pt.dribblesSub}: {totals.dribblesSuccess}/{totals.dribblesAttempts}
               </div>
             </div>
 
@@ -1273,7 +2077,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                 {totals.passesKey}
               </div>
               <div style={{ fontSize: '11px', color: '#8f9cae', marginTop: '4px' }}>
-                Duels: {totals.duelsWon}/{totals.duelsTotal}
+                {pt.duelsSub}: {totals.duelsWon}/{totals.duelsTotal}
               </div>
             </div>
           </div>
@@ -1384,7 +2188,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
             color: '#cbd5e1',
           }}
         >
-          Зареждане на пълно досие, сезонна статистика, трансфери и трофеи за{' '}
+          {pt.loadingDossier}{' '}
           <strong style={{ color: '#43f08a' }}>{displayName}</strong>...
         </div>
       )}
@@ -1404,7 +2208,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
             {errorMsg}
           </div>
           <div style={{ fontSize: '12px', color: '#cbd5e1' }}>
-            Можете да използвате търсачката горе вдясно, за да потърсите футболиста по официалното му име на латиница.
+            {pt.errorSearchHint}
           </div>
         </div>
       )}
@@ -1434,11 +2238,11 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
             >
               <div>
                 <div style={{ fontSize: '16px', fontWeight: 800, color: '#ffffff' }}>
-                  Сезонна статистика по първенства и турнири (
-                  {intel?.season ? `${intel.season}/${String(intel.season + 1).slice(-2)}` : 'Актуален'})
+                  {pt.seasonStatsTitle} (
+                  {intel?.season ? `${intel.season}/${String(intel.season + 1).slice(-2)}` : pt.currentSeason})
                 </div>
                 <div style={{ fontSize: '12px', color: '#8f9cae' }}>
-                  Кликни върху турнир или отбор, за да отвориш техния официален профил
+                  {pt.seasonStatsSub}
                 </div>
               </div>
             </div>
@@ -1452,7 +2256,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                   fontSize: '13px',
                 }}
               >
-                Няма записана статистика за избрания сезон. Избери друг сезон от бутоните горе вдясно (напр. 2024/25 или 2023/24).
+                {pt.noStatsForSeason}
               </div>
             ) : (
               <table
@@ -1471,18 +2275,18 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                       textAlign: 'left',
                     }}
                   >
-                    <th style={{ padding: '10px 8px' }}>ТУРНИР</th>
-                    <th style={{ padding: '10px 8px' }}>КЛУБ</th>
-                    <th style={{ padding: '10px 8px', textAlign: 'center' }}>МАЧОВЕ (ТИТ.)</th>
-                    <th style={{ padding: '10px 8px', textAlign: 'center' }}>МИНУТИ</th>
-                    <th style={{ padding: '10px 8px', textAlign: 'center' }}>ГОЛОВЕ</th>
-                    <th style={{ padding: '10px 8px', textAlign: 'center' }}>АСИСТ.</th>
-                    <th style={{ padding: '10px 8px', textAlign: 'center' }}>УДАРИ (ТОЧНИ)</th>
-                    <th style={{ padding: '10px 8px', textAlign: 'center' }}>КЛЮЧ. ПАСОВЕ</th>
-                    <th style={{ padding: '10px 8px', textAlign: 'center' }}>ДРИБЪЛИ</th>
-                    <th style={{ padding: '10px 8px', textAlign: 'center' }}>ЕДИНОБОРСТВА</th>
-                    <th style={{ padding: '10px 8px', textAlign: 'center' }}>КАРТОНИ</th>
-                    <th style={{ padding: '10px 8px', textAlign: 'center' }}>РЕЙТИНГ</th>
+                    <th style={{ padding: '10px 8px' }}>{pt.thTournament}</th>
+                    <th style={{ padding: '10px 8px' }}>{pt.thClub}</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'center' }}>{pt.thMatches}</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'center' }}>{pt.thMinutes}</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'center' }}>{pt.thGoals}</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'center' }}>{pt.thAssists}</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'center' }}>{pt.thShots}</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'center' }}>{pt.thKeyPasses}</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'center' }}>{pt.thDribbles}</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'center' }}>{pt.thDuels}</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'center' }}>{pt.thCards}</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'center' }}>{pt.thRating}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1516,7 +2320,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                             />
                           )}
                           <div>
-                            <div>{st.leagueName || 'Турнир'}</div>
+                            <div>{st.leagueName || '—'}</div>
                             {st.leagueCountry && (
                               <div style={{ fontSize: '10px', color: '#8f9cae', fontWeight: 500 }}>
                                 {st.leagueCountry}
@@ -1732,21 +2536,21 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                     marginBottom: '14px',
                   }}
                 >
-                  ⚽ Атака & Завършващ удар
+                  {pt.cardAttackTitle}
                 </div>
                 {[
-                  { label: 'Отбелязани голове', value: totals.goals },
-                  { label: 'Голови асистенции', value: totals.assists },
-                  { label: 'Общо удари / Точни удари', value: `${totals.shotsTotal} / ${totals.shotsOn}` },
+                  { label: pt.rowGoalsScored, value: totals.goals },
+                  { label: pt.rowGoalAssists, value: totals.assists },
+                  { label: pt.rowShotsTotalOn, value: `${totals.shotsTotal} / ${totals.shotsOn}` },
                   {
-                    label: 'Точност на ударите',
+                    label: pt.rowShotAccuracy,
                     value:
                       totals.shotsTotal > 0
                         ? `${Math.round((totals.shotsOn / totals.shotsTotal) * 100)}%`
                         : '0%',
                   },
                   {
-                    label: 'Дузпи (Вкарани / Пропуснати)',
+                    label: pt.rowPenaltiesScoredMissed,
                     value: `${totals.penaltiesScored} / ${totals.penaltiesMissed}`,
                   },
                 ].map((row, i) => (
@@ -1791,23 +2595,23 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                     marginBottom: '14px',
                   }}
                 >
-                  🎯 Креативност, Пасове & Дрибъл
+                  {pt.cardPlaymakingTitle}
                 </div>
                 {[
-                  { label: 'Общо пасове', value: totals.passesTotal.toLocaleString() },
-                  { label: 'Ключови пасове (Голови положения)', value: totals.passesKey },
+                  { label: pt.rowTotalPasses, value: totals.passesTotal.toLocaleString() },
+                  { label: pt.rowKeyPassesChances, value: totals.passesKey },
                   {
-                    label: 'Успешни дрибъли / Опити',
+                    label: pt.rowDribblesSuccessAtt,
                     value: `${totals.dribblesSuccess} / ${totals.dribblesAttempts}`,
                   },
                   {
-                    label: 'Успеваемост при дрибъл',
+                    label: pt.rowDribbleSuccessRate,
                     value:
                       totals.dribblesAttempts > 0
                         ? `${Math.round((totals.dribblesSuccess / totals.dribblesAttempts) * 100)}%`
                         : '0%',
                   },
-                  { label: 'Спечелени фалове', value: totals.foulsDrawn },
+                  { label: pt.rowFoulsDrawn, value: totals.foulsDrawn },
                 ].map((row, i) => (
                   <div
                     key={i}
@@ -1850,22 +2654,22 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                     marginBottom: '14px',
                   }}
                 >
-                  🛡️ Защита, Единоборства & Дисциплина
+                  {pt.cardDefenseTitle}
                 </div>
                 {[
-                  { label: 'Шпагати / Отнети топки', value: totals.tacklesTotal },
-                  { label: 'Пресечени пасове (Interceptions)', value: totals.interceptions },
+                  { label: pt.rowTacklesTotal, value: totals.tacklesTotal },
+                  { label: pt.rowInterceptions, value: totals.interceptions },
                   {
-                    label: 'Спечелени единоборства',
+                    label: pt.rowDuelsWon,
                     value: `${totals.duelsWon} / ${totals.duelsTotal} (${
                       totals.duelsTotal > 0
                         ? Math.round((totals.duelsWon / totals.duelsTotal) * 100)
                         : 0
                     }%)`,
                   },
-                  { label: 'Извършени нарушения', value: totals.foulsCommitted },
+                  { label: pt.rowFoulsCommitted, value: totals.foulsCommitted },
                   {
-                    label: 'Жълти / Червени картони',
+                    label: pt.rowYellowRedCards,
                     value: `${totals.yellowCards} 🟨 / ${totals.redCards} 🟥`,
                   },
                 ].map((row, i) => (
@@ -1909,10 +2713,10 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
         >
           <div style={{ marginBottom: '16px' }}>
             <div style={{ fontSize: '16px', fontWeight: 800, color: '#ffffff' }}>
-              Пълна трансферна история ({transfers.length})
+              {pt.transfersTitle} ({transfers.length})
             </div>
             <div style={{ fontSize: '12px', color: '#8f9cae' }}>
-              Всички официални трансфери и наеми в кариерата на футболиста (кликни върху отбор за неговия профил)
+              {pt.transfersSub}
             </div>
           </div>
 
@@ -1925,7 +2729,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                 fontSize: '13px',
               }}
             >
-              Няма регистрирани трансфери за този футболист.
+              {pt.noTransfers}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -1951,7 +2755,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                       fontWeight: 600,
                     }}
                   >
-                    📅 {formatDateBg(tr.date)}
+                    📅 {formatDateByLang(tr.date, language)}
                   </div>
 
                   {/* Team Out */}
@@ -1982,7 +2786,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                       />
                     )}
                     <div>
-                      <div style={{ fontSize: '10px', color: '#8f9cae' }}>ОТ КЛУБ</div>
+                      <div style={{ fontSize: '10px', color: '#8f9cae' }}>{pt.fromClub}</div>
                       <div
                         style={{
                           fontSize: '13px',
@@ -2034,7 +2838,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                       />
                     )}
                     <div>
-                      <div style={{ fontSize: '10px', color: '#8f9cae' }}>В КЛУБ</div>
+                      <div style={{ fontSize: '10px', color: '#8f9cae' }}>{pt.toClub}</div>
                       <div
                         style={{
                           fontSize: '13px',
@@ -2062,7 +2866,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                         border: '1px solid rgba(67,240,138,0.3)',
                       }}
                     >
-                      {tr.type || 'Трансфер'}
+                      {tr.type || pt.transferDefault}
                     </span>
                   </div>
                 </div>
@@ -2084,10 +2888,10 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
         >
           <div style={{ marginBottom: '16px' }}>
             <div style={{ fontSize: '16px', fontWeight: 800, color: '#ffffff' }}>
-              Спечелени трофеи и отличия ({trophies.length})
+              {pt.trophiesTitle} ({trophies.length})
             </div>
             <div style={{ fontSize: '12px', color: '#8f9cae' }}>
-              Всички шампионски титли, купи и финали в кариерата на футболиста
+              {pt.trophiesSub}
             </div>
           </div>
 
@@ -2100,7 +2904,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                 fontSize: '13px',
               }}
             >
-              Няма регистрирани трофеи и финали за този футболист.
+              {pt.noTrophies}
             </div>
           ) : (
             <div
@@ -2161,7 +2965,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      {isWinner ? 'Шампион' : tr.place}
+                      {isWinner ? pt.championBadge : tr.place}
                     </span>
                   </div>
                 );
@@ -2183,10 +2987,10 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
         >
           <div style={{ marginBottom: '16px' }}>
             <div style={{ fontSize: '16px', fontWeight: 800, color: '#ffffff' }}>
-              История на контузиите и наказанията ({sidelined.length})
+              {pt.sidelinedTitle} ({sidelined.length})
             </div>
             <div style={{ fontSize: '12px', color: '#8f9cae' }}>
-              Хронологичен архив на всички контузии, заболявания и дисциплинарни наказания
+              {pt.sidelinedSub}
             </div>
           </div>
 
@@ -2199,7 +3003,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                 fontSize: '13px',
               }}
             >
-              Няма регистрирани контузии или наказания за този футболист.
+              {pt.noSidelined}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -2231,7 +3035,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                         {sd.type}
                       </div>
                       <div style={{ fontSize: '11px', color: '#8f9cae' }}>
-                        Официално регистрирано отсъствие
+                        {pt.officialAbsence}
                       </div>
                     </div>
                   </div>
@@ -2247,13 +3051,13 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                     }}
                   >
                     <span>
-                      От: <strong style={{ color: '#ffffff' }}>{formatDateBg(sd.start)}</strong>
+                      {pt.fromDate} <strong style={{ color: '#ffffff' }}>{formatDateByLang(sd.start, language)}</strong>
                     </span>
                     <span>→</span>
                     <span>
-                      До:{' '}
+                      {pt.toDate}{' '}
                       <strong style={{ color: '#ffffff' }}>
-                        {sd.end ? formatDateBg(sd.end) : 'Активна'}
+                        {sd.end ? formatDateByLang(sd.end, language) : pt.activeInjury}
                       </strong>
                     </span>
                   </div>

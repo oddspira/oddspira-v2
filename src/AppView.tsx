@@ -281,9 +281,17 @@ export default function AppView() {
         },
         body: JSON.stringify({ bets }),
       }).catch(() => {});
-      showToast(`✓ Успешна регистрация! Добре дошли в Oddspira, ${user.name}!`);
+      showToast(
+        language === 'bg'
+          ? `✓ Успешна регистрация! Добре дошли в Oddspira, ${user.name}!`
+          : `✓ Welcome to Oddspira, ${user.name}!`
+      );
     } else {
-      showToast(`✓ Добре дошли отново, ${user.name}!`);
+      showToast(
+        language === 'bg'
+          ? `✓ Добре дошли отново, ${user.name}!`
+          : `✓ Welcome back, ${user.name}!`
+      );
     }
   };
 
@@ -291,7 +299,11 @@ export default function AppView() {
     localStorage.removeItem('oddspira_token');
     setAuthToken(null);
     setCurrentUser(null);
-    showToast('✓ Излязохте успешно от профила си.');
+    showToast(
+      language === 'bg'
+        ? '✓ Излязохте успешно от профила си.'
+        : '✓ Signed out successfully.'
+    );
   };
 
   const handleTabChange = (tab: ActiveTab) => {
@@ -330,22 +342,74 @@ export default function AppView() {
 
   // Dynamic Client-Side SEO & OpenGraph Meta Tag Updater
   useEffect(() => {
-    const seoTitles: Partial<Record<ActiveTab, string>> = {
-      home: 'Oddspira — Математически Спортен Анализ, +EV Скенер & Кели Калкулатор',
-      live: 'Мачове на Живо & +EV Коефициенти в Реално Време | Oddspira',
-      competitions: 'Футболни Първенства & xG Рейтинги на Отборите | Oddspira',
-      analysis: 'Интерактивен Център за Мач Анализ, Тактическо Игрище & 5D Радар | Oddspira',
-      bets: 'Моите Залози & Автоматизирано Управление на Банката | Oddspira',
-      tools: 'Калкулатори за Залози: Поасон, No-Vig, Критерий на Кели & Дъчинг | Oddspira',
-      learn: 'Quant Академия: Научи +EV, Модела на Поасон, Dixon-Coles & CLV | Oddspira',
+    const isBg = language === 'bg';
+    const isRu = language === 'ru';
+    const seoTitles: Partial<Record<ActiveTab, string>> = isBg
+      ? {
+          home: 'Oddspira — Математически Спортен Анализ, +EV Скенер & Кели Калкулатор',
+          live: 'Мачове на Живо & +EV Коефициенти в Реално Време | Oddspira',
+          competitions: 'Футболни Първенства & xG Рейтинги на Отборите | Oddspira',
+          analysis: 'Интерактивен Център за Мач Анализ, Тактическо Игрище & 5D Радар | Oddspira',
+          bets: 'Моите Залози & Автоматизирано Управление на Банката | Oddspira',
+          tools: 'Калкулатори за Залози: Поасон, No-Vig, Критерий на Кели & Дъчинг | Oddspira',
+          learn: 'Quant Академия: Научи +EV, Модела на Поасон, Dixon-Coles & CLV | Oddspira',
+        }
+      : isRu
+      ? {
+          home: 'Oddspira — Количественный спортивный анализ, +EV сканер & Калькулятор Келли',
+          live: 'Лайв-матчи & +EV коэффициенты в реальном времени | Oddspira',
+          competitions: 'Футбольные лиги, таблицы & xG рейтинги | Oddspira',
+          analysis: 'Центр анализа матчей, Тактическое поле & 5D Радар | Oddspira',
+          bets: 'Мои ставки & Управление банком | Oddspira',
+          tools: 'Калькуляторы ставок: Пуассон, No-Vig, Критерий Келли & Датчинг | Oddspira',
+          learn: 'Quant Академия: +EV, модель Пуассона, Dixon-Coles & CLV | Oddspira',
+        }
+      : {
+          home: 'Oddspira — Quantitative Sports Analytics, +EV Scanner & Kelly Calculator',
+          live: 'Live Matches & Real-Time +EV Odds | Oddspira',
+          competitions: 'Football Leagues, Standings & Team xG Ratings | Oddspira',
+          analysis: 'Interactive Match Analysis Hub, Tactical Pitch & 5D Radar | Oddspira',
+          bets: 'My Bets & Automated Bankroll Tracker | Oddspira',
+          tools: 'Betting Calculators: Poisson, No-Vig, Kelly Criterion & Dutching | Oddspira',
+          learn: 'Quant Academy: Master +EV, Poisson Model, Dixon-Coles & CLV | Oddspira',
+        };
+
+    const playerSuffix: Record<Language, string> = {
+      bg: 'Официален Профил, Сезонна Статистика, Трансфери & Трофеи',
+      en: 'Official Profile, Season Stats, Transfers & Trophies',
+      es: 'Perfil Oficial, Estadísticas, Fichajes y Trofeos',
+      de: 'Offizielles Profil, Saisonstatistik, Transfers & Titel',
+      it: 'Profilo Ufficiale, Statistiche, Trasferimenti e Trofei',
+      pt: 'Perfil Oficial, Estatísticas, Transferências e Troféus',
+      fr: 'Profil Officiel, Statistiques, Transferts et Trophées',
+      tr: 'Resmi Profil, Sezon İstatistikleri, Transferler ve Kupalar',
+      pl: 'Oficjalny Profil, Statystyki Sezonowe, Transfery i Trofea',
+      el: 'Επίσημο Προφίλ, Στατιστικά, Μεταγραφές & Τρόπαια',
+      ro: 'Profil Oficial, Statistici, Transferuri și Trofee',
+      ru: 'Официальный профиль, статистика, трансферы и трофеи',
+    };
+
+    const teamSuffix: Record<Language, string> = {
+      bg: 'Официален Профил, Класиране, Играчи & Статистика',
+      en: 'Official Club Profile, Standings, Squad & Stats',
+      es: 'Perfil Oficial del Club, Clasificación y Plantilla',
+      de: 'Offizielles Vereinsprofil, Tabelle, Kader & Statistik',
+      it: 'Profilo Ufficiale Club, Classifica, Rosa e Statistiche',
+      pt: 'Perfil Oficial do Clube, Classificação e Elenco',
+      fr: 'Profil Officiel du Club, Classement, Effectif et Stats',
+      tr: 'Resmi Kulüp Profili, Puan Durumu, Kadro ve İstatistikler',
+      pl: 'Oficjalny Profil Klubu, Tabela, Kadra i Statystyki',
+      el: 'Επίσημο Προφίλ Ομάδας, Βαθμολογία & Ρόστερ',
+      ro: 'Profil Oficial Club, Clasament, Lot și Statistici',
+      ru: 'Официальный профиль клуба, таблица, состав и статистика',
     };
 
     const nextTitle = selectedPlayer
-      ? `${selectedPlayer.playerName} — Официален Профил, Сезонна Статистика, Трансфери & Трофеи | Oddspira`
+      ? `${selectedPlayer.playerName} — ${playerSuffix[language] || playerSuffix.en} | Oddspira`
       : selectedTeam
-      ? `${selectedTeam.teamName} — Официален Профил, Класиране, Играчи & Статистика | Oddspira`
+      ? `${selectedTeam.teamName} — ${teamSuffix[language] || teamSuffix.en} | Oddspira`
       : activeDetailMatch
-      ? `${activeDetailMatch.homeTeam} vs ${activeDetailMatch.awayTeam} — Математически +EV Анализ & Поасон Прогноза | Oddspira`
+      ? `${activeDetailMatch.homeTeam} vs ${activeDetailMatch.awayTeam} — +EV & Poisson Analysis | Oddspira`
       : seoTitles[activeTab] || seoTitles.home!;
 
     document.title = nextTitle;
@@ -587,6 +651,7 @@ export default function AppView() {
 
       {/* Interactive Global Search Modal */}
       <SearchModal
+        language={language}
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
         matches={matches}

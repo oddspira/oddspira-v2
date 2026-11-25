@@ -2052,11 +2052,54 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
             })),
           ];
 
+          const foundInCatalogLabel: Record<string, string> = {
+            bg: 'Намерени първенства в световния каталог',
+            en: 'Found competitions in global catalog',
+            es: 'Ligas encontradas en el catálogo global',
+            de: 'Gefundene Ligen im globalen Katalog',
+            it: 'Campionati trovati nel catalogo globale',
+            pt: 'Ligas encontradas no catálogo global',
+            fr: 'Compétitions trouvées dans le catalogue mondial',
+            tr: 'Küresel katalogda bulunan ligler',
+            pl: 'Znalezione rozgrywki w światowym katalogu',
+            el: 'Βρέθηκαν διοργανώσεις στον παγκόσμιο κατάλογο',
+            ro: 'Competiții găsite în catalogul global',
+            ru: 'Найдено лиг в мировом каталоге',
+          };
+          const openAllModalLabel: Record<string, string> = {
+            bg: 'Отвори всички в голям прозорец →',
+            en: 'Open all in full catalog →',
+            es: 'Abrir todas en ventana completa →',
+            de: 'Alle im Katalogfenster öffnen →',
+            it: 'Apri tutti nel catalogo completo →',
+            pt: 'Abrir todas na janela completa →',
+            fr: 'Tout ouvrir dans le catalogue complet →',
+            tr: 'Tümünü büyük pencerede aç →',
+            pl: 'Otwórz wszystkie w pełnym oknie →',
+            el: 'Άνοιγμα όλων σε μεγάλο παράθυρο →',
+            ro: 'Deschide toate în fereastra completă →',
+            ru: 'Открыть все в полном окне →',
+          };
+          const noLeaguesFoundLabel: Record<string, string> = {
+            bg: 'Няма намерени първенства за това търсене.',
+            en: 'No competitions found for this search.',
+            es: 'No se encontraron competiciones para esta búsqueda.',
+            de: 'Keine Wettbewerbe für diese Suche gefunden.',
+            it: 'Nessuna competizione trovata per questa ricerca.',
+            pt: 'Nenhuma competição encontrada para esta pesquisa.',
+            fr: 'Aucune compétition trouvée pour cette recherche.',
+            tr: 'Bu arama için lig bulunamadı.',
+            pl: 'Nie znaleziono rozgrywek dla tego wyszukiwania.',
+            el: 'Δεν βρέθηκαν διοργανώσεις για αυτή την αναζήτηση.',
+            ro: 'Nu s-au găsit competiții pentru această căutare.',
+            ru: 'Соревнования по данному запросу не найдены.',
+          };
+
           return (
             <div className="pt-2.5 border-t border-[#162232] space-y-2.5">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-mono text-emerald-400 font-bold">
-                  Намерени първенства в световния каталог: {combinedResults.length}
+                  {foundInCatalogLabel[language] || foundInCatalogLabel.en}: {combinedResults.length}
                 </span>
                 <button
                   type="button"
@@ -2067,7 +2110,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                   }}
                   className="text-[11px] font-bold text-[#43f08a] hover:underline cursor-pointer"
                 >
-                  Отвори всички в голям прозорец →
+                  {openAllModalLabel[language] || openAllModalLabel.en}
                 </button>
               </div>
 
@@ -2110,7 +2153,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                             {item.name}
                           </div>
                           <div className="text-[10px] text-[#8f9cae] truncate">
-                            {item.country} {item.isTop50 ? '· ★ Топ 50' : ''}
+                            {item.country} {item.isTop50 ? '· ★ Top 50' : ''}
                           </div>
                         </div>
                       </button>
@@ -2119,7 +2162,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                 </div>
               ) : (
                 <div className="py-3 text-xs text-[#8f9cae]">
-                  Няма намерени първенства за това търсене.
+                  {noLeaguesFoundLabel[language] || noLeaguesFoundLabel.en}
                 </div>
               )}
             </div>
@@ -2338,7 +2381,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                             })
                           }
                           className="hover:bg-[#0e1622] transition-colors cursor-pointer group"
-                          title={`${row.club} — Отвори профила на отбора`}
+                          title={row.club}
                         >
                           <td className="py-2.5 pr-2 font-bold text-neutral-300">
                             <span className="inline-flex items-center gap-1">
@@ -2378,7 +2421,9 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                 ) : isLiveIntelReady ? (
                   <div className="py-8 px-4 text-center space-y-3">
                     <div className="text-xs text-neutral-300 font-semibold">
-                      Този турнир се провежда във фаза на директни елиминации или все още няма публикувано таблично класиране за избрания сезон.
+                      {language === 'bg'
+                        ? 'Този турнир се провежда във фаза на директни елиминации или все още няма публикувано таблично класиране за избрания сезон.'
+                        : `${activeLeague.name} (${activeLeague.season})`}
                     </div>
                     <div className="flex items-center justify-center gap-2.5">
                       <button
@@ -2386,20 +2431,20 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                         onClick={() => setHubSubTab('results')}
                         className="px-3.5 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-xs font-bold text-[#43f08a] cursor-pointer"
                       >
-                        Виж Резултати ({activeLeague.recentResults?.length || 0}) →
+                        {t.tabResults} ({activeLeague.recentResults?.length || 0}) →
                       </button>
                       <button
                         type="button"
                         onClick={() => setHubSubTab('fixtures')}
                         className="px-3.5 py-1.5 rounded-xl bg-[#0e1622] border border-[#1e2d40] text-xs font-bold text-neutral-200 cursor-pointer"
                       >
-                        Виж Програма ({activeLeague.upcomingFixtures.length}) →
+                        {t.tabFixtures} ({activeLeague.upcomingFixtures.length}) →
                       </button>
                     </div>
                   </div>
                 ) : (
                   <div className="py-8 text-center text-xs text-[#8f9cae] font-mono">
-                    Зареждане на официалното класиране за {activeLeague.name}...
+                    {activeLeague.name}...
                   </div>
                 )}
               </div>
@@ -2477,7 +2522,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                   ))
                 ) : (
                   <div className="py-8 text-center text-xs text-[#8f9cae]">
-                    Няма предстоящи мачове за този период.
+                    —
                   </div>
                 )}
               </div>
@@ -2579,7 +2624,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                   ))
                 ) : (
                   <div className="py-8 text-center text-xs text-[#8f9cae]">
-                    Зареждане на последните официални резултати...
+                    —
                   </div>
                 )}
               </div>
@@ -2593,8 +2638,8 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                     <tr className="text-[10px] font-mono uppercase text-[#64748b] border-b border-[#162232]">
                       <th className="py-2 pr-2">#</th>
                       <th className="py-2 pr-3">{t.clubCol}</th>
-                      <th className="py-2 px-2 text-center">Форма (5 мача)</th>
-                      <th className="py-2 pl-2 text-right">Точки (Форма)</th>
+                      <th className="py-2 px-2 text-center">{t.formCol} (5)</th>
+                      <th className="py-2 pl-2 text-right">Pts</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#141f2e] font-mono text-[11px]">
@@ -2638,7 +2683,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                             {renderInteractiveFormBadges(row, 'center')}
                           </td>
                           <td className="py-2.5 pl-2 text-right font-black text-[#43f08a]">
-                            {row.formPts} / 15 т.
+                            {row.formPts} / 15
                           </td>
                         </tr>
                       ))}
@@ -2654,9 +2699,9 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                   <thead>
                     <tr className="text-[10px] font-mono uppercase text-[#64748b] border-b border-[#162232]">
                       <th className="py-2 pr-3">{t.clubCol}</th>
-                      <th className="py-2 px-1.5 text-center">Голове/Мач</th>
-                      <th className="py-2 px-1.5 text-center">Допуснати/Мач</th>
-                      <th className="py-2 pl-2 text-right">% Победи</th>
+                      <th className="py-2 px-1.5 text-center">{t.goalsPerMatch}</th>
+                      <th className="py-2 px-1.5 text-center">GA / M</th>
+                      <th className="py-2 pl-2 text-right">Win %</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#141f2e] font-mono text-[11px]">
@@ -2716,10 +2761,12 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                 <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs space-y-1">
                   <div className="font-bold text-emerald-300 flex items-center justify-between">
                     <span>Stochastic League Edge — {activeLeague.name}</span>
-                    <span className="font-mono">{activeLeague.glance?.goalsPerMatch || '2.72'} гола/мач</span>
+                    <span className="font-mono">
+                      {activeLeague.glance?.goalsPerMatch || '2.72'} {t.goalsPerMatch}
+                    </span>
                   </div>
                   <p className="text-[11px] text-neutral-300">
-                    Математически анализ на база официалното класиране и голова ефективност за сезона.
+                    {t.trustMainSub}
                   </p>
                 </div>
 
@@ -2740,12 +2787,12 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                           {fx.homeTeam} vs {fx.awayTeam}
                         </div>
                         <div className="text-[10px] text-[#8f9cae] mt-0.5">
-                          {fx.dayLabel} · Прогнозни голове (λ):{' '}
+                          {fx.dayLabel} · λ:{' '}
                           <span className="text-emerald-400 font-mono font-bold">{projTotal}</span>
                         </div>
                       </div>
                       <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-[10px] font-mono font-bold text-emerald-300 shrink-0">
-                        Poisson Анализ →
+                        Poisson →
                       </span>
                     </div>
                   );
@@ -2796,7 +2843,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                     e
                   )
                 }
-                title={`Отвори официален профил и статистика на ${sc.name}`}
+                title={sc.name}
                 className="py-2 px-1.5 rounded-lg hover:bg-[#0e1622] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
               >
                 <div className="flex items-center gap-2 min-w-0">
@@ -2839,7 +2886,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                         {sc.club}
                       </button>
                       {typeof sc.assists === 'number' && sc.assists > 0
-                        ? ` · ${sc.assists} асист.`
+                        ? ` · ${sc.assists} A`
                         : ''}
                       {typeof sc.yellowCards === 'number' && sc.yellowCards > 0
                         ? ` · 🟨 ${sc.yellowCards}`
@@ -2944,7 +2991,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
               ))
             ) : (
               <div className="py-8 text-center text-xs text-[#8f9cae]">
-                Няма обявени предстоящи мачове в API за този период.
+                —
               </div>
             )}
           </div>
@@ -3140,20 +3187,20 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
               }`}
             >
               {hoveredFormBadge.resultChar === 'W'
-                ? 'ПОБЕДА (+3 т.)'
+                ? 'W (+3)'
                 : hoveredFormBadge.resultChar === 'D'
-                ? 'РАВЕНСТВО (+1 т.)'
-                : 'ЗАГУБА (0 т.)'}
+                ? 'D (+1)'
+                : 'L (0)'}
             </span>
           </div>
 
-          {/* Hovered Specific Match Detail (if available from API-Football last 55 league matches) */}
+          {/* Hovered Specific Match Detail */}
           {hoveredFormBadge.matchDetail ? (
             <div className="rounded-xl bg-[#0c1623] border border-[#1d2e44] p-2.5 space-y-1.5">
               <div className="flex items-center justify-between text-[10px] font-mono text-[#8f9cae]">
                 <span>{hoveredFormBadge.matchDetail.date}</span>
                 <span className="text-emerald-400">
-                  {hoveredFormBadge.matchDetail.isHome ? 'Домакин' : 'Гост'}
+                  {hoveredFormBadge.matchDetail.isHome ? 'H' : 'A'}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-2 text-xs">
@@ -3192,7 +3239,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
           {hoveredFormBadge.row.formDetails && hoveredFormBadge.row.formDetails.length > 0 ? (
             <div className="space-y-1">
               <span className="text-[10px] font-mono uppercase tracking-wider text-[#8f9cae] block">
-                Последни мачове в лигата:
+                {t.tabForm}:
               </span>
               {hoveredFormBadge.row.formDetails.map((md, idx) => (
                 <div
@@ -3227,23 +3274,19 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
             </div>
           ) : (
             <div className="text-[11px] text-neutral-300 font-mono">
-              Форма (последни 5 мача):{' '}
+              {t.formCol} (5):{' '}
               <span className="text-emerald-400 font-bold">
-                {hoveredFormBadge.row.form.filter((x) => x === 'W').length}П -{' '}
-                {hoveredFormBadge.row.form.filter((x) => x === 'D').length}Р -{' '}
-                {hoveredFormBadge.row.form.filter((x) => x === 'L').length}З
+                {hoveredFormBadge.row.form.filter((x) => x === 'W').length}W -{' '}
+                {hoveredFormBadge.row.form.filter((x) => x === 'D').length}D -{' '}
+                {hoveredFormBadge.row.form.filter((x) => x === 'L').length}L
               </span>
             </div>
           )}
-
-          <div className="text-[10px] text-emerald-400 font-mono text-center pt-1 border-t border-[#182638]">
-            Кликни за детайли за мача / отбора →
-          </div>
         </div>
       )}
 
       {/* =================================================================== */}
-      {/* MODAL: ВСИЧКИ ЛИГИ И ПЪРВЕНСТВА (TOP 50 + FULL GLOBAL CATALOG)      */}
+      {/* MODAL: ALL LEAGUES & COMPETITIONS (TOP 50 + FULL GLOBAL CATALOG)    */}
       {/* =================================================================== */}
       {showAllLeaguesModal && (
         <div
@@ -3264,13 +3307,11 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                 </div>
                 <div>
                   <h2 className="text-base sm:text-lg font-extrabold text-white">
-                    Всички лиги и турнири — Пълен световен каталог (
-                    {globalCatalog.totalLeagues > 0 ? `${globalCatalog.totalLeagues}+` : '750+'}{' '}
-                    първенства)
+                    {t.viewAllLeagues} — {t.featuredLeagues} (
+                    {globalCatalog.totalLeagues > 0 ? `${globalCatalog.totalLeagues}+` : '750+'})
                   </h2>
                   <p className="text-xs text-[#8f9cae]">
-                    Топ 50 най-популярни лиги в света + всички професионални национални първенства и купи от{' '}
-                    {globalCatalog.totalCountries > 0 ? globalCatalog.totalCountries : 150}+ държави
+                    {t.heroSub}
                   </p>
                 </div>
               </div>
@@ -3294,7 +3335,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                       setModalSearchQuery(e.target.value);
                       setModalVisibleLimit(90);
                     }}
-                    placeholder="Търси сред всички първенства и държави по света (напр. Serie A, България, Brazil, Segunda, Cup)..."
+                    placeholder={t.searchPlaceholder}
                     className="w-full rounded-xl border border-[#1e2d42] bg-[#0d1624] px-3.5 py-2 text-xs text-white placeholder-[#64748b] focus:border-[#43f08a] focus:outline-none"
                   />
                   {modalSearchQuery && (
@@ -3318,7 +3359,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                   className="rounded-xl border border-[#1e2d42] bg-[#0d1624] px-3.5 py-2 text-xs text-neutral-200 focus:border-[#43f08a] focus:outline-none cursor-pointer"
                 >
                   <option value="all">
-                    🌐 Всички държави ({globalCatalog.totalCountries || 150})
+                    🌐 {t.allCountries} ({globalCatalog.totalCountries || 150})
                   </option>
                   {globalCatalog.countries.map((c) => (
                     <option key={c.name} value={c.name}>
@@ -3330,14 +3371,14 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
 
               <div className="flex flex-wrap items-center gap-1.5 text-xs">
                 {[
-                  { key: 'all', label: '🌐 Всички първенства' },
-                  { key: 'top50', label: '★ Топ 50 Най-популярни' },
-                  { key: 'europe', label: 'Европа' },
-                  { key: 'south_america', label: 'Южна Америка' },
-                  { key: 'north_america', label: 'Сев. Америка' },
-                  { key: 'asia', label: 'Азия' },
-                  { key: 'africa', label: 'Африка' },
-                  { key: 'today', label: '🔥 С мачове днес' },
+                  { key: 'all', label: `🌐 ${t.allCompTypes}` },
+                  { key: 'top50', label: `★ Top 50 (${t.topInWorld})` },
+                  { key: 'europe', label: t.regEurope },
+                  { key: 'south_america', label: t.regSouthAmerica },
+                  { key: 'north_america', label: t.regNorthAmerica },
+                  { key: 'asia', label: t.regAsia },
+                  { key: 'africa', label: t.regAfrica },
+                  { key: 'today', label: '🔥 Live / Today' },
                 ].map((tab) => (
                   <button
                     key={tab.key}
@@ -3399,9 +3440,9 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                   <div>
                     <div className="text-xs font-mono uppercase tracking-wider text-emerald-400 mb-3 flex items-center justify-between">
                       <span>
-                        ★ Топ {Object.keys(LEAGUES_DATABASE).length} най-популярни първенства в света ({filteredTop50.length})
+                        ★ {t.featuredLeagues} ({filteredTop50.length})
                       </span>
-                      <span>Пълно класиране, програма, резултати & статистика</span>
+                      <span>{t.topInWorld}</span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                       {filteredTop50.map((lg) => {
@@ -3446,13 +3487,13 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                                 </div>
                                 {todayCount > 0 && (
                                   <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-[9px] font-mono font-bold text-emerald-300">
-                                    {todayCount} мача днес
+                                    🔥 {todayCount}
                                   </span>
                                 )}
                               </div>
                             </div>
                             <span className="text-xs font-mono font-bold text-[#43f08a] shrink-0">
-                              Отвори →
+                              {t.viewLeague} →
                             </span>
                           </button>
                         );
@@ -3478,7 +3519,6 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                     }
                   }
 
-                  // Merge globalCatalog.leagues with any active leagues from today's live feed
                   const catalogList: GlobalCatalogLeague[] =
                     globalCatalog.leagues.length > 0
                       ? globalCatalog.leagues
@@ -3531,9 +3571,9 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                     <div className="space-y-3">
                       <div className="text-xs font-mono uppercase tracking-wider text-sky-400 flex items-center justify-between">
                         <span>
-                          🌐 Пълен световен каталог по държави ({filteredCatalog.length} професионални лиги и купи)
+                          🌐 {t.viewAllLeagues} ({filteredCatalog.length})
                         </span>
-                        <span>Зареждане на живо при избор</span>
+                        <span>2025/26</span>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
                         {displayedCatalog.map((xlg) => {
@@ -3573,13 +3613,13 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                                     {xlg.name}
                                   </div>
                                   <div className="text-[10px] text-[#8f9cae] truncate">
-                                    {xlg.country} · {xlg.rawType === 'Cup' ? 'Купа' : 'Първенство'}
-                                    {todayCount > 0 ? ` · 🔥 ${todayCount} мача днес` : ''}
+                                    {xlg.country} · {xlg.rawType === 'Cup' ? t.continentalCup : t.domesticLeague}
+                                    {todayCount > 0 ? ` · 🔥 ${todayCount}` : ''}
                                   </div>
                                 </div>
                               </div>
                               <span className="text-[11px] font-mono font-bold text-sky-400 shrink-0">
-                                Отвори →
+                                {t.viewLeague} →
                               </span>
                             </button>
                           );
@@ -3593,7 +3633,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                             onClick={() => setModalVisibleLimit((prev) => prev + 120)}
                             className="px-5 py-2.5 rounded-xl border border-sky-400/40 bg-[#0d1826] hover:border-sky-400 text-xs font-bold text-sky-300 cursor-pointer transition-colors"
                           >
-                            Покажи още първенства ({filteredCatalog.length - modalVisibleLimit} оставащи) ↓
+                            + {filteredCatalog.length - modalVisibleLimit} ↓
                           </button>
                         </div>
                       )}
@@ -3606,7 +3646,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
       )}
 
       {/* =================================================================== */}
-      {/* MODAL: ПРОЗОРЕЦ С ДЕТАЙЛИ ЗА ИЗМИНАЛ МАЧ (PAST MATCH DETAILS MODAL) */}
+      {/* MODAL: PAST MATCH DETAILS MODAL                                     */}
       {/* =================================================================== */}
       {selectedPastMatchModal && (
         <div
@@ -3644,7 +3684,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
               </button>
             </div>
 
-            {/* Interactive Switcher for Team's Last 5 Matches (if opened from a team's W/D/L form badge) */}
+            {/* Interactive Switcher for Team's Last 5 Matches */}
             {selectedPastMatchModal.teamRow && (
               <div className="px-5 py-2.5 bg-[#09121c] border-b border-[#15202e] flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2 text-xs">
@@ -3658,7 +3698,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                   <span className="font-bold text-white">
                     {selectedPastMatchModal.teamRow.club}
                   </span>
-                  <span className="text-[11px] text-[#8f9cae]">— последни мачове:</span>
+                  <span className="text-[11px] text-[#8f9cae]">— {t.formCol}:</span>
                 </div>
 
                 <div className="flex items-center gap-1.5">
@@ -3709,7 +3749,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
             <div className="p-6 bg-gradient-to-r from-[#07111a] via-[#0b1b20] to-[#08111a] border-b border-[#162232]">
               {selectedPastMatchModal.loadingTeamMatches ? (
                 <div className="py-6 text-center text-xs font-mono text-[#43f08a]">
-                  Зареждане на изминалия мач на {selectedPastMatchModal.teamRow?.club}...
+                  {selectedPastMatchModal.teamRow?.club}...
                 </div>
               ) : (
                 <div className="grid grid-cols-11 gap-3 items-center">
@@ -3745,7 +3785,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                   <div className="col-span-3 text-center">
                     <div className="inline-block rounded-xl border border-[#1f3144] bg-[#060b12]/90 px-4 py-2">
                       <div className="text-[10px] font-mono font-bold text-[#43f08a] uppercase">
-                        {pastMatchModalIntel?.halftimeScore || 'КРАЕН РЕЗУЛТАТ'}
+                        {pastMatchModalIntel?.halftimeScore || 'FT'}
                       </div>
                       <div className="text-2xl sm:text-3xl font-black text-white font-mono">
                         {pastMatchModalIntel?.homeScore ?? selectedPastMatchModal.match.homeGoals} -{' '}
@@ -3789,15 +3829,12 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
             <div className="p-5 max-h-[52vh] overflow-y-auto space-y-4">
               {pastMatchModalLoading || selectedPastMatchModal.loadingTeamMatches ? (
                 <div className="py-8 text-center text-xs text-[#8f9cae] font-mono">
-                  Зареждане на официална хронология и статистика за мача...
+                  ...
                 </div>
               ) : (
                 <>
                   {pastMatchModalIntel?.events && pastMatchModalIntel.events.length > 0 ? (
                     <div className="space-y-1.5">
-                      <div className="text-[10px] font-mono uppercase tracking-wider text-[#8f9cae] mb-1">
-                        Хронология на събитията (Голове, Картони, Смени):
-                      </div>
                       {pastMatchModalIntel.events.map((ev, idx) => (
                         <div
                           key={idx}
@@ -3820,7 +3857,6 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                     </div>
                   ) : (
                     <div className="p-3 rounded-xl border border-[#15202e] bg-[#0b121c] text-xs text-[#8f9cae] text-center">
-                      Официален краен резултат:{' '}
                       <strong className="text-white">
                         {selectedPastMatchModal.match.homeTeam}{' '}
                         {selectedPastMatchModal.match.homeGoals} -{' '}
@@ -3833,14 +3869,14 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                   {pastMatchModalIntel?.hasRealStats && pastMatchModalIntel.stats && (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center font-mono text-xs pt-2 border-t border-[#162232]">
                       <div className="p-2.5 rounded-xl bg-[#0b121c] border border-[#15202e]">
-                        <span className="text-[10px] text-[#8f9cae] block">Владеене</span>
+                        <span className="text-[10px] text-[#8f9cae] block">Possession</span>
                         <span className="font-bold text-white">
                           {pastMatchModalIntel.stats.possessionHome}% -{' '}
                           {pastMatchModalIntel.stats.possessionAway}%
                         </span>
                       </div>
                       <div className="p-2.5 rounded-xl bg-[#0b121c] border border-[#15202e]">
-                        <span className="text-[10px] text-[#8f9cae] block">Удари (Точни)</span>
+                        <span className="text-[10px] text-[#8f9cae] block">Shots</span>
                         <span className="font-bold text-white">
                           {pastMatchModalIntel.stats.shotsHome} (
                           {pastMatchModalIntel.stats.shotsOnTargetHome}) -{' '}
@@ -3849,14 +3885,14 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                         </span>
                       </div>
                       <div className="p-2.5 rounded-xl bg-[#0b121c] border border-[#15202e]">
-                        <span className="text-[10px] text-[#8f9cae] block">Корнери</span>
+                        <span className="text-[10px] text-[#8f9cae] block">Corners</span>
                         <span className="font-bold text-white">
                           {pastMatchModalIntel.stats.cornersHome} -{' '}
                           {pastMatchModalIntel.stats.cornersAway}
                         </span>
                       </div>
                       <div className="p-2.5 rounded-xl bg-[#0b121c] border border-[#15202e]">
-                        <span className="text-[10px] text-[#8f9cae] block">🟨 Жълти картони</span>
+                        <span className="text-[10px] text-[#8f9cae] block">🟨 Cards</span>
                         <span className="font-bold text-white">
                           {pastMatchModalIntel.stats.yellowCardsHome} -{' '}
                           {pastMatchModalIntel.stats.yellowCardsAway}
@@ -3886,7 +3922,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                   }}
                   className="px-3.5 py-2 rounded-xl border border-[#1e2d40] bg-[#0e1622] hover:border-[#43f08a]/50 text-xs font-bold text-neutral-200 hover:text-white cursor-pointer transition-colors"
                 >
-                  🛡️ Профил на {selectedPastMatchModal.teamRow?.club || selectedPastMatchModal.match.homeTeam}
+                  🛡️ {selectedPastMatchModal.teamRow?.club || selectedPastMatchModal.match.homeTeam}
                 </button>
 
                 <button
@@ -3911,7 +3947,7 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                   }}
                   className="px-4 py-2 rounded-xl border border-[#22c55e] bg-[#0f291e] hover:bg-[#22c55e] text-[#43f08a] hover:text-[#04130b] text-xs font-extrabold cursor-pointer transition-all"
                 >
-                  Отвори Пълен +EV & Поасон Анализ на Мача →
+                  {t.tabInsights} (+EV & Poisson) →
                 </button>
               </div>
             )}
