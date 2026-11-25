@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { SelectedPlayerTarget } from '../types';
+import { Language, SelectedPlayerTarget } from '../types';
 import { openTeamProfile, openPlayerProfile } from './TeamBadge';
 
 interface PlayerCompetitionStat {
@@ -151,6 +151,7 @@ interface PlayerSearchHit {
 }
 
 interface PlayerDetailPageProps {
+  language?: Language;
   target: SelectedPlayerTarget;
   onBack: () => void;
   onOpenLeague?: (leagueId: number, leagueName: string, country?: string) => void;
@@ -163,6 +164,297 @@ const POSITION_BG_LABELS: Record<string, string> = {
   Defender: 'Защитник (DF)',
   Midfielder: 'Полузащитник (MF)',
   Attacker: 'Нападател (FW)',
+};
+
+const PLAYER_DICT: Record<
+  Language,
+  {
+    home: string;
+    back: string;
+    searchPlaceholder: string;
+    nationality: string;
+    age: string;
+    yearsSuffix: string;
+    birthPlace: string;
+    height: string;
+    weight: string;
+    wonTrophies: string;
+    matchesStarter: string;
+    goalsAssists: string;
+    shotsOnTarget: string;
+    keyPasses: string;
+    tabStats: string;
+    tabTransfers: string;
+    tabTrophies: string;
+    tabSidelined: string;
+    seasonLabel: string;
+    currentSeason: string;
+  }
+> = {
+  bg: {
+    home: 'Начало',
+    back: '← Назад',
+    searchPlaceholder: '🔍 Потърси всеки футболист по име...',
+    nationality: 'Националност',
+    age: 'Възраст',
+    yearsSuffix: 'г.',
+    birthPlace: 'Място на раждане',
+    height: 'Ръст',
+    weight: 'Тегло',
+    wonTrophies: 'спечелени трофея',
+    matchesStarter: 'МАЧОВЕ (ТИТУЛЯР)',
+    goalsAssists: 'ГОЛОВЕ / АСИСТЕНЦИИ',
+    shotsOnTarget: 'УДАРИ (ТОЧНИ)',
+    keyPasses: 'КЛЮЧОВИ ПАСОВЕ',
+    tabStats: 'Статистика по турнири',
+    tabTransfers: 'Трансферна история',
+    tabTrophies: 'Трофеи и отличия',
+    tabSidelined: 'Контузии и отсъствия',
+    seasonLabel: 'Сезон:',
+    currentSeason: 'Актуален',
+  },
+  en: {
+    home: 'Home',
+    back: '← Back',
+    searchPlaceholder: '🔍 Search any player by name...',
+    nationality: 'Nationality',
+    age: 'Age',
+    yearsSuffix: 'y',
+    birthPlace: 'Place of Birth',
+    height: 'Height',
+    weight: 'Weight',
+    wonTrophies: 'trophies won',
+    matchesStarter: 'MATCHES (STARTER)',
+    goalsAssists: 'GOALS / ASSISTS',
+    shotsOnTarget: 'SHOTS (ON TARGET)',
+    keyPasses: 'KEY PASSES',
+    tabStats: 'Competition Stats',
+    tabTransfers: 'Transfer History',
+    tabTrophies: 'Trophies & Honours',
+    tabSidelined: 'Injuries & Sidelined',
+    seasonLabel: 'Season:',
+    currentSeason: 'Current',
+  },
+  es: {
+    home: 'Inicio',
+    back: '← Volver',
+    searchPlaceholder: '🔍 Buscar cualquier jugador...',
+    nationality: 'Nacionalidad',
+    age: 'Edad',
+    yearsSuffix: 'a.',
+    birthPlace: 'Lugar de nacimiento',
+    height: 'Altura',
+    weight: 'Peso',
+    wonTrophies: 'trofeos ganados',
+    matchesStarter: 'PARTIDOS (TITULAR)',
+    goalsAssists: 'GOLES / ASISTENCIAS',
+    shotsOnTarget: 'TIROS (A PUERTA)',
+    keyPasses: 'PASES CLAVE',
+    tabStats: 'Estadísticas por Torneo',
+    tabTransfers: 'Historial de Fichajes',
+    tabTrophies: 'Trofeos y Palmarés',
+    tabSidelined: 'Lesiones y Bajas',
+    seasonLabel: 'Temporada:',
+    currentSeason: 'Actual',
+  },
+  de: {
+    home: 'Start',
+    back: '← Zurück',
+    searchPlaceholder: '🔍 Spieler nach Namen suchen...',
+    nationality: 'Nationalität',
+    age: 'Alter',
+    yearsSuffix: 'J.',
+    birthPlace: 'Geburtsort',
+    height: 'Größe',
+    weight: 'Gewicht',
+    wonTrophies: 'gewonnene Titel',
+    matchesStarter: 'SPIELE (STARTELF)',
+    goalsAssists: 'TORE / VORLAGEN',
+    shotsOnTarget: 'SCHÜSSE (AUFS TOR)',
+    keyPasses: 'SCHLÜSSELPÄSSE',
+    tabStats: 'Wettbewerbs-Statistik',
+    tabTransfers: 'Transferhistorie',
+    tabTrophies: 'Titel & Erfolge',
+    tabSidelined: 'Verletzungen',
+    seasonLabel: 'Saison:',
+    currentSeason: 'Aktuell',
+  },
+  it: {
+    home: 'Home',
+    back: '← Indietro',
+    searchPlaceholder: '🔍 Cerca qualsiasi giocatore...',
+    nationality: 'Nazionalità',
+    age: 'Età',
+    yearsSuffix: 'a.',
+    birthPlace: 'Luogo di nascita',
+    height: 'Altezza',
+    weight: 'Peso',
+    wonTrophies: 'trofei vinti',
+    matchesStarter: 'PRESENZE (TITOLARE)',
+    goalsAssists: 'GOL / ASSIST',
+    shotsOnTarget: 'TIRI (IN PORTA)',
+    keyPasses: 'PASSAGGI CHIAVE',
+    tabStats: 'Statistiche per Torneo',
+    tabTransfers: 'Storico Trasferimenti',
+    tabTrophies: 'Trofei e Palmarès',
+    tabSidelined: 'Infortuni e Assenze',
+    seasonLabel: 'Stagione:',
+    currentSeason: 'Attuale',
+  },
+  pt: {
+    home: 'Início',
+    back: '← Voltar',
+    searchPlaceholder: '🔍 Pesquisar qualquer jogador...',
+    nationality: 'Nacionalidade',
+    age: 'Idade',
+    yearsSuffix: 'a.',
+    birthPlace: 'Local de nascimento',
+    height: 'Altura',
+    weight: 'Peso',
+    wonTrophies: 'troféus conquistados',
+    matchesStarter: 'JOGOS (TITULAR)',
+    goalsAssists: 'GOLS / ASSISTÊNCIAS',
+    shotsOnTarget: 'CHUTES (NO GOL)',
+    keyPasses: 'PASSES DECISIVOS',
+    tabStats: 'Estatísticas por Torneio',
+    tabTransfers: 'Histórico de Transferências',
+    tabTrophies: 'Troféus e Títulos',
+    tabSidelined: 'Lesões e Ausências',
+    seasonLabel: 'Temporada:',
+    currentSeason: 'Atual',
+  },
+  fr: {
+    home: 'Accueil',
+    back: '← Retour',
+    searchPlaceholder: '🔍 Rechercher un joueur...',
+    nationality: 'Nationalité',
+    age: 'Âge',
+    yearsSuffix: 'ans',
+    birthPlace: 'Lieu de naissance',
+    height: 'Taille',
+    weight: 'Poids',
+    wonTrophies: 'trophées remportés',
+    matchesStarter: 'MATCHS (TITULAIRE)',
+    goalsAssists: 'BUTS / PASSES DÉC.',
+    shotsOnTarget: 'TIRS (CADRÉS)',
+    keyPasses: 'PASSES CLÉS',
+    tabStats: 'Stats par Compétition',
+    tabTransfers: 'Historique des Transferts',
+    tabTrophies: 'Trophées et Palmarès',
+    tabSidelined: 'Blessures et Absences',
+    seasonLabel: 'Saison :',
+    currentSeason: 'Actuelle',
+  },
+  tr: {
+    home: 'Ana Sayfa',
+    back: '← Geri',
+    searchPlaceholder: '🔍 Oyuncu adına göre ara...',
+    nationality: 'Uyruk',
+    age: 'Yaş',
+    yearsSuffix: 'y.',
+    birthPlace: 'Doğum Yeri',
+    height: 'Boy',
+    weight: 'Kilo',
+    wonTrophies: 'kazanılan kupa',
+    matchesStarter: 'MAÇLAR (İLK 11)',
+    goalsAssists: 'GOL / ASİST',
+    shotsOnTarget: 'ŞUT (İSABETLİ)',
+    keyPasses: 'KİLİT PAS',
+    tabStats: 'Turnuva İstatistikleri',
+    tabTransfers: 'Transfer Geçmişi',
+    tabTrophies: 'Kupalar ve Başarılar',
+    tabSidelined: 'Sakatlık Geçmişi',
+    seasonLabel: 'Sezon:',
+    currentSeason: 'Güncel',
+  },
+  pl: {
+    home: 'Start',
+    back: '← Wstecz',
+    searchPlaceholder: '🔍 Szukaj piłkarza po nazwisku...',
+    nationality: 'Narodowość',
+    age: 'Wiek',
+    yearsSuffix: 'l.',
+    birthPlace: 'Miejsce urodzenia',
+    height: 'Wzrost',
+    weight: 'Waga',
+    wonTrophies: 'zdobyte trofea',
+    matchesStarter: 'MECZE (1. SKŁAD)',
+    goalsAssists: 'GOLE / ASYSTY',
+    shotsOnTarget: 'STRZAŁY (CELNE)',
+    keyPasses: 'KLUCZOWE PODANIA',
+    tabStats: 'Statystyki w Rozgrywkach',
+    tabTransfers: 'Historia Transferów',
+    tabTrophies: 'Trofea i Sukcesy',
+    tabSidelined: 'Kontuzje i Absencje',
+    seasonLabel: 'Sezon:',
+    currentSeason: 'Aktualny',
+  },
+  el: {
+    home: 'Αρχική',
+    back: '← Πίσω',
+    searchPlaceholder: '🔍 Αναζήτηση παίκτη...',
+    nationality: 'Εθνικότητα',
+    age: 'Ηλικία',
+    yearsSuffix: 'ετ.',
+    birthPlace: 'Τόπος γέννησης',
+    height: 'Ύψος',
+    weight: 'Βάρος',
+    wonTrophies: 'τρόπαια',
+    matchesStarter: 'ΑΓΩΝΕΣ (ΒΑΣΙΚΟΣ)',
+    goalsAssists: 'ΓΚΟΛ / ΑΣΙΣΤ',
+    shotsOnTarget: 'ΣΟΥΤ (ΣΤΗΝ ΕΣΤΙΑ)',
+    keyPasses: 'ΠΑΣΕΣ ΚΛΕΙΔΙΑ',
+    tabStats: 'Στατιστικά ανά Διοργάνωση',
+    tabTransfers: 'Ιστορικό Μεταγραφών',
+    tabTrophies: 'Τρόπαια & Διακρίσεις',
+    tabSidelined: 'Τραυματισμοί',
+    seasonLabel: 'Σεζόν:',
+    currentSeason: 'Τρέχουσα',
+  },
+  ro: {
+    home: 'Acasă',
+    back: '← Înapoi',
+    searchPlaceholder: '🔍 Caută orice jucător...',
+    nationality: 'Naționalitate',
+    age: 'Vârstă',
+    yearsSuffix: 'ani',
+    birthPlace: 'Locul nașterii',
+    height: 'Înălțime',
+    weight: 'Greutate',
+    wonTrophies: 'trofee câștigate',
+    matchesStarter: 'MECIURI (TITULAR)',
+    goalsAssists: 'GOLURI / PASE DEC.',
+    shotsOnTarget: 'ȘUTURI (PE POARTĂ)',
+    keyPasses: 'PASE CHEIE',
+    tabStats: 'Statistici pe Competiții',
+    tabTransfers: 'Istoric Transferuri',
+    tabTrophies: 'Trofee și Palmares',
+    tabSidelined: 'Accidentări',
+    seasonLabel: 'Sezon:',
+    currentSeason: 'Actual',
+  },
+  ru: {
+    home: 'Главная',
+    back: '← Назад',
+    searchPlaceholder: '🔍 Поиск любого игрока по имени...',
+    nationality: 'Национальность',
+    age: 'Возраст',
+    yearsSuffix: 'л.',
+    birthPlace: 'Место рождения',
+    height: 'Рост',
+    weight: 'Вес',
+    wonTrophies: 'завоеванных трофеев',
+    matchesStarter: 'МАТЧИ (В СТАРТЕ)',
+    goalsAssists: 'ГОЛЫ / АССИСТЫ',
+    shotsOnTarget: 'УДАРЫ (В СТВОР)',
+    keyPasses: 'КЛЮЧЕВЫЕ ПАСЫ',
+    tabStats: 'Статистика по турнирам',
+    tabTransfers: 'История трансферов',
+    tabTrophies: 'Трофеи и награды',
+    tabSidelined: 'Травмы и пропуски',
+    seasonLabel: 'Сезон:',
+    currentSeason: 'Текущий',
+  },
 };
 
 function formatDateBg(dateStr: string): string {
@@ -189,10 +481,12 @@ function formatWeight(val?: string | null): string {
 }
 
 export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
+  language = 'bg',
   target,
   onBack,
   onOpenLeague,
 }) => {
+  const pt = PLAYER_DICT[language] || PLAYER_DICT.en;
   const [intel, setIntel] = useState<PlayerIntelResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -339,7 +633,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
               color: '#cbd5e1',
             }}
           >
-            Начало
+            {pt.home}
           </span>
           {currentTeamName && (
             <>
@@ -393,7 +687,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                 setSearchQuery(e.target.value);
                 setSearchDropdownOpen(true);
               }}
-              placeholder="🔍 Потърси всеки футболист по име..."
+              placeholder={pt.searchPlaceholder}
               style={{
                 width: '100%',
                 background: '#0b111a',
@@ -560,7 +854,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
               gap: '6px',
             }}
           >
-            ← Назад
+            {pt.back}
           </button>
         </div>
       </div>
@@ -768,7 +1062,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                     border: '1px solid #1a2738',
                   }}
                 >
-                  🌍 Националност:{' '}
+                  🌍 {pt.nationality}:{' '}
                   <strong style={{ color: '#ffffff' }}>{player.nationality}</strong>
                 </span>
               )}
@@ -782,7 +1076,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                     border: '1px solid #1a2738',
                   }}
                 >
-                  🎂 Възраст: <strong style={{ color: '#ffffff' }}>{player.age} г.</strong>
+                  🎂 {pt.age}: <strong style={{ color: '#ffffff' }}>{player.age} {pt.yearsSuffix}</strong>
                   {player.birthDate ? ` (${formatDateBg(player.birthDate)})` : ''}
                 </span>
               )}
@@ -808,7 +1102,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                     border: '1px solid #1a2738',
                   }}
                 >
-                  📍 Място на раждане:{' '}
+                  📍 {pt.birthPlace}:{' '}
                   <strong style={{ color: '#ffffff' }}>
                     {[player.birthPlace, player.birthCountry].filter(Boolean).join(', ')}
                   </strong>
@@ -824,7 +1118,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                     border: '1px solid #1a2738',
                   }}
                 >
-                  📏 Ръст: <strong style={{ color: '#ffffff' }}>{displayHeight}</strong>
+                  📏 {pt.height}: <strong style={{ color: '#ffffff' }}>{displayHeight}</strong>
                 </span>
               )}
 
@@ -837,7 +1131,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                     border: '1px solid #1a2738',
                   }}
                 >
-                  ⚖️ Тегло: <strong style={{ color: '#ffffff' }}>{displayWeight}</strong>
+                  ⚖️ {pt.weight}: <strong style={{ color: '#ffffff' }}>{displayWeight}</strong>
                 </span>
               )}
 
@@ -854,7 +1148,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                     cursor: 'pointer',
                   }}
                 >
-                  🏆 {wonTrophiesCount} спечелени трофея
+                  🏆 {wonTrophiesCount} {pt.wonTrophies}
                 </span>
               )}
             </div>
@@ -880,7 +1174,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
               }}
             >
               <div style={{ fontSize: '10px', color: '#8f9cae', marginBottom: '4px', fontWeight: 700 }}>
-                МАЧОВЕ (ТИТУЛЯР)
+                {pt.matchesStarter}
               </div>
               <div
                 style={{
@@ -894,7 +1188,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                 <span style={{ fontSize: '13px', color: '#8f9cae' }}>({totals.lineups})</span>
               </div>
               <div style={{ fontSize: '11px', color: '#38bdf8', marginTop: '4px', fontWeight: 600 }}>
-                {totals.minutes.toLocaleString()} мин.
+                {totals.minutes.toLocaleString()} min
               </div>
             </div>
 
@@ -908,7 +1202,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
               }}
             >
               <div style={{ fontSize: '10px', color: '#8f9cae', marginBottom: '4px', fontWeight: 700 }}>
-                ГОЛОВЕ / АСИСТЕНЦИИ
+                {pt.goalsAssists}
               </div>
               <div
                 style={{
@@ -922,7 +1216,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                 <span style={{ color: '#38bdf8' }}>{totals.assists}</span>
               </div>
               <div style={{ fontSize: '11px', color: '#8f9cae', marginTop: '4px' }}>
-                Дузпи: {totals.penaltiesScored} вкарани
+                Pen: {totals.penaltiesScored}
               </div>
             </div>
 
@@ -936,7 +1230,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
               }}
             >
               <div style={{ fontSize: '10px', color: '#8f9cae', marginBottom: '4px', fontWeight: 700 }}>
-                УДАРИ (ТОЧНИ)
+                {pt.shotsOnTarget}
               </div>
               <div
                 style={{
@@ -952,7 +1246,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                 </span>
               </div>
               <div style={{ fontSize: '11px', color: '#8f9cae', marginTop: '4px' }}>
-                Дрибъли: {totals.dribblesSuccess}/{totals.dribblesAttempts}
+                Dribbles: {totals.dribblesSuccess}/{totals.dribblesAttempts}
               </div>
             </div>
 
@@ -966,7 +1260,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
               }}
             >
               <div style={{ fontSize: '10px', color: '#8f9cae', marginBottom: '4px', fontWeight: 700 }}>
-                КЛЮЧОВИ ПАСОВЕ
+                {pt.keyPasses}
               </div>
               <div
                 style={{
@@ -979,7 +1273,7 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
                 {totals.passesKey}
               </div>
               <div style={{ fontSize: '11px', color: '#8f9cae', marginTop: '4px' }}>
-                Единоборства: {totals.duelsWon}/{totals.duelsTotal}
+                Duels: {totals.duelsWon}/{totals.duelsTotal}
               </div>
             </div>
           </div>
@@ -1001,19 +1295,19 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
           {[
             {
               id: 'stats' as SubTab,
-              label: `📊 Статистика по турнири (${statistics.length})`,
+              label: `📊 ${pt.tabStats} (${statistics.length})`,
             },
             {
               id: 'transfers' as SubTab,
-              label: `🔄 Трансферна история (${transfers.length})`,
+              label: `🔄 ${pt.tabTransfers} (${transfers.length})`,
             },
             {
               id: 'trophies' as SubTab,
-              label: `🏆 Трофеи и отличия (${trophies.length})`,
+              label: `🏆 ${pt.tabTrophies} (${trophies.length})`,
             },
             {
               id: 'sidelined' as SubTab,
-              label: `🏥 Контузии и отсъствия (${sidelined.length})`,
+              label: `🏥 ${pt.tabSidelined} (${sidelined.length})`,
             },
           ].map((tab) => {
             const isActive = activeTab === tab.id;
@@ -1042,14 +1336,14 @@ export const PlayerDetailPage: React.FC<PlayerDetailPageProps> = ({
         {/* Season Selector */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '12px', color: '#8f9cae', fontWeight: 700 }}>
-            Сезон:
+            {pt.seasonLabel}
           </span>
           {[
             {
               key: 'auto',
               label: intel?.season
-                ? `Актуален (${intel.season}/${String(intel.season + 1).slice(-2)})`
-                : 'Актуален',
+                ? `${pt.currentSeason} (${intel.season}/${String(intel.season + 1).slice(-2)})`
+                : pt.currentSeason,
             },
             { key: '2025', label: '2025/26' },
             { key: '2024', label: '2024/25' },

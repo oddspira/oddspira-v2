@@ -467,6 +467,7 @@ export default function AppView() {
           {/* Dedicated Player Profile Page when any player is clicked or searched */}
           {selectedPlayer ? (
             <PlayerDetailPage
+              language={language}
               target={selectedPlayer}
               onBack={() => setSelectedPlayer(null)}
               onOpenLeague={(leagueId, leagueName) => {

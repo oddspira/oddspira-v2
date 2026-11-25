@@ -1,11 +1,13 @@
 interface BrandLogoProps {
   className?: string;
   showSubtitle?: boolean;
+  tagline?: string;
 }
 
 export function BrandLogo({
   className = 'h-14 sm:h-16',
   showSubtitle = true,
+  tagline,
 }: BrandLogoProps) {
   return (
     <div className={`flex items-center gap-3.5 select-none ${className}`}>
@@ -204,24 +206,28 @@ export function BrandLogo({
       {/* TYPOGRAPHIC WORDMARK - HIGH-END SWISS LUXURY FINTECH */}
       <div className="flex flex-col justify-center leading-none">
         <div className="flex items-baseline tracking-tight">
-          <span className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight drop-shadow-sm group-hover:text-neutral-100 transition-colors">
+          <span className="text-xl sm:text-2xl xl:text-3xl font-black text-white font-mono tracking-tight drop-shadow-sm group-hover:text-neutral-100 transition-colors">
             ODD
           </span>
-          <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-200 ml-0.5">
+          <span className="text-xl sm:text-2xl xl:text-3xl font-black font-mono tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-200 ml-0.5">
             SPIRA
           </span>
-          <span className="text-emerald-400 font-mono text-xl sm:text-2xl font-black ml-0.5">
+          <span className="text-emerald-400 font-mono text-lg sm:text-xl xl:text-2xl font-black ml-0.5">
             ′
           </span>
         </div>
 
-        {showSubtitle && (
+        {tagline ? (
+          <span className="text-[10px] sm:text-[11px] font-sans font-medium text-[#8f9cae] mt-1 tracking-tight">
+            {tagline}
+          </span>
+        ) : showSubtitle ? (
           <div className="flex items-center gap-1.5 mt-1">
             <span className="text-[10px] sm:text-[11px] font-mono font-bold tracking-[0.24em] text-emerald-400/90 uppercase">
               QUANTITATIVE SPORTS ANALYTICS
             </span>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

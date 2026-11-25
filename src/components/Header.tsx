@@ -129,6 +129,7 @@ export function Header({
   const navDict: Record<
     Language,
     {
+      tagline: string;
       live: string;
       competitions: string;
       analysis: string;
@@ -139,9 +140,13 @@ export function Header({
       logout: string;
       homeTitle: string;
       searchTitle: string;
+      alertsTitle: string;
+      markRead: string;
+      noAlerts: string;
     }
   > = {
     bg: {
+      tagline: 'По-умни залози. По-добри резултати.',
       live: 'На живо',
       competitions: 'Състезания',
       analysis: 'Анализ',
@@ -151,9 +156,13 @@ export function Header({
       search: 'Търсене',
       logout: 'Изход',
       homeTitle: 'Oddspira — Начална страница',
-      searchTitle: 'Търсене на мач или състезание',
+      searchTitle: 'Търсене на мач, отбор или футболист',
+      alertsTitle: '⚡ ИЗВЕСТИЯ НА ЖИВО & +EV СИГНАЛИ',
+      markRead: 'Прочетени ✓',
+      noAlerts: 'Няма нови известия в момента.',
     },
     en: {
+      tagline: 'Smarter bets. Better results.',
       live: 'Live',
       competitions: 'Leagues',
       analysis: 'Analysis',
@@ -163,9 +172,13 @@ export function Header({
       search: 'Search',
       logout: 'Log out',
       homeTitle: 'Oddspira — Home',
-      searchTitle: 'Search matches or leagues',
+      searchTitle: 'Search matches, teams or players',
+      alertsTitle: '⚡ LIVE ALERTS & +EV SIGNALS',
+      markRead: 'Mark read ✓',
+      noAlerts: 'No new alerts right now.',
     },
     es: {
+      tagline: 'Apuestas más inteligentes. Mejores resultados.',
       live: 'En Vivo',
       competitions: 'Ligas',
       analysis: 'Análisis',
@@ -175,9 +188,13 @@ export function Header({
       search: 'Buscar',
       logout: 'Salir',
       homeTitle: 'Oddspira — Inicio',
-      searchTitle: 'Buscar partido o liga',
+      searchTitle: 'Buscar partido, equipo o jugador',
+      alertsTitle: '⚡ ALERTAS EN VIVO Y SEÑALES +EV',
+      markRead: 'Leídas ✓',
+      noAlerts: 'No hay nuevas alertas en este momento.',
     },
     de: {
+      tagline: 'Intelligentere Wetten. Bessere Ergebnisse.',
       live: 'Live',
       competitions: 'Ligen',
       analysis: 'Analyse',
@@ -187,9 +204,13 @@ export function Header({
       search: 'Suche',
       logout: 'Abmelden',
       homeTitle: 'Oddspira — Startseite',
-      searchTitle: 'Spiel oder Liga suchen',
+      searchTitle: 'Spiel, Verein oder Spieler suchen',
+      alertsTitle: '⚡ LIVE-ALERTS & +EV-SIGNALE',
+      markRead: 'Gelesen ✓',
+      noAlerts: 'Derzeit keine neuen Benachrichtigungen.',
     },
     it: {
+      tagline: 'Scommesse più intelligenti. Risultati migliori.',
       live: 'Live',
       competitions: 'Campionati',
       analysis: 'Analisi',
@@ -199,9 +220,13 @@ export function Header({
       search: 'Cerca',
       logout: 'Esci',
       homeTitle: 'Oddspira — Home',
-      searchTitle: 'Cerca partita o campionato',
+      searchTitle: 'Cerca partita, squadra o giocatore',
+      alertsTitle: '⚡ AVVISI LIVE E SEGNALI +EV',
+      markRead: 'Letti ✓',
+      noAlerts: 'Nessun nuovo avviso al momento.',
     },
     pt: {
+      tagline: 'Apostas mais inteligentes. Melhores resultados.',
       live: 'Ao Vivo',
       competitions: 'Ligas',
       analysis: 'Análise',
@@ -211,9 +236,13 @@ export function Header({
       search: 'Buscar',
       logout: 'Sair',
       homeTitle: 'Oddspira — Início',
-      searchTitle: 'Buscar jogo ou campeonato',
+      searchTitle: 'Buscar jogo, equipa ou jogador',
+      alertsTitle: '⚡ ALERTAS AO VIVO E SINAIS +EV',
+      markRead: 'Lidos ✓',
+      noAlerts: 'Sem novos alertas no momento.',
     },
     fr: {
+      tagline: 'Des paris plus intelligents. De meilleurs résultats.',
       live: 'En Direct',
       competitions: 'Championnats',
       analysis: 'Analyse',
@@ -223,9 +252,13 @@ export function Header({
       search: 'Rechercher',
       logout: 'Déconnexion',
       homeTitle: 'Oddspira — Accueil',
-      searchTitle: 'Rechercher un match ou championnat',
+      searchTitle: 'Rechercher un match, club ou joueur',
+      alertsTitle: '⚡ ALERTES EN DIRECT & SIGNAUX +EV',
+      markRead: 'Lus ✓',
+      noAlerts: 'Aucune nouvelle alerte pour le moment.',
     },
     tr: {
+      tagline: 'Daha akıllı bahisler. Daha iyi sonuçlar.',
       live: 'Canlı',
       competitions: 'Ligler',
       analysis: 'Analiz',
@@ -235,9 +268,13 @@ export function Header({
       search: 'Ara',
       logout: 'Çıkış',
       homeTitle: 'Oddspira — Ana Sayfa',
-      searchTitle: 'Maç veya lig ara',
+      searchTitle: 'Maç, takım veya oyuncu ara',
+      alertsTitle: '⚡ CANLI BİLDİRİMLER & +EV SİNYALLERİ',
+      markRead: 'Okundu ✓',
+      noAlerts: 'Şu anda yeni bildirim yok.',
     },
     pl: {
+      tagline: 'Mądrzejsze zakłady. Lepsze wyniki.',
       live: 'Na Żywo',
       competitions: 'Ligi',
       analysis: 'Analiza',
@@ -247,9 +284,13 @@ export function Header({
       search: 'Szukaj',
       logout: 'Wyloguj',
       homeTitle: 'Oddspira — Strona główna',
-      searchTitle: 'Szukaj meczu lub ligi',
+      searchTitle: 'Szukaj meczu, klubu lub piłkarza',
+      alertsTitle: '⚡ POWIADOMIENIA NA ŻYWO I SYGNAŁY +EV',
+      markRead: 'Przeczytane ✓',
+      noAlerts: 'Brak nowych powiadomień.',
     },
     el: {
+      tagline: 'Πιο έξυπνα στοιχήματα. Καλύτερα αποτελέσματα.',
       live: 'Ζωντανά',
       competitions: 'Πρωταθλήματα',
       analysis: 'Ανάλυση',
@@ -259,9 +300,13 @@ export function Header({
       search: 'Αναζήτηση',
       logout: 'Έξοδος',
       homeTitle: 'Oddspira — Αρχική',
-      searchTitle: 'Αναζήτηση αγώνα ή πρωταθλήματος',
+      searchTitle: 'Αναζήτηση αγώνα, ομάδας ή παίκτη',
+      alertsTitle: '⚡ ΖΩΝΤΑΝΕΣ ΕΙΔΟΠΟΙΗΣΕΙΣ & ΣΗΜΑΤΑ +EV',
+      markRead: 'Αναγνωσμένα ✓',
+      noAlerts: 'Δεν υπάρχουν νέες ειδοποιήσεις.',
     },
     ro: {
+      tagline: 'Pariuri mai inteligente. Rezultate mai bune.',
       live: 'Live',
       competitions: 'Campionate',
       analysis: 'Analiză',
@@ -271,9 +316,13 @@ export function Header({
       search: 'Caută',
       logout: 'Ieșire',
       homeTitle: 'Oddspira — Acasă',
-      searchTitle: 'Caută meci sau campionat',
+      searchTitle: 'Caută meci, echipă sau jucător',
+      alertsTitle: '⚡ ALERTE LIVE ȘI SEMNALE +EV',
+      markRead: 'Citite ✓',
+      noAlerts: 'Nu există alerte noi în acest moment.',
     },
     ru: {
+      tagline: 'Умные ставки. Лучшие результаты.',
       live: 'Лайв',
       competitions: 'Лиги',
       analysis: 'Анализ',
@@ -283,7 +332,10 @@ export function Header({
       search: 'Поиск',
       logout: 'Выход',
       homeTitle: 'Oddspira — Главная',
-      searchTitle: 'Поиск матча или лиги',
+      searchTitle: 'Поиск матча, клуба или игрока',
+      alertsTitle: '⚡ ЛАЙВ-УВЕДОМЛЕНИЯ И +EV СИГНАЛЫ',
+      markRead: 'Прочитано ✓',
+      noAlerts: 'Новых уведомлений пока нет.',
     },
   };
 
@@ -291,14 +343,14 @@ export function Header({
 
   return (
     <header className="sticky top-0 z-40 w-full bg-[#070b11] border-b border-[#18202c] select-none">
-      <div className="max-w-[1440px] mx-auto px-3 sm:px-5 lg:px-6 h-[68px] sm:h-[72px] flex items-center justify-between gap-2 xl:gap-4">
-        {/* Oddspira Brand Logo (Directly returns to home page) */}
+      <div className="max-w-[1440px] mx-auto px-3 sm:px-5 lg:px-6 h-[68px] sm:h-[74px] flex items-center justify-between gap-2 xl:gap-4">
+        {/* Oddspira Brand Logo with translated tagline (Directly returns to home page) */}
         <button
           onClick={handleGoHome}
           className="flex items-center text-left whitespace-nowrap shrink-0 hover:opacity-95 transition-opacity duration-150 focus:outline-none cursor-pointer"
           title={t.homeTitle}
         >
-          <BrandLogo showSubtitle={false} className="h-9 sm:h-10 xl:h-11" />
+          <BrandLogo showSubtitle={false} tagline={t.tagline} className="h-9 sm:h-10 xl:h-11" />
         </button>
 
         {/* Desktop Navigation Links: Evenly spaced between Logo and Search */}
@@ -427,7 +479,7 @@ export function Header({
               <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-[#0b0f19] border border-[#43f08a]/50 shadow-2xl p-3.5 z-50 space-y-2.5">
                 <div className="flex items-center justify-between border-b border-[#1c283d] pb-2">
                   <span className="text-[10px] font-mono font-bold uppercase text-[#43f08a]">
-                    ⚡ ИЗВЕСТИЯ НА ЖИВО & +EV СИГНАЛИ ({unreadCount})
+                    {t.alertsTitle} ({unreadCount})
                   </span>
                   <div className="flex items-center gap-2.5">
                     {unreadCount > 0 && (
@@ -436,7 +488,7 @@ export function Header({
                         onClick={markAllAlertsRead}
                         className="text-[10px] font-semibold text-[#43f08a] hover:underline cursor-pointer"
                       >
-                        Прочетени ✓
+                        {t.markRead}
                       </button>
                     )}
                     <button
@@ -486,7 +538,7 @@ export function Header({
                   </div>
                 ) : (
                   <div className="py-6 text-center text-xs text-[#8f9cae]">
-                    Няма нови известия в момента.
+                    {t.noAlerts}
                   </div>
                 )}
               </div>
