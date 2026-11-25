@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ActiveTab, Language, Match } from '../types';
-import { registerMatchLogos, TeamBadge, openTeamProfile } from './TeamBadge';
+import { registerMatchLogos, TeamBadge, openTeamProfile, openPlayerProfile } from './TeamBadge';
 
 interface CompetitionsViewProps {
   language?: Language;
@@ -47,6 +47,7 @@ interface StandingRow {
 
 interface TopScorerRow {
   rank: number;
+  playerId?: number;
   name: string;
   photo?: string;
   teamId?: number;
@@ -2184,7 +2185,26 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
 
           <div className="divide-y divide-[#141f2e] flex-1 flex flex-col justify-around">
             {activeLeague.topScorers.slice(0, 5).map((sc) => (
-              <div key={sc.rank} className="py-2 flex items-center justify-between gap-2">
+              <div
+                key={sc.rank}
+                onClick={(e) =>
+                  openPlayerProfile(
+                    {
+                      playerId: sc.playerId,
+                      playerName: sc.name,
+                      playerPhoto: sc.photo,
+                      teamId: sc.teamId,
+                      teamName: sc.club,
+                      teamLogo: sc.clubLogo,
+                      leagueId: activeLeague.apiLeagueId,
+                      leagueName: activeLeague.name,
+                    },
+                    e
+                  )
+                }
+                title={`Отвори официален профил и статистика на ${sc.name}`}
+                className="py-2 px-1.5 rounded-lg hover:bg-[#0e1622] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
+              >
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-xs font-mono text-[#8f9cae] w-3">{sc.rank}</span>
                   {sc.photo ? (
@@ -2202,7 +2222,9 @@ export const CompetitionsView: React.FC<CompetitionsViewProps> = ({
                     </div>
                   )}
                   <div className="min-w-0">
-                    <div className="text-xs font-bold text-white truncate">{sc.name}</div>
+                    <div className="text-xs font-bold text-white group-hover:text-[#43f08a] transition-colors truncate">
+                      {sc.name}
+                    </div>
                     <div className="text-[10px] text-[#8f9cae] truncate">
                       <button
                         type="button"

@@ -4,6 +4,7 @@ import {
   TeamBadge,
   LeagueBadge,
   openTeamProfile,
+  openPlayerProfile,
   openCompetitionLeague,
   registerMatchLogos,
 } from './TeamBadge';
@@ -1349,7 +1350,29 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                 {squad.slice(0, 12).map((player) => (
                   <div
                     key={player.id || player.name}
-                    className="flex items-center gap-3 p-3 rounded-xl border border-[#15202e] bg-[#080e16]"
+                    onClick={(e) =>
+                      openPlayerProfile(
+                        {
+                          playerId: player.id || undefined,
+                          playerName: player.name,
+                          playerPhoto: player.photo || undefined,
+                          teamId: teamId || undefined,
+                          teamName,
+                          teamLogo: teamLogo || undefined,
+                          leagueId: intel?.league?.id || undefined,
+                          leagueName: intel?.league?.name || undefined,
+                          position: player.position,
+                          number: player.number,
+                        },
+                        e
+                      )
+                    }
+                    title={
+                      isBg
+                        ? `Отвори официалния профил и статистика на ${player.name}`
+                        : `Open official player profile & stats for ${player.name}`
+                    }
+                    className="flex items-center gap-3 p-3 rounded-xl border border-[#15202e] bg-[#080e16] hover:border-[#43f08a]/50 hover:bg-[#0c1521] transition-all cursor-pointer group"
                   >
                     <img
                       src={player.photo}
@@ -1362,7 +1385,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-1">
-                        <span className="text-xs font-extrabold text-white truncate">
+                        <span className="text-xs font-extrabold text-white group-hover:text-[#43f08a] transition-colors truncate">
                           {player.name}
                         </span>
                         {player.number && (
@@ -1499,7 +1522,29 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
             {filteredSquad.map((player) => (
               <div
                 key={player.id || player.name}
-                className="flex items-center gap-3.5 p-3.5 rounded-xl border border-[#15202e] bg-[#080e16] hover:border-[#24374e] transition-colors"
+                onClick={(e) =>
+                  openPlayerProfile(
+                    {
+                      playerId: player.id || undefined,
+                      playerName: player.name,
+                      playerPhoto: player.photo || undefined,
+                      teamId: teamId || undefined,
+                      teamName,
+                      teamLogo: teamLogo || undefined,
+                      leagueId: intel?.league?.id || undefined,
+                      leagueName: intel?.league?.name || undefined,
+                      position: player.position,
+                      number: player.number,
+                    },
+                    e
+                  )
+                }
+                title={
+                  isBg
+                    ? `Отвори официалния профил, статистика, трансфери и трофеи на ${player.name}`
+                    : `Open official player profile, stats, transfers & trophies for ${player.name}`
+                }
+                className="flex items-center gap-3.5 p-3.5 rounded-xl border border-[#15202e] bg-[#080e16] hover:border-[#43f08a]/50 hover:bg-[#0c1521] transition-all cursor-pointer group"
               >
                 <img
                   src={player.photo}
@@ -1512,7 +1557,7 @@ export const TeamDetailPage: React.FC<TeamDetailPageProps> = ({
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-1">
-                    <span className="text-sm font-extrabold text-white truncate">
+                    <span className="text-sm font-extrabold text-white group-hover:text-[#43f08a] transition-colors truncate">
                       {player.name}
                     </span>
                     {player.number && (

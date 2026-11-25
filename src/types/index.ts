@@ -50,6 +50,19 @@ export interface SelectedTeamTarget {
   leagueName?: string;
 }
 
+export interface SelectedPlayerTarget {
+  playerId?: number;
+  playerName: string;
+  playerPhoto?: string;
+  teamId?: number;
+  teamName?: string;
+  teamLogo?: string;
+  leagueId?: number;
+  leagueName?: string;
+  position?: string;
+  number?: number | null;
+}
+
 export interface Match {
   id: string;
   leagueId?: number;

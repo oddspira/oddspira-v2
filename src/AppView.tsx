@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { ActiveTab, BetRecord, Language, Match, SelectedTeamTarget } from './types';
+import { ActiveTab, BetRecord, Language, Match, SelectedTeamTarget, SelectedPlayerTarget } from './types';
 import { initialBets, initialMatches } from './data/mockMatches';
 import { Header } from './components/Header';
 import { registerMatchLogos } from './components/TeamBadge';
@@ -29,6 +29,7 @@ import {
 } from './components/LegalComplianceModal';
 import { MatchDetailPage } from './components/MatchDetailPage';
 import { TeamDetailPage } from './components/TeamDetailPage';
+import { PlayerDetailPage } from './components/PlayerDetailPage';
 import { Footer } from './components/Footer';
 
 export default function AppView() {
@@ -45,6 +46,7 @@ export default function AppView() {
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [selectedCustomMatch, setSelectedCustomMatch] = useState<Match | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<SelectedTeamTarget | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<SelectedPlayerTarget | null>(null);
   const [initialLeagueTarget, setInitialLeagueTarget] = useState<{
     leagueKey?: string;
     leagueId?: number;
@@ -107,12 +109,20 @@ export default function AppView() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  // Global listeners for opening a dedicated Team Profile page, Competition League, or Calculator Tool
+  // Global listeners for opening a dedicated Team Profile page, Player Profile page, Competition League, or Calculator Tool
   useEffect(() => {
     const onOpenTeamEvent = (e: Event) => {
       const custom = e as CustomEvent<SelectedTeamTarget>;
       if (custom.detail && custom.detail.teamName) {
+        setSelectedPlayer(null);
         setSelectedTeam(custom.detail);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    };
+    const onOpenPlayerEvent = (e: Event) => {
+      const custom = e as CustomEvent<SelectedPlayerTarget>;
+      if (custom.detail && (custom.detail.playerName || custom.detail.playerId)) {
+        setSelectedPlayer(custom.detail);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     };
@@ -124,6 +134,7 @@ export default function AppView() {
       }>;
       if (custom.detail) {
         setInitialLeagueTarget({ ...custom.detail });
+        setSelectedPlayer(null);
         setSelectedTeam(null);
         setSelectedMatchId(null);
         setSelectedCustomMatch(null);
@@ -140,6 +151,7 @@ export default function AppView() {
       }>;
       if (custom.detail?.toolKey) {
         setInitialTool(custom.detail.toolKey);
+        setSelectedPlayer(null);
         setSelectedTeam(null);
         setSelectedMatchId(null);
         setSelectedCustomMatch(null);
@@ -152,10 +164,12 @@ export default function AppView() {
     };
 
     window.addEventListener('oddspira:open-team', onOpenTeamEvent);
+    window.addEventListener('oddspira:open-player', onOpenPlayerEvent);
     window.addEventListener('oddspira:open-league', onOpenLeagueEvent);
     window.addEventListener('oddspira:open-tool', onOpenToolEvent);
     return () => {
       window.removeEventListener('oddspira:open-team', onOpenTeamEvent);
+      window.removeEventListener('oddspira:open-player', onOpenPlayerEvent);
       window.removeEventListener('oddspira:open-league', onOpenLeagueEvent);
       window.removeEventListener('oddspira:open-tool', onOpenToolEvent);
     };
@@ -284,6 +298,7 @@ export default function AppView() {
     setSelectedMatchId(null);
     setSelectedCustomMatch(null);
     setSelectedTeam(null);
+    setSelectedPlayer(null);
     setActiveTab(tab);
     const routeMap: Partial<Record<ActiveTab, string>> = {
       home: '/',
@@ -303,6 +318,7 @@ export default function AppView() {
 
   const handleOpenMatchPage = (match: Match) => {
     setSelectedTeam(null);
+    setSelectedPlayer(null);
     setSelectedMatchId(match.id);
     setSelectedCustomMatch(match);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -324,7 +340,9 @@ export default function AppView() {
       learn: 'Quant Академия: Научи +EV, Модела на Поасон, Dixon-Coles & CLV | Oddspira',
     };
 
-    const nextTitle = selectedTeam
+    const nextTitle = selectedPlayer
+      ? `${selectedPlayer.playerName} — Официален Профил, Сезонна Статистика, Трансфери & Трофеи | Oddspira`
+      : selectedTeam
       ? `${selectedTeam.teamName} — Официален Профил, Класиране, Играчи & Статистика | Oddspira`
       : activeDetailMatch
       ? `${activeDetailMatch.homeTeam} vs ${activeDetailMatch.awayTeam} — Математически +EV Анализ & Поасон Прогноза | Oddspira`
@@ -343,7 +361,7 @@ export default function AppView() {
     if (canonical) {
       canonical.setAttribute('href', window.location.origin + window.location.pathname);
     }
-  }, [activeTab, activeDetailMatch, selectedTeam, language]);
+  }, [activeTab, activeDetailMatch, selectedTeam, selectedPlayer, language]);
 
   const handleLogBetFromMatch = (
     match: Match,
@@ -433,8 +451,8 @@ export default function AppView() {
         onOpenMatch={handleOpenMatchPage}
       />
 
-      {/* Hero Showcase (displayed ONLY on the Main Homepage 'home' when no match or team page is open) */}
-      {isHomeTab && !activeDetailMatch && !selectedTeam && (
+      {/* Hero Showcase (displayed ONLY on the Main Homepage 'home' when no match, team, or player page is open) */}
+      {isHomeTab && !activeDetailMatch && !selectedTeam && !selectedPlayer && (
         <HeroShowcase
           language={language}
           setActiveTab={handleTabChange}
@@ -446,8 +464,22 @@ export default function AppView() {
       <main className="flex-1 max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full min-w-0">
         {/* Main Section Content */}
         <div>
-          {/* Dedicated Team Detail Page when any team name or emblem is clicked */}
-          {selectedTeam ? (
+          {/* Dedicated Player Profile Page when any player is clicked or searched */}
+          {selectedPlayer ? (
+            <PlayerDetailPage
+              target={selectedPlayer}
+              onBack={() => setSelectedPlayer(null)}
+              onOpenLeague={(leagueId, leagueName) => {
+                setInitialLeagueTarget({ leagueId, leagueName });
+                setSelectedPlayer(null);
+                setSelectedTeam(null);
+                setSelectedMatchId(null);
+                setSelectedCustomMatch(null);
+                setActiveTab('competitions');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
+          ) : selectedTeam ? (
             <TeamDetailPage
               language={language}
               target={selectedTeam}

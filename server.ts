@@ -2522,6 +2522,7 @@ async function startServer() {
 
         return {
           rank: idx + 1,
+          playerId: player?.id ? Number(player.id) : undefined,
           name,
           photo: proxyMediaUrl(player?.photo, 'players', player?.id),
           teamId: stat?.team?.id ? Number(stat.team.id) : undefined,
@@ -3287,6 +3288,553 @@ async function startServer() {
       res.json(payload);
     } catch (err) {
       console.error('Team intel error:', err);
+      res.json({ configured: true, found: false });
+    }
+  });
+
+  // =========================================================================
+  // 4C. DEDICATED PLAYER SEARCH & PLAYER INTELLIGENCE ENDPOINTS
+  //     Fetches full player bio, season-by-season competition statistics,
+  //     ratings, career transfers, trophies & injury history for ANY player.
+  // =========================================================================
+  app.get('/api/football/player-search', async (req: Request, res: Response) => {
+    const apiKey = (process.env.FOOTBALL_API_KEY || '').trim();
+    if (!apiKey) {
+      res.json({ configured: false, players: [] });
+      return;
+    }
+
+    const rawQ = String(req.query.q || '').trim();
+    if (rawQ.length < 2) {
+      res.json({ configured: true, players: [] });
+      return;
+    }
+
+    // API-Football /players/profiles?search= requires a single word of >= 3 alphanumeric chars
+    const words = rawQ
+      .replace(/[^a-zA-Z0-9\s-]/g, ' ')
+      .split(/\s+/)
+      .map((w) => w.trim())
+      .filter((w) => w.length >= 3);
+
+    const apiSearchTerm =
+      words.length > 0
+        ? words[words.length - 1]
+        : rawQ.replace(/[^a-zA-Z0-9]/g, '').trim();
+
+    if (apiSearchTerm.length < 3) {
+      res.json({ configured: true, players: [] });
+      return;
+    }
+
+    const cacheKey = `football:player_search_v1:${apiSearchTerm.toLowerCase()}`;
+    const ttlMs = 24 * 60 * 60 * 1000;
+
+    try {
+      let json: { response?: Array<Record<string, any>> } | null = null;
+      const cached = db
+        .prepare('SELECT payload, updated_at FROM api_cache WHERE cache_key = ?')
+        .get(cacheKey) as { payload: string; updated_at: number } | undefined;
+
+      if (cached && Date.now() - cached.updated_at < ttlMs) {
+        json = JSON.parse(cached.payload);
+      } else {
+        const upstream = await fetch(
+          `https://v3.football.api-sports.io/players/profiles?search=${encodeURIComponent(apiSearchTerm)}`,
+          { headers: { 'x-apisports-key': apiKey } }
+        );
+        json = (await upstream.json()) as { response?: Array<Record<string, any>> };
+        db.prepare(
+          'INSERT OR REPLACE INTO api_cache (cache_key, payload, updated_at) VALUES (?, ?, ?)'
+        ).run(cacheKey, JSON.stringify(json), Date.now());
+      }
+
+      const rawList = Array.isArray(json?.response) ? json.response : [];
+      const queryTokens = rawQ
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((t) => t.length >= 2);
+
+      const mapped = rawList
+        .map((item) => {
+          const p = item?.player || item || {};
+          const id = Number(p?.id || 0);
+          const name = String(p?.name || '').trim();
+          const firstname = String(p?.firstname || '').trim();
+          const lastname = String(p?.lastname || '').trim();
+          const fullName = `${firstname} ${lastname}`.trim() || name;
+          if (!id || !name) return null;
+
+          const haystack = `${name} ${fullName}`.toLowerCase();
+          let matchScore = 0;
+          if (haystack === rawQ.toLowerCase()) matchScore += 100;
+          for (const tk of queryTokens) {
+            if (haystack.includes(tk)) matchScore += 25;
+          }
+          if (p?.age && Number(p.age) >= 16 && Number(p.age) <= 42) matchScore += 5;
+          if (p?.number) matchScore += 3;
+
+          return {
+            id,
+            name,
+            fullName,
+            age: p?.age ? Number(p.age) : null,
+            nationality: p?.nationality ? String(p.nationality) : null,
+            position: p?.position ? String(p.position) : null,
+            number: p?.number ? Number(p.number) : null,
+            photo: proxyMediaUrl(p?.photo, 'players', id),
+            matchScore,
+          };
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null)
+        .sort((a, b) => b.matchScore - a.matchScore)
+        .slice(0, 20);
+
+      res.json({ configured: true, players: mapped });
+    } catch (err) {
+      console.error('Player search error:', err);
+      res.json({ configured: true, players: [] });
+    }
+  });
+
+  app.get('/api/football/player-intel', async (req: Request, res: Response) => {
+    const apiKey = (process.env.FOOTBALL_API_KEY || '').trim();
+    if (!apiKey) {
+      res.json({ configured: false, found: false });
+      return;
+    }
+
+    let resolvedPlayerId = Number(req.query.playerId || 0);
+    const rawName = String(req.query.name || '').trim();
+    const hintTeamId = Number(req.query.teamId || 0);
+    const requestedSeason = String(req.query.season || 'auto').trim();
+
+    const getCachedSub = async (subKey: string, subTtlMs: number, url: string) => {
+      try {
+        const row = db
+          .prepare('SELECT payload, updated_at FROM api_cache WHERE cache_key = ?')
+          .get(subKey) as { payload: string; updated_at: number } | undefined;
+        if (row && Date.now() - row.updated_at < subTtlMs) {
+          return JSON.parse(row.payload);
+        }
+        const r = await fetch(url, { headers: { 'x-apisports-key': apiKey } });
+        const j = (await r.json()) as { response?: Array<Record<string, any>> };
+        db.prepare(
+          'INSERT OR REPLACE INTO api_cache (cache_key, payload, updated_at) VALUES (?, ?, ?)'
+        ).run(subKey, JSON.stringify(j), Date.now());
+        return j;
+      } catch {
+        return null;
+      }
+    };
+
+    try {
+      // 1. If playerId is not provided, resolve it by team squad or /players/profiles?search=
+      if ((!resolvedPlayerId || !Number.isFinite(resolvedPlayerId)) && rawName) {
+        if (hintTeamId > 0) {
+          const squadJson = await getCachedSub(
+            `football:team_squad_v1:${hintTeamId}`,
+            12 * 60 * 60 * 1000,
+            `https://v3.football.api-sports.io/players/squads?team=${hintTeamId}`
+          );
+          const squadPlayers: Array<Record<string, any>> =
+            squadJson?.response?.[0]?.players || [];
+          const lowerTarget = rawName.toLowerCase();
+          const matchedInSquad =
+            squadPlayers.find((p) => String(p?.name || '').toLowerCase() === lowerTarget) ||
+            squadPlayers.find(
+              (p) =>
+                String(p?.name || '').toLowerCase().includes(lowerTarget) ||
+                lowerTarget.includes(String(p?.name || '').toLowerCase())
+            );
+          if (matchedInSquad?.id) {
+            resolvedPlayerId = Number(matchedInSquad.id);
+          }
+        }
+
+        if (!resolvedPlayerId) {
+          const words = rawName
+            .replace(/[^a-zA-Z0-9\s-]/g, ' ')
+            .split(/\s+/)
+            .map((w) => w.trim())
+            .filter((w) => w.length >= 3);
+          const apiTerm = words.length > 0 ? words[words.length - 1] : rawName;
+          if (apiTerm.length >= 3) {
+            const profSearch = await getCachedSub(
+              `football:player_search_v1:${apiTerm.toLowerCase()}`,
+              24 * 60 * 60 * 1000,
+              `https://v3.football.api-sports.io/players/profiles?search=${encodeURIComponent(apiTerm)}`
+            );
+            const list: Array<Record<string, any>> = Array.isArray(profSearch?.response)
+              ? profSearch.response
+              : [];
+            if (list.length > 0) {
+              const lowerTarget = rawName.toLowerCase();
+              const exact =
+                list.find((it) => String(it?.player?.name || '').toLowerCase() === lowerTarget) ||
+                list.find((it) =>
+                  `${it?.player?.firstname || ''} ${it?.player?.lastname || ''}`
+                    .trim()
+                    .toLowerCase()
+                    .includes(lowerTarget)
+                ) ||
+                list[0];
+              resolvedPlayerId = Number(exact?.player?.id || 0);
+            }
+          }
+        }
+      }
+
+      if (!resolvedPlayerId || !Number.isFinite(resolvedPlayerId)) {
+        res.json({ configured: true, found: false });
+        return;
+      }
+
+      const mainCacheKey = `football:player_intel_v1:${resolvedPlayerId}:${requestedSeason}`;
+      const mainTtlMs = 6 * 60 * 60 * 1000; // 6 hours cache
+      const cachedMain = db
+        .prepare('SELECT payload, updated_at FROM api_cache WHERE cache_key = ?')
+        .get(mainCacheKey) as { payload: string; updated_at: number } | undefined;
+
+      if (cachedMain && Date.now() - cachedMain.updated_at < mainTtlMs) {
+        res.json(JSON.parse(cachedMain.payload));
+        return;
+      }
+
+      const explicitSeasonNum =
+        requestedSeason !== 'auto' && /^\d{4}$/.test(requestedSeason)
+          ? Number(requestedSeason)
+          : 2025;
+
+      // 2. Fetch Player Season Stats + Profile + Transfers + Trophies + Sidelined in parallel
+      const [
+        primaryStatsJson,
+        profileJson,
+        transfersJson,
+        trophiesJson,
+        sidelinedJson,
+      ] = await Promise.all([
+        getCachedSub(
+          `football:player_stats_v1:${resolvedPlayerId}:${explicitSeasonNum}`,
+          6 * 60 * 60 * 1000,
+          `https://v3.football.api-sports.io/players?id=${resolvedPlayerId}&season=${explicitSeasonNum}`
+        ),
+        getCachedSub(
+          `football:player_profile_v1:${resolvedPlayerId}`,
+          48 * 60 * 60 * 1000,
+          `https://v3.football.api-sports.io/players/profiles?player=${resolvedPlayerId}`
+        ),
+        getCachedSub(
+          `football:player_transfers_v1:${resolvedPlayerId}`,
+          48 * 60 * 60 * 1000,
+          `https://v3.football.api-sports.io/transfers?player=${resolvedPlayerId}`
+        ),
+        getCachedSub(
+          `football:player_trophies_v1:${resolvedPlayerId}`,
+          48 * 60 * 60 * 1000,
+          `https://v3.football.api-sports.io/trophies?player=${resolvedPlayerId}`
+        ),
+        getCachedSub(
+          `football:player_sidelined_v1:${resolvedPlayerId}`,
+          48 * 60 * 60 * 1000,
+          `https://v3.football.api-sports.io/sidelined?player=${resolvedPlayerId}`
+        ),
+      ]);
+
+      let activeSeason = explicitSeasonNum;
+      let statsEntry = primaryStatsJson?.response?.[0] || null;
+
+      // If auto season (2025) has no stats yet for this player, try 2024 then 2023
+      if (!statsEntry && requestedSeason === 'auto') {
+        for (const fallbackYr of [2024, 2023]) {
+          const fbJson = await getCachedSub(
+            `football:player_stats_v1:${resolvedPlayerId}:${fallbackYr}`,
+            12 * 60 * 60 * 1000,
+            `https://v3.football.api-sports.io/players?id=${resolvedPlayerId}&season=${fallbackYr}`
+          );
+          if (fbJson?.response?.[0]) {
+            statsEntry = fbJson.response[0];
+            activeSeason = fallbackYr;
+            break;
+          }
+        }
+      }
+
+      const profilePlayer = profileJson?.response?.[0]?.player || {};
+      const statsPlayer = statsEntry?.player || {};
+
+      const playerName = String(
+        statsPlayer?.name || profilePlayer?.name || rawName || `Player #${resolvedPlayerId}`
+      );
+      const firstname = String(statsPlayer?.firstname || profilePlayer?.firstname || '').trim();
+      const lastname = String(statsPlayer?.lastname || profilePlayer?.lastname || '').trim();
+      const fullName =
+        firstname && lastname ? `${firstname} ${lastname}`.trim() : playerName;
+
+      const rawStatsList: Array<Record<string, any>> = Array.isArray(statsEntry?.statistics)
+        ? statsEntry.statistics
+        : [];
+
+      const competitions = rawStatsList
+        .filter((s) => s?.league?.name || s?.team?.name)
+        .map((s) => {
+          const tId = Number(s?.team?.id || 0);
+          const lId = Number(s?.league?.id || 0);
+          const rawRating = s?.games?.rating ? Number(parseFloat(String(s.games.rating)).toFixed(2)) : null;
+
+          return {
+            teamId: tId || null,
+            teamName: String(s?.team?.name || 'Club'),
+            teamLogo: proxyMediaUrl(s?.team?.logo, 'teams', tId),
+            leagueId: lId || null,
+            leagueName: String(s?.league?.name || 'Competition'),
+            leagueCountry: s?.league?.country ? String(s.league.country) : null,
+            leagueLogo: proxyMediaUrl(s?.league?.logo, 'leagues', lId),
+            season: Number(s?.league?.season || activeSeason),
+            appearances: Number(s?.games?.appearences ?? s?.games?.appearances ?? 0),
+            lineups: Number(s?.games?.lineups || 0),
+            minutes: Number(s?.games?.minutes || 0),
+            position: String(s?.games?.position || profilePlayer?.position || 'Midfielder'),
+            number: s?.games?.number
+              ? Number(s.games.number)
+              : profilePlayer?.number
+              ? Number(profilePlayer.number)
+              : null,
+            rating: rawRating && Number.isFinite(rawRating) ? rawRating : null,
+            captain: Boolean(s?.games?.captain),
+            subIn: Number(s?.substitutes?.in || 0),
+            subOut: Number(s?.substitutes?.out || 0),
+            bench: Number(s?.substitutes?.bench || 0),
+            goals: Number(s?.goals?.total || 0),
+            assists: Number(s?.goals?.assists || 0),
+            conceded: Number(s?.goals?.conceded || 0),
+            saves: Number(s?.goals?.saves || 0),
+            shotsTotal: Number(s?.shots?.total || 0),
+            shotsOn: Number(s?.shots?.on || 0),
+            passesTotal: Number(s?.passes?.total || 0),
+            passesKey: Number(s?.passes?.key || 0),
+            passesAccuracy: s?.passes?.accuracy ? Number(s.passes.accuracy) : null,
+            tacklesTotal: Number(s?.tackles?.total || 0),
+            blocks: Number(s?.tackles?.blocks || 0),
+            interceptions: Number(s?.tackles?.interceptions || 0),
+            duelsTotal: Number(s?.duels?.total || 0),
+            duelsWon: Number(s?.duels?.won || 0),
+            dribblesAttempts: Number(s?.dribbles?.attempts || 0),
+            dribblesSuccess: Number(s?.dribbles?.success || 0),
+            foulsDrawn: Number(s?.fouls?.drawn || 0),
+            foulsCommitted: Number(s?.fouls?.committed || 0),
+            yellowCards: Number(s?.cards?.yellow || 0),
+            yellowRedCards: Number(s?.cards?.yellowred || 0),
+            redCards: Number(s?.cards?.red || 0),
+            penaltiesWon: Number(s?.penalty?.won || 0),
+            penaltiesCommitted: Number(s?.penalty?.commited || 0),
+            penaltiesScored: Number(s?.penalty?.scored || 0),
+            penaltiesMissed: Number(s?.penalty?.missed || 0),
+            penaltiesSaved: Number(s?.penalty?.saved || 0),
+          };
+        });
+
+      // Compute aggregated season totals across all competitions
+      const totals = competitions.reduce(
+        (acc, c) => {
+          acc.appearances += c.appearances;
+          acc.lineups += c.lineups;
+          acc.minutes += c.minutes;
+          acc.goals += c.goals;
+          acc.assists += c.assists;
+          acc.saves += c.saves;
+          acc.conceded += c.conceded;
+          acc.shotsTotal += c.shotsTotal;
+          acc.shotsOn += c.shotsOn;
+          acc.passesTotal += c.passesTotal;
+          acc.passesKey += c.passesKey;
+          acc.tacklesTotal += c.tacklesTotal;
+          acc.blocks += c.blocks;
+          acc.interceptions += c.interceptions;
+          acc.duelsTotal += c.duelsTotal;
+          acc.duelsWon += c.duelsWon;
+          acc.dribblesAttempts += c.dribblesAttempts;
+          acc.dribblesSuccess += c.dribblesSuccess;
+          acc.foulsDrawn += c.foulsDrawn;
+          acc.foulsCommitted += c.foulsCommitted;
+          acc.yellowCards += c.yellowCards;
+          acc.redCards += c.redCards + c.yellowRedCards;
+          acc.penaltiesScored += c.penaltiesScored;
+          acc.penaltiesMissed += c.penaltiesMissed;
+          acc.penaltiesWon += c.penaltiesWon;
+          if (c.rating && c.appearances > 0) {
+            acc.ratingWeightedSum += c.rating * c.appearances;
+            acc.ratingApps += c.appearances;
+          }
+          return acc;
+        },
+        {
+          appearances: 0,
+          lineups: 0,
+          minutes: 0,
+          goals: 0,
+          assists: 0,
+          saves: 0,
+          conceded: 0,
+          shotsTotal: 0,
+          shotsOn: 0,
+          passesTotal: 0,
+          passesKey: 0,
+          tacklesTotal: 0,
+          blocks: 0,
+          interceptions: 0,
+          duelsTotal: 0,
+          duelsWon: 0,
+          dribblesAttempts: 0,
+          dribblesSuccess: 0,
+          foulsDrawn: 0,
+          foulsCommitted: 0,
+          yellowCards: 0,
+          redCards: 0,
+          penaltiesScored: 0,
+          penaltiesMissed: 0,
+          penaltiesWon: 0,
+          ratingWeightedSum: 0,
+          ratingApps: 0,
+        }
+      );
+
+      const avgRating =
+        totals.ratingApps > 0
+          ? Number((totals.ratingWeightedSum / totals.ratingApps).toFixed(2))
+          : null;
+
+      // Primary club (the one with the most appearances in the season, or latest transfer teamIn)
+      const sortedByApps = [...competitions].sort((a, b) => b.appearances - a.appearances);
+      const primaryComp = sortedByApps[0] || competitions[0] || null;
+
+      // Parse career transfers
+      const rawTransfers: Array<Record<string, any>> = Array.isArray(
+        transfersJson?.response?.[0]?.transfers
+      )
+        ? transfersJson.response[0].transfers
+        : [];
+      const transfers = rawTransfers
+        .filter((tr) => tr?.teams?.in?.name || tr?.teams?.out?.name)
+        .map((tr) => {
+          const inId = Number(tr?.teams?.in?.id || 0);
+          const outId = Number(tr?.teams?.out?.id || 0);
+          return {
+            date: String(tr?.date || ''),
+            type: String(tr?.type || 'Transfer'),
+            teamIn: {
+              id: inId || null,
+              name: String(tr?.teams?.in?.name || 'Unknown'),
+              logo: proxyMediaUrl(tr?.teams?.in?.logo, 'teams', inId),
+            },
+            teamOut: {
+              id: outId || null,
+              name: String(tr?.teams?.out?.name || 'Unknown'),
+              logo: proxyMediaUrl(tr?.teams?.out?.logo, 'teams', outId),
+            },
+          };
+        })
+        .sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0));
+
+      // Parse career trophies
+      const rawTrophies: Array<Record<string, any>> = Array.isArray(trophiesJson?.response)
+        ? trophiesJson.response
+        : [];
+      const trophies = rawTrophies
+        .filter((tr) => tr?.league)
+        .map((tr) => ({
+          league: String(tr.league || ''),
+          country: String(tr.country || ''),
+          season: String(tr.season || ''),
+          place: String(tr.place || ''),
+          isWinner: /winner|1st|champion/i.test(String(tr.place || '')),
+        }));
+
+      // Parse injury & sidelined history
+      const rawSidelined: Array<Record<string, any>> = Array.isArray(sidelinedJson?.response)
+        ? sidelinedJson.response
+        : [];
+      const sidelined = rawSidelined
+        .filter((sd) => sd?.type)
+        .map((sd) => ({
+          type: String(sd.type || ''),
+          start: String(sd.start || ''),
+          end: String(sd.end || ''),
+        }))
+        .sort((a, b) => (Date.parse(b.start) || 0) - (Date.parse(a.start) || 0));
+
+      const primaryTeam = primaryComp
+        ? {
+            id: primaryComp.teamId,
+            name: primaryComp.teamName,
+            logo: primaryComp.teamLogo,
+            leagueId: primaryComp.leagueId,
+            leagueName: primaryComp.leagueName,
+          }
+        : transfers[0]?.teamIn
+        ? {
+            id: transfers[0].teamIn.id,
+            name: transfers[0].teamIn.name,
+            logo: transfers[0].teamIn.logo,
+            leagueId: null,
+            leagueName: null,
+          }
+        : null;
+
+      const payload = {
+        configured: true,
+        found: true,
+        season: activeSeason,
+        seasonLabel: `${activeSeason}/${String(activeSeason + 1).slice(-2)}`,
+        player: {
+          id: resolvedPlayerId,
+          name: playerName,
+          fullName,
+          firstname: firstname || null,
+          lastname: lastname || null,
+          age: Number(statsPlayer?.age || profilePlayer?.age || 0) || null,
+          birthDate:
+            statsPlayer?.birth?.date || profilePlayer?.birth?.date || null,
+          birthPlace:
+            statsPlayer?.birth?.place || profilePlayer?.birth?.place || null,
+          birthCountry:
+            statsPlayer?.birth?.country || profilePlayer?.birth?.country || null,
+          nationality:
+            statsPlayer?.nationality || profilePlayer?.nationality || null,
+          height: statsPlayer?.height || profilePlayer?.height || null,
+          weight: statsPlayer?.weight || profilePlayer?.weight || null,
+          injured: Boolean(statsPlayer?.injured),
+          position:
+            primaryComp?.position ||
+            profilePlayer?.position ||
+            'Midfielder',
+          number:
+            primaryComp?.number ||
+            (profilePlayer?.number ? Number(profilePlayer.number) : null),
+          photo: proxyMediaUrl(
+            statsPlayer?.photo || profilePlayer?.photo,
+            'players',
+            resolvedPlayerId
+          ),
+        },
+        primaryTeam,
+        summary: {
+          ...totals,
+          avgRating,
+        },
+        competitions,
+        transfers,
+        trophies,
+        sidelined,
+      };
+
+      db.prepare(
+        'INSERT OR REPLACE INTO api_cache (cache_key, payload, updated_at) VALUES (?, ?, ?)'
+      ).run(mainCacheKey, JSON.stringify(payload), Date.now());
+
+      res.json(payload);
+    } catch (err) {
+      console.error('Player intel error:', err);
       res.json({ configured: true, found: false });
     }
   });

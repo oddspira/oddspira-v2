@@ -183,6 +183,63 @@ export function openTeamProfile(payload: OpenTeamPayload, e?: React.MouseEvent):
   );
 }
 
+export interface OpenPlayerPayload {
+  playerId?: number;
+  playerName: string;
+  playerPhoto?: string;
+  teamId?: number;
+  teamName?: string;
+  teamLogo?: string;
+  leagueId?: number;
+  leagueName?: string;
+  position?: string;
+  number?: number | null;
+}
+
+export function extractPlayerIdFromPhotoUrl(photoUrl?: string | null): number | undefined {
+  const m = String(photoUrl || '').match(/\/players\/(\d+)\./i);
+  if (m && m[1]) {
+    const parsed = Number(m[1]);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  return undefined;
+}
+
+export function openPlayerProfile(payload: OpenPlayerPayload, e?: React.MouseEvent): void {
+  if (e) {
+    e.stopPropagation();
+  }
+  if (!payload.playerName && !payload.playerId) return;
+  const resolvedPhoto = proxyApiSportsUrl(payload.playerPhoto) || payload.playerPhoto;
+  const resolvedPlayerId =
+    payload.playerId || extractPlayerIdFromPhotoUrl(resolvedPhoto || undefined);
+  const resolvedTeamLogo = payload.teamName
+    ? getTeamLogoUrl(payload.teamName, payload.teamLogo) || payload.teamLogo
+    : payload.teamLogo;
+  const resolvedTeamId =
+    payload.teamId ||
+    (payload.teamName
+      ? extractTeamIdFromLogoUrl(payload.teamName, resolvedTeamLogo || undefined)
+      : undefined);
+
+  window.dispatchEvent(
+    new CustomEvent('oddspira:open-player', {
+      detail: {
+        playerId: resolvedPlayerId,
+        playerName: payload.playerName || `Player #${resolvedPlayerId}`,
+        playerPhoto: resolvedPhoto || undefined,
+        teamId: resolvedTeamId,
+        teamName: payload.teamName,
+        teamLogo: resolvedTeamLogo || undefined,
+        leagueId: payload.leagueId,
+        leagueName: payload.leagueName,
+        position: payload.position,
+        number: payload.number,
+      },
+    })
+  );
+}
+
 export function openCompetitionLeague(
   target: { leagueKey?: string; leagueId?: number; leagueName?: string },
   e?: React.MouseEvent

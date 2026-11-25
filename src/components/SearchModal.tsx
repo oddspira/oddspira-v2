@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Match, ActiveTab } from '../types';
-import { TeamBadge, openTeamProfile } from './TeamBadge';
+import { TeamBadge, openTeamProfile, openPlayerProfile } from './TeamBadge';
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -8,6 +8,18 @@ interface SearchModalProps {
   matches: Match[];
   setActiveTab: (tab: ActiveTab) => void;
   onSelectMatch?: (match: Match) => void;
+}
+
+interface PlayerSearchHit {
+  id: number;
+  name: string;
+  firstname: string;
+  lastname: string;
+  age: number | null;
+  nationality: string;
+  position: string;
+  number: number | null;
+  photo: string;
 }
 
 export const SearchModal: React.FC<SearchModalProps> = ({
@@ -18,6 +30,8 @@ export const SearchModal: React.FC<SearchModalProps> = ({
   onSelectMatch,
 }) => {
   const [query, setQuery] = useState('');
+  const [playerHits, setPlayerHits] = useState<PlayerSearchHit[]>([]);
+  const [searchingPlayers, setSearchingPlayers] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -25,8 +39,39 @@ export const SearchModal: React.FC<SearchModalProps> = ({
       setTimeout(() => inputRef.current?.focus(), 50);
     } else {
       setQuery('');
+      setPlayerHits([]);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const q = query.trim();
+    if (q.length < 3) {
+      setPlayerHits([]);
+      setSearchingPlayers(false);
+      return;
+    }
+    let cancelled = false;
+    setSearchingPlayers(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/football/player-search?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        if (!cancelled) {
+          setPlayerHits(Array.isArray(data?.players) ? data.players.slice(0, 8) : []);
+        }
+      } catch {
+        if (!cancelled) setPlayerHits([]);
+      } finally {
+        if (!cancelled) setSearchingPlayers(false);
+      }
+    }, 320);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [query, isOpen]);
 
   if (!isOpen) return null;
 
@@ -111,6 +156,14 @@ export const SearchModal: React.FC<SearchModalProps> = ({
               if (e.key === 'Enter' && query.trim().length >= 2) {
                 if (matchingTeams.length > 0) {
                   openTeamProfile(matchingTeams[0]);
+                } else if (playerHits.length > 0) {
+                  openPlayerProfile({
+                    playerId: playerHits[0].id,
+                    playerName: playerHits[0].name,
+                    playerPhoto: playerHits[0].photo,
+                    position: playerHits[0].position,
+                    number: playerHits[0].number,
+                  });
                 } else {
                   openTeamProfile({ teamName: query.trim() });
                 }
@@ -119,7 +172,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                 onClose();
               }
             }}
-            placeholder="Търсене на отбор (напр. Arsenal, Levski, Real Madrid), мач или лига..."
+            placeholder="Търсене на футболист (Saka, Haaland, Despodov), отбор (Arsenal, Levski) или мач..."
             className="w-full bg-transparent text-[#f7f8fb] placeholder-[#8f9cae] text-sm focus:outline-none font-sans"
           />
           <button
@@ -132,6 +185,100 @@ export const SearchModal: React.FC<SearchModalProps> = ({
 
         {/* Search Results / Quick Links */}
         <div className="max-h-96 overflow-y-auto p-4 space-y-4">
+          {/* Football Players Section */}
+          {trimmed.length >= 3 && (
+            <div>
+              <div className="text-xs font-mono text-sky-400 uppercase tracking-wider px-2 mb-2 flex items-center justify-between">
+                <span>Футболисти — Официален профил, статистика, трансфери и трофеи</span>
+                {searchingPlayers && <span className="text-[11px] text-[#8f9cae]">Търсене...</span>}
+              </div>
+              <div className="space-y-1.5">
+                {playerHits.map((pl) => (
+                  <button
+                    key={pl.id}
+                    type="button"
+                    onClick={(e) => {
+                      openPlayerProfile(
+                        {
+                          playerId: pl.id,
+                          playerName: pl.name,
+                          playerPhoto: pl.photo,
+                          position: pl.position,
+                          number: pl.number,
+                        },
+                        e
+                      );
+                      onClose();
+                    }}
+                    className="w-full flex items-center justify-between p-2.5 rounded-xl bg-[#0b131e] hover:bg-[#111c2d] border border-[#1b293d] hover:border-sky-500/40 transition-colors text-left cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {pl.photo ? (
+                        <img
+                          src={pl.photo}
+                          alt={pl.name}
+                          className="w-9 h-9 rounded-full object-cover bg-[#111c2a] border border-[#22354a] shrink-0"
+                        />
+                      ) : (
+                        <span className="w-9 h-9 rounded-full bg-sky-500/20 text-sky-300 flex items-center justify-center text-xs font-bold shrink-0">
+                          ⚽
+                        </span>
+                      )}
+                      <div className="min-w-0">
+                        <div className="text-sm font-bold text-white group-hover:text-sky-300 transition-colors truncate">
+                          {pl.name}
+                          {pl.number ? (
+                            <span className="ml-1.5 text-xs font-mono text-[#43f08a]">
+                              #{pl.number}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="text-[11px] font-mono text-[#8f9cae] truncate">
+                          {[
+                            pl.position,
+                            pl.nationality,
+                            pl.age ? `${pl.age} г.` : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-xs font-mono font-bold text-sky-300 bg-sky-500/10 border border-sky-500/30 px-2.5 py-1 rounded-lg shrink-0">
+                      Профил на играча →
+                    </span>
+                  </button>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    openPlayerProfile({ playerName: query.trim() }, e);
+                    onClose();
+                  }}
+                  className="w-full flex items-center justify-between p-2.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/15 border border-sky-500/30 transition-colors text-left cursor-pointer group"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-6 h-6 rounded-full bg-sky-500/20 border border-sky-400/40 text-sky-300 flex items-center justify-center text-xs font-bold">
+                      ⚽
+                    </span>
+                    <div>
+                      <span className="text-xs sm:text-sm font-bold text-sky-300 block">
+                        Отвори профил на футболист „{query.trim()}“
+                      </span>
+                      <span className="text-[11px] text-[#8f9cae] block">
+                        Сезонна статистика по турнири, трансферна история, спечелени трофеи и контузии
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-sky-300 shrink-0">
+                    Отвори ↗
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Team Profiles Section */}
           {trimmed.length >= 2 && (
             <div>
@@ -173,7 +320,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                   </button>
                 ))}
 
-                {/* Direct API-Football Lookup for ANY team worldwide */}
+                {/* Direct Lookup for ANY team worldwide */}
                 <button
                   type="button"
                   onClick={(e) => {
