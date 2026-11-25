@@ -63,6 +63,84 @@ export interface SelectedPlayerTarget {
   number?: number | null;
 }
 
+export interface MultiMarketOddsSnapshot {
+  ft1x2: {
+    home: number;
+    draw: number;
+    away: number;
+  };
+  doubleChance: {
+    homeDraw: number; // 1X
+    homeAway: number; // 12
+    drawAway: number; // X2
+  };
+  goalsOU: {
+    over15: number;
+    under15: number;
+    over25: number;
+    under25: number;
+    over35: number;
+    under35: number;
+  };
+  firstHalf: {
+    home: number;
+    draw: number;
+    away: number;
+    over05: number;
+    under05: number;
+    over15: number;
+    under15: number;
+  };
+  cornersOU: {
+    over85: number;
+    under85: number;
+    over95: number;
+    under95: number;
+    over105: number;
+    under105: number;
+  };
+  cardsOU: {
+    over35: number;
+    under35: number;
+    over45: number;
+    under45: number;
+  };
+  btts: {
+    yes: number;
+    no: number;
+  };
+}
+
+export interface OddsHistoryEntry {
+  id: number;
+  recordedAt: number;
+  timeLabel: string;
+  isLive: boolean;
+  isOpening: boolean;
+  bookmaker: string;
+  markets: MultiMarketOddsSnapshot;
+}
+
+export interface DroppingOddsMarketAlert {
+  marketGroup: 'ft1x2' | 'doubleChance' | 'goalsOU' | 'firstHalf' | 'cornersOU' | 'cardsOU' | 'btts';
+  marketKey: string;
+  labelKey: string;
+  openingOdds: number;
+  currentOdds: number;
+  dropPercent: number; // Positive means odds dropped (e.g. +8.4 means -8.4% drop)
+  isSteamMove: boolean;
+}
+
+export interface BookmakerComparisonRow {
+  id: string;
+  name: string;
+  tier: 'SHARP' | 'EXCHANGE' | 'SOFT';
+  payoutPercent: number; // e.g. 97.9%
+  marginPercent: number; // e.g. 2.1%
+  isDirectFeed: boolean;
+  markets: MultiMarketOddsSnapshot;
+}
+
 export interface Match {
   id: string;
   leagueId?: number;
@@ -90,6 +168,15 @@ export interface Match {
     edgePercent: number; // e.g. +7.4%
     evPercent: number;
     recommendedStakeKelly: number;
+  };
+  droppingOdds?: {
+    marketKey: string;
+    labelKey: string;
+    openingOdds: number;
+    currentOdds: number;
+    dropPercent: number;
+    isSteamMove: boolean;
+    snapshotsCount: number;
   };
   venue?: string;
   referee?: string;

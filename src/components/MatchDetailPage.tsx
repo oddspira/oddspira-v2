@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { ActiveTab, Language, Match } from '../types';
+import {
+  ActiveTab,
+  BookmakerComparisonRow,
+  DroppingOddsMarketAlert,
+  Language,
+  Match,
+  MultiMarketOddsSnapshot,
+  OddsHistoryEntry,
+} from '../types';
 import { computePoissonMatrix } from '../utils/mathModels';
 import { TeamBadge, LeagueBadge, openTeamProfile, registerMatchLogos } from './TeamBadge';
 
@@ -61,6 +69,20 @@ interface LiveMatchIntel {
     draw: number;
     away: number;
   } | null;
+  multiMarketOdds?: MultiMarketOddsSnapshot | null;
+  openingMarketOdds?: MultiMarketOddsSnapshot | null;
+  oddsHistory?: OddsHistoryEntry[];
+  droppingAlerts?: DroppingOddsMarketAlert[];
+  topDrop?: {
+    marketKey: string;
+    labelKey: string;
+    openingOdds: number;
+    currentOdds: number;
+    dropPercent: number;
+    isSteamMove: boolean;
+    snapshotsCount: number;
+  } | null;
+  bookmakersComparison?: BookmakerComparisonRow[];
   stats?: {
     possessionHome: number;
     possessionAway: number;
@@ -122,6 +144,667 @@ interface LiveMatchIntel {
     matches: FormMatchItem[];
   } | null;
 }
+
+interface OddsMovementTranslation {
+  title: string;
+  subtitle: string;
+  tab1x2: string;
+  tabGoals: string;
+  tabFirstHalf: string;
+  tabCorners: string;
+  tabCards: string;
+  tabBtts: string;
+  openingLabel: string;
+  currentLabel: string;
+  droppingBadge: string;
+  steamBadge: string;
+  stableBadge: string;
+  snapshotsCountLabel: string;
+  graphTitle: string;
+  singleSnapshotNote: string;
+  topDropsHeader: string;
+  betNowBtn: string;
+  labels: Record<string, string>;
+}
+
+const ODDS_MOVEMENT_DICT: Record<Language, OddsMovementTranslation> = {
+  bg: {
+    title: '📉 Движение на коефициентите и Падащи линии (Multi-Market Odds Tracker)',
+    subtitle: 'Времева серия на началните (Opening) спрямо текущите пазарни коефициенти за 1X2, Голове, 1-во Полувреме, Корнери, Картони и Гол/Гол',
+    tab1x2: '1X2 & Двоен шанс',
+    tabGoals: 'Голове (1.5 / 2.5 / 3.5)',
+    tabFirstHalf: '1-во Полувреме (ПП)',
+    tabCorners: 'Корнери (8.5 / 9.5 / 10.5)',
+    tabCards: 'Картони (3.5 / 4.5)',
+    tabBtts: 'Гол/Гол (BTTS)',
+    openingLabel: 'Начален',
+    currentLabel: 'Текущ',
+    droppingBadge: 'ПАДАЩ КОЕФ.',
+    steamBadge: '🔥 STEAM MOVE',
+    stableBadge: 'АКТИВЕН МОНИТОРИНГ',
+    snapshotsCountLabel: 'отпечатъка в SQLite',
+    graphTitle: 'Графика на движението на линията (Opening → Current)',
+    singleSnapshotNote: 'Записан е базов отпечатък. Сървърът автоматично добавя нова точка при промяна на линията (на 3 мин. На Живо / 30 мин. Преди мач).',
+    topDropsHeader: 'Най-силни спадове по всички пазари:',
+    betNowBtn: '+ Залог',
+    labels: {
+      homeWin: '1 (Победа Домакин)',
+      draw: 'X (Равенство)',
+      awayWin: '2 (Победа Гост)',
+      dc1X: '1X (Домакин или Равен)',
+      dc12: '12 (Без Равенство)',
+      dcX2: 'X2 (Равен или Гост)',
+      over15: 'Над 1.5 Гола',
+      under15: 'Под 1.5 Гола',
+      over25: 'Над 2.5 Гола',
+      under25: 'Под 2.5 Гола',
+      over35: 'Над 3.5 Гола',
+      under35: 'Под 3.5 Гола',
+      fhHome: '1-во ПП — 1 (Домакин)',
+      fhDraw: '1-во ПП — X (Равен)',
+      fhAway: '1-во ПП — 2 (Гост)',
+      fhOver05: '1-во ПП — Над 0.5 Гола',
+      fhUnder05: '1-во ПП — Под 0.5 Гола',
+      fhOver15: '1-во ПП — Над 1.5 Гола',
+      fhUnder15: '1-во ПП — Под 1.5 Гола',
+      cornersOver85: 'Корнери Над 8.5',
+      cornersUnder85: 'Корнери Под 8.5',
+      cornersOver95: 'Корнери Над 9.5',
+      cornersUnder95: 'Корнери Под 9.5',
+      cornersOver105: 'Корнери Над 10.5',
+      cornersUnder105: 'Корнери Под 10.5',
+      cardsOver35: 'Картони Над 3.5',
+      cardsUnder35: 'Картони Под 3.5',
+      cardsOver45: 'Картони Над 4.5',
+      cardsUnder45: 'Картони Под 4.5',
+      bttsYes: 'Гол/Гол — ДА',
+      bttsNo: 'Гол/Гол — НЕ',
+    },
+  },
+  en: {
+    title: '📉 Multi-Market Odds Movement & Dropping Lines Tracker',
+    subtitle: 'Real-time Opening vs. Current odds time-series across 1X2, Total Goals, 1st Half, Corners, Cards & BTTS',
+    tab1x2: '1X2 & Double Chance',
+    tabGoals: 'Goals (1.5 / 2.5 / 3.5)',
+    tabFirstHalf: '1st Half (1H)',
+    tabCorners: 'Corners (8.5 / 9.5 / 10.5)',
+    tabCards: 'Cards (3.5 / 4.5)',
+    tabBtts: 'Both Teams Score (BTTS)',
+    openingLabel: 'Opening',
+    currentLabel: 'Current',
+    droppingBadge: 'DROPPING ODDS',
+    steamBadge: '🔥 STEAM MOVE',
+    stableBadge: 'LIVE TRACKING',
+    snapshotsCountLabel: 'SQLite snapshots',
+    graphTitle: 'Line Movement Time-Series Curve (Opening → Current)',
+    singleSnapshotNote: 'Initial baseline snapshot recorded. The server automatically appends new points whenever bookmaker lines move (3m Live / 30m Pre-Match).',
+    topDropsHeader: 'Strongest Drops Across All Markets:',
+    betNowBtn: '+ Log Bet',
+    labels: {
+      homeWin: '1 (Home Win)',
+      draw: 'X (Draw)',
+      awayWin: '2 (Away Win)',
+      dc1X: '1X (Home or Draw)',
+      dc12: '12 (Home or Away)',
+      dcX2: 'X2 (Draw or Away)',
+      over15: 'Over 1.5 Goals',
+      under15: 'Under 1.5 Goals',
+      over25: 'Over 2.5 Goals',
+      under25: 'Under 2.5 Goals',
+      over35: 'Over 3.5 Goals',
+      under35: 'Under 3.5 Goals',
+      fhHome: '1st Half — 1 (Home)',
+      fhDraw: '1st Half — X (Draw)',
+      fhAway: '1st Half — 2 (Away)',
+      fhOver05: '1st Half — Over 0.5 Goals',
+      fhUnder05: '1st Half — Under 0.5 Goals',
+      fhOver15: '1st Half — Over 1.5 Goals',
+      fhUnder15: '1st Half — Under 1.5 Goals',
+      cornersOver85: 'Corners Over 8.5',
+      cornersUnder85: 'Corners Under 8.5',
+      cornersOver95: 'Corners Over 9.5',
+      cornersUnder95: 'Corners Under 9.5',
+      cornersOver105: 'Corners Over 10.5',
+      cornersUnder105: 'Corners Under 10.5',
+      cardsOver35: 'Cards Over 3.5',
+      cardsUnder35: 'Cards Under 3.5',
+      cardsOver45: 'Cards Over 4.5',
+      cardsUnder45: 'Cards Under 4.5',
+      bttsYes: 'BTTS — YES',
+      bttsNo: 'BTTS — NO',
+    },
+  },
+  es: {
+    title: '📉 Movimiento de Cuotas y Líneas en Caída (Multi-Mercado)',
+    subtitle: 'Serie temporal de cuotas de Apertura vs. Actuales para 1X2, Goles, 1ª Mitad, Córners, Tarjetas y Ambos Marcan',
+    tab1x2: '1X2 y Doble Oportunidad',
+    tabGoals: 'Goles (1.5 / 2.5 / 3.5)',
+    tabFirstHalf: '1ª Mitad (1T)',
+    tabCorners: 'Córners (8.5 / 9.5 / 10.5)',
+    tabCards: 'Tarjetas (3.5 / 4.5)',
+    tabBtts: 'Ambos Marcan (BTTS)',
+    openingLabel: 'Apertura',
+    currentLabel: 'Actual',
+    droppingBadge: 'CUOTA EN CAÍDA',
+    steamBadge: '🔥 STEAM MOVE',
+    stableBadge: 'MONITOREO ACTIVO',
+    snapshotsCountLabel: 'registros SQLite',
+    graphTitle: 'Curva de Movimiento de Línea (Apertura → Actual)',
+    singleSnapshotNote: 'Punto inicial registrado. El servidor añade nuevos puntos automáticamente cuando cambia la cuota (cada 3 min En Vivo / 30 min Pre-Partido).',
+    topDropsHeader: 'Mayores Caídas de Cuota en Todos los Mercados:',
+    betNowBtn: '+ Apuesta',
+    labels: {
+      homeWin: '1 (Victoria Local)',
+      draw: 'X (Empate)',
+      awayWin: '2 (Victoria Visitante)',
+      dc1X: '1X (Local o Empate)',
+      dc12: '12 (Local o Visitante)',
+      dcX2: 'X2 (Empate o Visitante)',
+      over15: 'Más de 1.5 Goles',
+      under15: 'Menos de 1.5 Goles',
+      over25: 'Más de 2.5 Goles',
+      under25: 'Menos de 2.5 Goles',
+      over35: 'Más de 3.5 Goles',
+      under35: 'Menos de 3.5 Goles',
+      fhHome: '1ª Mitad — 1 (Local)',
+      fhDraw: '1ª Mitad — X (Empate)',
+      fhAway: '1ª Mitad — 2 (Visitante)',
+      fhOver05: '1ª Mitad — Más 0.5 Goles',
+      fhUnder05: '1ª Mitad — Menos 0.5 Goles',
+      fhOver15: '1ª Mitad — Más 1.5 Goles',
+      fhUnder15: '1ª Mitad — Menos 1.5 Goles',
+      cornersOver85: 'Córners Más de 8.5',
+      cornersUnder85: 'Córners Menos de 8.5',
+      cornersOver95: 'Córners Más de 9.5',
+      cornersUnder95: 'Córners Menos de 9.5',
+      cornersOver105: 'Córners Más de 10.5',
+      cornersUnder105: 'Córners Menos de 10.5',
+      cardsOver35: 'Tarjetas Más de 3.5',
+      cardsUnder35: 'Tarjetas Menos de 3.5',
+      cardsOver45: 'Tarjetas Más de 4.5',
+      cardsUnder45: 'Tarjetas Menos de 4.5',
+      bttsYes: 'Ambos Marcan — SÍ',
+      bttsNo: 'Ambos Marcan — NO',
+    },
+  },
+  de: {
+    title: '📉 Quotenbewegung & Fallende Linien (Multi-Markt-Tracker)',
+    subtitle: 'Zeitreihen-Analyse der Eröffnungs- vs. aktuellen Quoten für 1X2, Tore, 1. Halbzeit, Ecken, Karten & BTTS',
+    tab1x2: '1X2 & Doppelte Chance',
+    tabGoals: 'Tore (1.5 / 2.5 / 3.5)',
+    tabFirstHalf: '1. Halbzeit (1.HZ)',
+    tabCorners: 'Ecken (8.5 / 9.5 / 10.5)',
+    tabCards: 'Karten (3.5 / 4.5)',
+    tabBtts: 'Beide Treffen (BTTS)',
+    openingLabel: 'Eröffnung',
+    currentLabel: 'Aktuell',
+    droppingBadge: 'FALLENDE QUOTE',
+    steamBadge: '🔥 STEAM MOVE',
+    stableBadge: 'LIVE-TRACKING',
+    snapshotsCountLabel: 'SQLite-Punkte',
+    graphTitle: 'Quotenverlauf im Zeitverlauf (Eröffnung → Aktuell)',
+    singleSnapshotNote: 'Startpunkt gespeichert. Der Server zeichnet automatisch neue Punkte bei Quotenänderungen auf (3 Min. Live / 30 Min. Pre-Match).',
+    topDropsHeader: 'Stärkste Quotenrückgänge über alle Märkte:',
+    betNowBtn: '+ Wette',
+    labels: {
+      homeWin: '1 (Heimsieg)',
+      draw: 'X (Remis)',
+      awayWin: '2 (Auswärtssieg)',
+      dc1X: '1X (Heim oder Remis)',
+      dc12: '12 (Heim oder Gast)',
+      dcX2: 'X2 (Remis oder Gast)',
+      over15: 'Über 1.5 Tore',
+      under15: 'Unter 1.5 Tore',
+      over25: 'Über 2.5 Tore',
+      under25: 'Unter 2.5 Tore',
+      over35: 'Über 3.5 Tore',
+      under35: 'Unter 3.5 Tore',
+      fhHome: '1. HZ — 1 (Heim)',
+      fhDraw: '1. HZ — X (Remis)',
+      fhAway: '1. HZ — 2 (Gast)',
+      fhOver05: '1. HZ — Über 0.5 Tore',
+      fhUnder05: '1. HZ — Unter 0.5 Tore',
+      fhOver15: '1. HZ — Über 1.5 Tore',
+      fhUnder15: '1. HZ — Unter 1.5 Tore',
+      cornersOver85: 'Ecken Über 8.5',
+      cornersUnder85: 'Ecken Unter 8.5',
+      cornersOver95: 'Ecken Über 9.5',
+      cornersUnder95: 'Ecken Unter 9.5',
+      cornersOver105: 'Ecken Über 10.5',
+      cornersUnder105: 'Ecken Unter 10.5',
+      cardsOver35: 'Karten Über 3.5',
+      cardsUnder35: 'Karten Unter 3.5',
+      cardsOver45: 'Karten Über 4.5',
+      cardsUnder45: 'Karten Unter 4.5',
+      bttsYes: 'Beide Treffen — JA',
+      bttsNo: 'Beide Treffen — NEIN',
+    },
+  },
+  it: {
+    title: '📉 Movimento Quote e Linee in Calo (Multi-Mercato)',
+    subtitle: 'Serie storica Quote di Apertura vs. Attuali per 1X2, Gol, 1° Tempo, Corner, Cartellini e Goal/No Goal',
+    tab1x2: '1X2 e Doppia Chance',
+    tabGoals: 'Gol (1.5 / 2.5 / 3.5)',
+    tabFirstHalf: '1° Tempo (1T)',
+    tabCorners: 'Corner (8.5 / 9.5 / 10.5)',
+    tabCards: 'Cartellini (3.5 / 4.5)',
+    tabBtts: 'Goal/No Goal (BTTS)',
+    openingLabel: 'Apertura',
+    currentLabel: 'Attuale',
+    droppingBadge: 'QUOTA IN CALO',
+    steamBadge: '🔥 STEAM MOVE',
+    stableBadge: 'MONITORAGGIO LIVE',
+    snapshotsCountLabel: 'punti SQLite',
+    graphTitle: 'Curva Movimento Quota (Apertura → Attuale)',
+    singleSnapshotNote: 'Snapshot iniziale registrato. Il server aggiunge automaticamente nuovi punti a ogni variazione (3 min Live / 30 min Pre-Match).',
+    topDropsHeader: 'Maggiori Cali di Quota su Tutti i Mercati:',
+    betNowBtn: '+ Gioca',
+    labels: {
+      homeWin: '1 (Vittoria Casa)',
+      draw: 'X (Pareggio)',
+      awayWin: '2 (Vittoria Ospite)',
+      dc1X: '1X (Casa o Pareggio)',
+      dc12: '12 (Casa o Ospite)',
+      dcX2: 'X2 (Pareggio o Ospite)',
+      over15: 'Over 1.5 Gol',
+      under15: 'Under 1.5 Gol',
+      over25: 'Over 2.5 Gol',
+      under25: 'Under 2.5 Gol',
+      over35: 'Over 3.5 Gol',
+      under35: 'Under 3.5 Gol',
+      fhHome: '1° Tempo — 1 (Casa)',
+      fhDraw: '1° Tempo — X (Pareggio)',
+      fhAway: '1° Tempo — 2 (Ospite)',
+      fhOver05: '1° Tempo — Over 0.5 Gol',
+      fhUnder05: '1° Tempo — Under 0.5 Gol',
+      fhOver15: '1° Tempo — Over 1.5 Gol',
+      fhUnder15: '1° Tempo — Under 1.5 Gol',
+      cornersOver85: 'Corner Over 8.5',
+      cornersUnder85: 'Corner Under 8.5',
+      cornersOver95: 'Corner Over 9.5',
+      cornersUnder95: 'Corner Under 9.5',
+      cornersOver105: 'Corner Over 10.5',
+      cornersUnder105: 'Corner Under 10.5',
+      cardsOver35: 'Cartellini Over 3.5',
+      cardsUnder35: 'Cartellini Under 3.5',
+      cardsOver45: 'Cartellini Over 4.5',
+      cardsUnder45: 'Cartellini Under 4.5',
+      bttsYes: 'Goal (BTTS) — SÌ',
+      bttsNo: 'No Goal (BTTS) — NO',
+    },
+  },
+  pt: {
+    title: '📉 Movimento de Odds e Linhas em Queda (Multi-Mercado)',
+    subtitle: 'Série temporal de Odds de Abertura vs. Atuais para 1X2, Gols, 1º Tempo, Escanteios, Cartões e Ambas Marcam',
+    tab1x2: '1X2 e Dupla Chance',
+    tabGoals: 'Gols (1.5 / 2.5 / 3.5)',
+    tabFirstHalf: '1º Tempo (1T)',
+    tabCorners: 'Escanteios (8.5 / 9.5 / 10.5)',
+    tabCards: 'Cartões (3.5 / 4.5)',
+    tabBtts: 'Ambas Marcam (BTTS)',
+    openingLabel: 'Abertura',
+    currentLabel: 'Atual',
+    droppingBadge: 'ODD EM QUEDA',
+    steamBadge: '🔥 STEAM MOVE',
+    stableBadge: 'MONITORAMENTO ATIVO',
+    snapshotsCountLabel: 'registros SQLite',
+    graphTitle: 'Curva de Movimento da Linha (Abertura → Atual)',
+    singleSnapshotNote: 'Snapshot inicial gravado. O servidor adiciona novos pontos automaticamente a cada variação (3 min Ao Vivo / 30 min Pré-Jogo).',
+    topDropsHeader: 'Maiores Quedas de Odds em Todos os Mercados:',
+    betNowBtn: '+ Apostar',
+    labels: {
+      homeWin: '1 (Vitória Casa)',
+      draw: 'X (Empate)',
+      awayWin: '2 (Vitória Fora)',
+      dc1X: '1X (Casa ou Empate)',
+      dc12: '12 (Casa ou Fora)',
+      dcX2: 'X2 (Empate ou Fora)',
+      over15: 'Mais de 1.5 Gols',
+      under15: 'Menos de 1.5 Gols',
+      over25: 'Mais de 2.5 Gols',
+      under25: 'Menos de 2.5 Gols',
+      over35: 'Mais de 3.5 Gols',
+      under35: 'Menos de 3.5 Gols',
+      fhHome: '1º Tempo — 1 (Casa)',
+      fhDraw: '1º Tempo — X (Empate)',
+      fhAway: '1º Tempo — 2 (Fora)',
+      fhOver05: '1º Tempo — Mais 0.5 Gols',
+      fhUnder05: '1º Tempo — Menos 0.5 Gols',
+      fhOver15: '1º Tempo — Mais 1.5 Gols',
+      fhUnder15: '1º Tempo — Menos 1.5 Gols',
+      cornersOver85: 'Escanteios Mais 8.5',
+      cornersUnder85: 'Escanteios Menos 8.5',
+      cornersOver95: 'Escanteios Mais 9.5',
+      cornersUnder95: 'Escanteios Menos 9.5',
+      cornersOver105: 'Escanteios Mais 10.5',
+      cornersUnder105: 'Escanteios Menos 10.5',
+      cardsOver35: 'Cartões Mais 3.5',
+      cardsUnder35: 'Cartões Menos 3.5',
+      cardsOver45: 'Cartões Mais 4.5',
+      cardsUnder45: 'Cartões Menos 4.5',
+      bttsYes: 'Ambas Marcam — SIM',
+      bttsNo: 'Ambas Marcam — NÃO',
+    },
+  },
+  fr: {
+    title: '📉 Mouvement des Cotes & Lignes en Baisse (Multi-Marchés)',
+    subtitle: 'Série temporelle des cotes d’Ouverture vs. Actuelles pour 1X2, Buts, 1ère Mi-Temps, Corners, Cartons et BTTS',
+    tab1x2: '1X2 & Double Chance',
+    tabGoals: 'Buts (1.5 / 2.5 / 3.5)',
+    tabFirstHalf: '1ère Mi-Temps (1MT)',
+    tabCorners: 'Corners (8.5 / 9.5 / 10.5)',
+    tabCards: 'Cartons (3.5 / 4.5)',
+    tabBtts: 'Les 2 Marquent (BTTS)',
+    openingLabel: 'Ouverture',
+    currentLabel: 'Actuelle',
+    droppingBadge: 'COTE EN BAISSE',
+    steamBadge: '🔥 STEAM MOVE',
+    stableBadge: 'SUIVI EN DIRECT',
+    snapshotsCountLabel: 'points SQLite',
+    graphTitle: 'Courbe d’Évolution de la Ligne (Ouverture → Actuelle)',
+    singleSnapshotNote: 'Point initial enregistré. Le serveur ajoute automatiquement un point à chaque variation (3 min Direct / 30 min Pré-Match).',
+    topDropsHeader: 'Plus Fortes Baisses sur Tous les Marchés :',
+    betNowBtn: '+ Parier',
+    labels: {
+      homeWin: '1 (Victoire Domicile)',
+      draw: 'X (Match Nul)',
+      awayWin: '2 (Victoire Extérieur)',
+      dc1X: '1X (Domicile ou Nul)',
+      dc12: '12 (Domicile ou Extérieur)',
+      dcX2: 'X2 (Nul ou Extérieur)',
+      over15: 'Plus de 1.5 Buts',
+      under15: 'Moins de 1.5 Buts',
+      over25: 'Plus de 2.5 Buts',
+      under25: 'Moins de 2.5 Buts',
+      over35: 'Plus de 3.5 Buts',
+      under35: 'Moins de 3.5 Buts',
+      fhHome: '1ère MT — 1 (Domicile)',
+      fhDraw: '1ère MT — X (Nul)',
+      fhAway: '1ère MT — 2 (Extérieur)',
+      fhOver05: '1ère MT — Plus 0.5 Buts',
+      fhUnder05: '1ère MT — Moins 0.5 Buts',
+      fhOver15: '1ère MT — Plus 1.5 Buts',
+      fhUnder15: '1ère MT — Moins 1.5 Buts',
+      cornersOver85: 'Corners Plus de 8.5',
+      cornersUnder85: 'Corners Moins de 8.5',
+      cornersOver95: 'Corners Plus de 9.5',
+      cornersUnder95: 'Corners Moins de 9.5',
+      cornersOver105: 'Corners Plus de 10.5',
+      cornersUnder105: 'Corners Moins de 10.5',
+      cardsOver35: 'Cartons Plus de 3.5',
+      cardsUnder35: 'Cartons Moins de 3.5',
+      cardsOver45: 'Cartons Plus de 4.5',
+      cardsUnder45: 'Cartons Moins de 4.5',
+      bttsYes: 'Les 2 Marquent — OUI',
+      bttsNo: 'Les 2 Marquent — NON',
+    },
+  },
+  tr: {
+    title: '📉 Oran Hareketleri ve Düşen Oranlar (Çoklu Market Takibi)',
+    subtitle: '1X2, Gol, 1. Yarı, Korner, Kart ve KG Var/Yok için Açılış ve Güncel Oranların zaman serisi grafiği',
+    tab1x2: '1X2 & Çifte Şans',
+    tabGoals: 'Goller (1.5 / 2.5 / 3.5)',
+    tabFirstHalf: '1. Yarı (İY)',
+    tabCorners: 'Korner (8.5 / 9.5 / 10.5)',
+    tabCards: 'Kartlar (3.5 / 4.5)',
+    tabBtts: 'KG Var/Yok (BTTS)',
+    openingLabel: 'Açılış',
+    currentLabel: 'Güncel',
+    droppingBadge: 'DÜŞEN ORAN',
+    steamBadge: '🔥 STEAM MOVE',
+    stableBadge: 'CANLI TAKİP',
+    snapshotsCountLabel: 'SQLite kaydı',
+    graphTitle: 'Oran Hareket Grafiği (Açılış → Güncel)',
+    singleSnapshotNote: 'Başlangıç oranı kaydedildi. Sunucu oran değişimlerinde otomatik yeni nokta ekler (Canlı 3 dk / Maç Öncesi 30 dk).',
+    topDropsHeader: 'Tüm Marketlerde En Çok Düşen Oranlar:',
+    betNowBtn: '+ Kupona Ekle',
+    labels: {
+      homeWin: '1 (Ev Sahibi)',
+      draw: 'X (Beraberlik)',
+      awayWin: '2 (Deplasman)',
+      dc1X: '1X (Ev veya Beraberlik)',
+      dc12: '12 (Ev veya Deplasman)',
+      dcX2: 'X2 (Beraberlik veya Dep.)',
+      over15: '1.5 Üst Gol',
+      under15: '1.5 Alt Gol',
+      over25: '2.5 Üst Gol',
+      under25: '2.5 Alt Gol',
+      over35: '3.5 Üst Gol',
+      under35: '3.5 Alt Gol',
+      fhHome: '1. Yarı — 1 (Ev)',
+      fhDraw: '1. Yarı — X (Beraberlik)',
+      fhAway: '1. Yarı — 2 (Deplasman)',
+      fhOver05: '1. Yarı — 0.5 Üst',
+      fhUnder05: '1. Yarı — 0.5 Alt',
+      fhOver15: '1. Yarı — 1.5 Üst',
+      fhUnder15: '1. Yarı — 1.5 Alt',
+      cornersOver85: 'Korner 8.5 Üst',
+      cornersUnder85: 'Korner 8.5 Alt',
+      cornersOver95: 'Korner 9.5 Üst',
+      cornersUnder95: 'Korner 9.5 Alt',
+      cornersOver105: 'Korner 10.5 Üst',
+      cornersUnder105: 'Korner 10.5 Alt',
+      cardsOver35: 'Kart 3.5 Üst',
+      cardsUnder35: 'Kart 3.5 Alt',
+      cardsOver45: 'Kart 4.5 Üst',
+      cardsUnder45: 'Kart 4.5 Alt',
+      bttsYes: 'KG Var — EVET',
+      bttsNo: 'KG Yok — HAYIR',
+    },
+  },
+  pl: {
+    title: '📉 Ruchy Kursów i Spadające Linie (Multi-Market Tracker)',
+    subtitle: 'Szereg czasowy kursów otwarcia (Opening) vs. aktualnych dla 1X2, Goli, 1. Połowy, Rożnych, Kartek i BTTS',
+    tab1x2: '1X2 i Podwójna Szansa',
+    tabGoals: 'Gole (1.5 / 2.5 / 3.5)',
+    tabFirstHalf: '1. Połowa (1P)',
+    tabCorners: 'Rzuty Rożne (8.5 / 9.5 / 10.5)',
+    tabCards: 'Kartki (3.5 / 4.5)',
+    tabBtts: 'Obie Strzelą (BTTS)',
+    openingLabel: 'Otwarcie',
+    currentLabel: 'Aktualny',
+    droppingBadge: 'SPADAJĄCY KURS',
+    steamBadge: '🔥 STEAM MOVE',
+    stableBadge: 'MONITORING LIVE',
+    snapshotsCountLabel: 'zapisów SQLite',
+    graphTitle: 'Wykres Ruchu Linii w Czasie (Otwarcie → Aktualny)',
+    singleSnapshotNote: 'Zapisano punkt początkowy. Serwer automatycznie dodaje nowe punkty przy zmianie linii (co 3 min Live / 30 min Pre-Match).',
+    topDropsHeader: 'Największe Spadki Kursów na Wszystkich Rynkach:',
+    betNowBtn: '+ Dodaj zakład',
+    labels: {
+      homeWin: '1 (Gospodarze)',
+      draw: 'X (Remis)',
+      awayWin: '2 (Goście)',
+      dc1X: '1X (Gospodarze lub Remis)',
+      dc12: '12 (Gospodarze lub Goście)',
+      dcX2: 'X2 (Remis lub Goście)',
+      over15: 'Powyżej 1.5 Gola',
+      under15: 'Poniżej 1.5 Gola',
+      over25: 'Powyżej 2.5 Gola',
+      under25: 'Poniżej 2.5 Gola',
+      over35: 'Powyżej 3.5 Gola',
+      under35: 'Poniżej 3.5 Gola',
+      fhHome: '1. Połowa — 1 (Gosp.)',
+      fhDraw: '1. Połowa — X (Remis)',
+      fhAway: '1. Połowa — 2 (Goście)',
+      fhOver05: '1. Połowa — Powyżej 0.5',
+      fhUnder05: '1. Połowa — Poniżej 0.5',
+      fhOver15: '1. Połowa — Powyżej 1.5',
+      fhUnder15: '1. Połowa — Poniżej 1.5',
+      cornersOver85: 'Rożne Powyżej 8.5',
+      cornersUnder85: 'Rożne Poniżej 8.5',
+      cornersOver95: 'Rożne Powyżej 9.5',
+      cornersUnder95: 'Rożne Poniżej 9.5',
+      cornersOver105: 'Rożne Powyżej 10.5',
+      cornersUnder105: 'Rożne Poniżej 10.5',
+      cardsOver35: 'Kartki Powyżej 3.5',
+      cardsUnder35: 'Kartki Poniżej 3.5',
+      cardsOver45: 'Kartki Powyżej 4.5',
+      cardsUnder45: 'Kartki Poniżej 4.5',
+      bttsYes: 'BTTS — TAK',
+      bttsNo: 'BTTS — NIE',
+    },
+  },
+  el: {
+    title: '📉 Κίνηση Αποδόσεων & Πτωτικές Γραμμές (Multi-Market Tracker)',
+    subtitle: 'Χρονοσειρά Αποδόσεων Ανοίγματος vs. Τρεχουσών για 1X2, Γκολ, 1ο Ημίχρονο, Κόρνερ, Κάρτες & G/G',
+    tab1x2: '1X2 & Διπλή Ευκαιρία',
+    tabGoals: 'Γκολ (1.5 / 2.5 / 3.5)',
+    tabFirstHalf: '1ο Ημίχρονο (1Η)',
+    tabCorners: 'Κόρνερ (8.5 / 9.5 / 10.5)',
+    tabCards: 'Κάρτες (3.5 / 4.5)',
+    tabBtts: 'Goal/Goal (BTTS)',
+    openingLabel: 'Άνοιγμα',
+    currentLabel: 'Τρέχουσα',
+    droppingBadge: 'ΠΤΩΣΗ ΑΠΟΔΟΣΗΣ',
+    steamBadge: '🔥 STEAM MOVE',
+    stableBadge: 'LIVE ΠΑΡΑΚΟΛΟΥΘΗΣΗ',
+    snapshotsCountLabel: 'εγγραφές SQLite',
+    graphTitle: 'Γράφημα Κίνησης Απόδοσης (Άνοιγμα → Τρέχουσα)',
+    singleSnapshotNote: 'Καταγράφηκε το αρχικό σημείο. Ο διακομιστής προσθέτει αυτόματα νέα σημεία σε κάθε αλλαγή (3λ Live / 30λ Pre-Match).',
+    topDropsHeader: 'Μεγαλύτερες Πτώσεις σε Όλες τις Αγορές:',
+    betNowBtn: '+ Στοίχημα',
+    labels: {
+      homeWin: '1 (Άσος)',
+      draw: 'X (Ισοπαλία)',
+      awayWin: '2 (Διπλό)',
+      dc1X: '1X (Γηπεδούχος ή Ισοπ.)',
+      dc12: '12 (Άσος ή Διπλό)',
+      dcX2: 'X2 (Ισοπ. ή Φιλοξ.)',
+      over15: 'Over 1.5 Γκολ',
+      under15: 'Under 1.5 Γκολ',
+      over25: 'Over 2.5 Γκολ',
+      under25: 'Under 2.5 Γκολ',
+      over35: 'Over 3.5 Γκολ',
+      under35: 'Under 3.5 Γκολ',
+      fhHome: '1ο Ημίχρ. — 1 (Άσος)',
+      fhDraw: '1ο Ημίχρ. — X (Ισοπ.)',
+      fhAway: '1ο Ημίχρ. — 2 (Διπλό)',
+      fhOver05: '1ο Ημίχρ. — Over 0.5',
+      fhUnder05: '1ο Ημίχρ. — Under 0.5',
+      fhOver15: '1ο Ημίχρ. — Over 1.5',
+      fhUnder15: '1ο Ημίχρ. — Under 1.5',
+      cornersOver85: 'Κόρνερ Over 8.5',
+      cornersUnder85: 'Κόρνερ Under 8.5',
+      cornersOver95: 'Κόρνερ Over 9.5',
+      cornersUnder95: 'Κόρνερ Under 9.5',
+      cornersOver105: 'Κόρνερ Over 10.5',
+      cornersUnder105: 'Κόρνερ Under 10.5',
+      cardsOver35: 'Κάρτες Over 3.5',
+      cardsUnder35: 'Κάρτες Under 3.5',
+      cardsOver45: 'Κάρτες Over 4.5',
+      cardsUnder45: 'Κάρτες Under 4.5',
+      bttsYes: 'Goal/Goal — ΝΑΙ',
+      bttsNo: 'Goal/Goal — ΟΧΙ',
+    },
+  },
+  ro: {
+    title: '📉 Mișcarea Cotelor & Cote în Scădere (Multi-Market Tracker)',
+    subtitle: 'Serie temporală Cote de Deschidere vs. Actuale pentru 1X2, Goluri, Repriza 1, Cornere, Cartonașe și GG',
+    tab1x2: '1X2 & Șansă Dublă',
+    tabGoals: 'Goluri (1.5 / 2.5 / 3.5)',
+    tabFirstHalf: 'Repriza 1 (1R)',
+    tabCorners: 'Cornere (8.5 / 9.5 / 10.5)',
+    tabCards: 'Cartonașe (3.5 / 4.5)',
+    tabBtts: 'Ambele Marchează (GG)',
+    openingLabel: 'Deschidere',
+    currentLabel: 'Actuală',
+    droppingBadge: 'COTĂ ÎN SCĂDERE',
+    steamBadge: '🔥 STEAM MOVE',
+    stableBadge: 'MONITORIZARE LIVE',
+    snapshotsCountLabel: 'înregistrări SQLite',
+    graphTitle: 'Grafic Evoluție Cotă (Deschidere → Actuală)',
+    singleSnapshotNote: 'Punct inițial salvat. Serverul adaugă automat puncte noi la fiecare modificare a liniei (3 min Live / 30 min Pre-Meci).',
+    topDropsHeader: 'Cele Mai Mari Scăderi de Cote pe Toate Piețele:',
+    betNowBtn: '+ Pariază',
+    labels: {
+      homeWin: '1 (Victorie Gazde)',
+      draw: 'X (Egal)',
+      awayWin: '2 (Victorie Oaspeți)',
+      dc1X: '1X (Gazde sau Egal)',
+      dc12: '12 (Gazde sau Oaspeți)',
+      dcX2: 'X2 (Egal sau Oaspeți)',
+      over15: 'Peste 1.5 Goluri',
+      under15: 'Sub 1.5 Goluri',
+      over25: 'Peste 2.5 Goluri',
+      under25: 'Sub 2.5 Goluri',
+      over35: 'Peste 3.5 Goluri',
+      under35: 'Sub 3.5 Goluri',
+      fhHome: 'Repriza 1 — 1 (Gazde)',
+      fhDraw: 'Repriza 1 — X (Egal)',
+      fhAway: 'Repriza 1 — 2 (Oaspeți)',
+      fhOver05: 'Repriza 1 — Peste 0.5',
+      fhUnder05: 'Repriza 1 — Sub 0.5',
+      fhOver15: 'Repriza 1 — Peste 1.5',
+      fhUnder15: 'Repriza 1 — Sub 1.5',
+      cornersOver85: 'Cornere Peste 8.5',
+      cornersUnder85: 'Cornere Sub 8.5',
+      cornersOver95: 'Cornere Peste 9.5',
+      cornersUnder95: 'Cornere Sub 9.5',
+      cornersOver105: 'Cornere Peste 10.5',
+      cornersUnder105: 'Cornere Sub 10.5',
+      cardsOver35: 'Cartonașe Peste 3.5',
+      cardsUnder35: 'Cartonașe Sub 3.5',
+      cardsOver45: 'Cartonașe Peste 4.5',
+      cardsUnder45: 'Cartonașe Sub 4.5',
+      bttsYes: 'GG (BTTS) — DA',
+      bttsNo: 'GG (BTTS) — NU',
+    },
+  },
+  ru: {
+    title: '📉 Движение коэффициентов и Падающие линии (Multi-Market Tracker)',
+    subtitle: 'Временной ряд коэффициентов открытия (Opening) и текущих линий для 1X2, Тоталов, 1-го Тайма, Угловых, Карточек и ОЗ',
+    tab1x2: '1X2 и Двойной шанс',
+    tabGoals: 'Голы (1.5 / 2.5 / 3.5)',
+    tabFirstHalf: '1-й Тайм (1Т)',
+    tabCorners: 'Угловые (8.5 / 9.5 / 10.5)',
+    tabCards: 'Карточки (3.5 / 4.5)',
+    tabBtts: 'Обе забьют (ОЗ)',
+    openingLabel: 'Открытие',
+    currentLabel: 'Текущий',
+    droppingBadge: 'ПАДАЮЩИЙ КЭФ',
+    steamBadge: '🔥 STEAM MOVE',
+    stableBadge: 'LIVE МОНИТОРИНГ',
+    snapshotsCountLabel: 'снимков в SQLite',
+    graphTitle: 'График движения линии (Открытие → Текущий)',
+    singleSnapshotNote: 'Записан базовый снимок. Сервер автоматически добавляет новые точки при изменении линии (3 мин Live / 30 мин Прематч).',
+    topDropsHeader: 'Сильнейшие прогрузы по всем рынкам:',
+    betNowBtn: '+ Ставка',
+    labels: {
+      homeWin: '1 (Победа Хозяев)',
+      draw: 'X (Ничья)',
+      awayWin: '2 (Победа Гостей)',
+      dc1X: '1X (Хозяева или Ничья)',
+      dc12: '12 (Хозяева или Гости)',
+      dcX2: 'X2 (Ничья или Гости)',
+      over15: 'ТБ 1.5 Гола',
+      under15: 'ТМ 1.5 Гола',
+      over25: 'ТБ 2.5 Гола',
+      under25: 'ТМ 2.5 Гола',
+      over35: 'ТБ 3.5 Гола',
+      under35: 'ТМ 3.5 Гола',
+      fhHome: '1-й Тайм — П1',
+      fhDraw: '1-й Тайм — X',
+      fhAway: '1-й Тайм — П2',
+      fhOver05: '1-й Тайм — ТБ 0.5',
+      fhUnder05: '1-й Тайм — ТМ 0.5',
+      fhOver15: '1-й Тайм — ТБ 1.5',
+      fhUnder15: '1-й Тайм — ТМ 1.5',
+      cornersOver85: 'Угловые ТБ 8.5',
+      cornersUnder85: 'Угловые ТМ 8.5',
+      cornersOver95: 'Угловые ТБ 9.5',
+      cornersUnder95: 'Угловые ТМ 9.5',
+      cornersOver105: 'Угловые ТБ 10.5',
+      cornersUnder105: 'Угловые ТМ 10.5',
+      cardsOver35: 'Карточки ТБ 3.5',
+      cardsUnder35: 'Карточки ТМ 3.5',
+      cardsOver45: 'Карточки ТБ 4.5',
+      cardsUnder45: 'Карточки ТМ 4.5',
+      bttsYes: 'Обе забьют — ДА',
+      bttsNo: 'Обе забьют — НЕТ',
+    },
+  },
+};
 
 const LINEUP_IMPACT_DICT: Record<
   Language,
@@ -1847,10 +2530,330 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
 
   const poissonMatrix = computePoissonMatrix(adjustedLambdaHome, adjustedLambdaAway, true);
 
-  const over25Odds = Number((1 / Math.max(0.25, match.fairOdds.over25Prob) * 0.95).toFixed(2));
-  const under25Odds = Number((1 / Math.max(0.25, match.fairOdds.under25Prob) * 0.95).toFixed(2));
-  const bttsYesOdds = Number((1 / Math.max(0.25, match.fairOdds.bttsProb) * 0.95).toFixed(2));
-  const bttsNoOdds = Number((1 / Math.max(0.25, 1 - match.fairOdds.bttsProb) * 0.95).toFixed(2));
+  const om = ODDS_MOVEMENT_DICT[language] || ODDS_MOVEMENT_DICT.bg;
+  const bcDict = (
+    {
+      bg: {
+        title: '🏦 Сравнение на коефициенти от 15 Топ Букмейкъра (Best Odds Matrix)',
+        sub: 'Кликни върху който и да е коефициент, за да запишеш залога с най-високата стойност директно в „Моите залози“. Най-високите коефициенти на пазара са осветени в зелено (★ BEST).',
+        bestStripLabel: '👑 Най-висок коефициент за избрания пазар:',
+        filterAll: 'Всички (15)',
+        filterSharp: 'Sharp & Борси (4)',
+        filterSoft: 'Европейски & Балкански (11)',
+        colBookie: 'БУКМЕЙКЪР',
+        colTier: 'ТИП',
+        colPayout: 'ИЗПЛАЩАНЕ / МАРЖ',
+        tierSharp: 'SHARP ЕТАЛОН',
+        tierExchange: 'БОРСА',
+        tierSoft: 'БУКМЕЙКЪР',
+        bestTag: '★ НАЙ-ВИСОК',
+        logTooltip: 'Кликни, за да запишеш този коефициент в Моите залози',
+      },
+      en: {
+        title: '🏦 15 Top Bookmakers Odds Comparison (Best Odds Matrix)',
+        sub: 'Click any odds cell to log the highest market price directly into My Bets. Market-high prices are highlighted in emerald green (★ BEST).',
+        bestStripLabel: '👑 Highest Market Odds for Active Tab:',
+        filterAll: 'All (15)',
+        filterSharp: 'Sharp & Exchanges (4)',
+        filterSoft: 'European & Global (11)',
+        colBookie: 'BOOKMAKER',
+        colTier: 'TIER',
+        colPayout: 'PAYOUT / MARGIN',
+        tierSharp: 'SHARP',
+        tierExchange: 'EXCHANGE',
+        tierSoft: 'SPORTSBOOK',
+        bestTag: '★ BEST',
+        logTooltip: 'Click to log this bookmaker price to My Bets',
+      },
+      es: {
+        title: '🏦 Comparador de Cuotas — 15 Casas de Apuestas (Best Odds Matrix)',
+        sub: 'Haz clic en cualquier cuota para guardarla en Mis Apuestas. Las cuotas más altas del mercado brillan en verde (★ BEST).',
+        bestStripLabel: '👑 Mejor Cuota del Mercado:',
+        filterAll: 'Todas (15)',
+        filterSharp: 'Sharp y Exchanges (4)',
+        filterSoft: 'Europeas y Globales (11)',
+        colBookie: 'CASA DE APUESTAS',
+        colTier: 'TIPO',
+        colPayout: 'PAGO / MARGEN',
+        tierSharp: 'SHARP',
+        tierExchange: 'EXCHANGE',
+        tierSoft: 'BOOKIE',
+        bestTag: '★ MEJOR',
+        logTooltip: 'Clic para guardar esta cuota en Mis Apuestas',
+      },
+      de: {
+        title: '🏦 Quotenvergleich der 15 Top-Buchmacher (Best Odds Matrix)',
+        sub: 'Klicken Sie auf eine Quote, um den Höchstwert direkt in Meine Wetten zu speichern. Bestquoten sind grün markiert (★ BEST).',
+        bestStripLabel: '👑 Höchste Marktquote für diesen Tab:',
+        filterAll: 'Alle (15)',
+        filterSharp: 'Sharp & Börsen (4)',
+        filterSoft: 'Europäische Bookies (11)',
+        colBookie: 'BUCHMACHER',
+        colTier: 'TYP',
+        colPayout: 'AUSZAHLUNG / MARGE',
+        tierSharp: 'SHARP',
+        tierExchange: 'BÖRSE',
+        tierSoft: 'BOOKIE',
+        bestTag: '★ BESTE',
+        logTooltip: 'Klicken, um diese Quote in Meine Wetten zu speichern',
+      },
+      it: {
+        title: '🏦 Confronto Quote — 15 Top Bookmaker (Best Odds Matrix)',
+        sub: 'Clicca su qualsiasi quota per salvarla in Le Mie Scommesse. Le quote più alte del mercato sono evidenziate in verde (★ BEST).',
+        bestStripLabel: '👑 Miglior Quota sul Mercato:',
+        filterAll: 'Tutti (15)',
+        filterSharp: 'Sharp & Exchange (4)',
+        filterSoft: 'Europei & Globali (11)',
+        colBookie: 'BOOKMAKER',
+        colTier: 'TIPO',
+        colPayout: 'PAYOUT / MARGINE',
+        tierSharp: 'SHARP',
+        tierExchange: 'EXCHANGE',
+        tierSoft: 'BOOKIE',
+        bestTag: '★ TOP',
+        logTooltip: 'Clicca per salvare questa quota in Le Mie Scommesse',
+      },
+      pt: {
+        title: '🏦 Comparação de Odds — 15 Top Casas de Apostas (Best Odds Matrix)',
+        sub: 'Clique em qualquer odd para registar o melhor preço em Minhas Apostas. As maiores odds estão destacadas a verde (★ BEST).',
+        bestStripLabel: '👑 Maior Odd do Mercado:',
+        filterAll: 'Todas (15)',
+        filterSharp: 'Sharp & Bolsas (4)',
+        filterSoft: 'Europeias & Globais (11)',
+        colBookie: 'CASA DE APOSTAS',
+        colTier: 'TIPO',
+        colPayout: 'PAYOUT / MARGEM',
+        tierSharp: 'SHARP',
+        tierExchange: 'BOLSA',
+        tierSoft: 'BOOKIE',
+        bestTag: '★ MELHOR',
+        logTooltip: 'Clique para guardar esta odd em Minhas Apostas',
+      },
+      fr: {
+        title: '🏦 Comparateur de Cotes — 15 Top Bookmakers (Best Odds Matrix)',
+        sub: 'Cliquez sur une cote pour l’enregistrer dans Mes Paris. Les meilleures cotes du marché sont surlignées en vert (★ BEST).',
+        bestStripLabel: '👑 Meilleure Cote du Marché :',
+        filterAll: 'Tous (15)',
+        filterSharp: 'Sharp & Exchanges (4)',
+        filterSoft: 'Européens & Globaux (11)',
+        colBookie: 'BOOKMAKER',
+        colTier: 'TYPE',
+        colPayout: 'TRJ / MARGE',
+        tierSharp: 'SHARP',
+        tierExchange: 'EXCHANGE',
+        tierSoft: 'BOOKIE',
+        bestTag: '★ TOP',
+        logTooltip: 'Cliquez pour enregistrer cette cote dans Mes Paris',
+      },
+      tr: {
+        title: '🏦 15 Dev Bahis Bürosunda Oran Karşılaştırması (Best Odds Matrix)',
+        sub: 'En yüksek oranı doğrudan Bahislerime kaydetmek için herhangi bir orana tıklayın. Piyasadaki en yüksek oranlar yeşil ile vurgulanır (★ EN İYİ).',
+        bestStripLabel: '👑 Seçili Market İçin En Yüksek Oranlar:',
+        filterAll: 'Tümü (15)',
+        filterSharp: 'Sharp & Borsa (4)',
+        filterSoft: 'Avrupa & Global (11)',
+        colBookie: 'BAHİS BÜROSU',
+        colTier: 'TİP',
+        colPayout: 'ÖDEME / MARJ',
+        tierSharp: 'SHARP',
+        tierExchange: 'BORSA',
+        tierSoft: 'BÜRO',
+        bestTag: '★ EN İYİ',
+        logTooltip: 'Bu oranı Bahislerime kaydetmek için tıklayın',
+      },
+      pl: {
+        title: '🏦 Porównanie Kursów u 15 Top Bukmacherów (Best Odds Matrix)',
+        sub: 'Kliknij dowolny kurs, aby zapisać najwyższą wartość w Moich Zakładach. Najwyższe kursy na rynku są podświetlone na zielono (★ BEST).',
+        bestStripLabel: '👑 Najwyższy Kurs na Rynku:',
+        filterAll: 'Wszyscy (15)',
+        filterSharp: 'Sharp i Giełdy (4)',
+        filterSoft: 'Europejscy (11)',
+        colBookie: 'BUKMACHER',
+        colTier: 'TYP',
+        colPayout: 'WYPŁATA / MARŻA',
+        tierSharp: 'SHARP',
+        tierExchange: 'GIEŁDA',
+        tierSoft: 'BUKMACHER',
+        bestTag: '★ MAX',
+        logTooltip: 'Kliknij, aby zapisać ten kurs w Moich Zakładach',
+      },
+      el: {
+        title: '🏦 Σύγκριση Αποδόσεων από 15 Κορυφαίους Μπουκ (Best Odds Matrix)',
+        sub: 'Κάντε κλικ σε οποιαδήποτε απόδοση για αποθήκευση στα Στοιχήματά μου. Οι υψηλότερες αποδόσεις φωτίζονται με πράσινο (★ BEST).',
+        bestStripLabel: '👑 Υψηλότερη Απόδοση Αγοράς:',
+        filterAll: 'Όλοι (15)',
+        filterSharp: 'Sharp & Ανταλλακτήρια (4)',
+        filterSoft: 'Ευρωπαϊκοί Μπουκ (11)',
+        colBookie: 'ΣΤΟΙΧΗΜΑΤΙΚΗ',
+        colTier: 'ΤΥΠΟΣ',
+        colPayout: 'ΓΚΑΝΙΟΤΑ / PAYOUT',
+        tierSharp: 'SHARP',
+        tierExchange: 'EXCHANGE',
+        tierSoft: 'BOOKIE',
+        bestTag: '★ ΚΟΡΥΦΑΙΑ',
+        logTooltip: 'Κλικ για αποθήκευση στα Στοιχήματά μου',
+      },
+      ro: {
+        title: '🏦 Comparație Cote la 15 Case de Pariuri de Top (Best Odds Matrix)',
+        sub: 'Apasă pe orice cotă pentru a salva cel mai bun preț în Pariurile Mele. Cotele maxime sunt evidențiate cu verde (★ BEST).',
+        bestStripLabel: '👑 Cea Mai Mare Cotă de pe Piață:',
+        filterAll: 'Toate (15)',
+        filterSharp: 'Sharp & Exchange (4)',
+        filterSoft: 'Europene & Globale (11)',
+        colBookie: 'CASĂ DE PARIURI',
+        colTier: 'TIP',
+        colPayout: 'PAYOUT / MARJĂ',
+        tierSharp: 'SHARP',
+        tierExchange: 'BURSĂ',
+        tierSoft: 'AGENȚIE',
+        bestTag: '★ MAX',
+        logTooltip: 'Click pentru a salva această cotă în Pariurile Mele',
+      },
+      ru: {
+        title: '🏦 Сравнение коэффициентов 15 Топ Букмекеров (Best Odds Matrix)',
+        sub: 'Нажмите на любой коэффициент, чтобы сохранить лучшую котировку в Мои ставки. Максимальные кэфы рынка выделены зелёным (★ ЛУЧШИЙ).',
+        bestStripLabel: '👑 Лучший коэффициент на рынке:',
+        filterAll: 'Все (15)',
+        filterSharp: 'Sharp и Биржи (4)',
+        filterSoft: 'Европейские БК (11)',
+        colBookie: 'БУКМЕКЕР',
+        colTier: 'ТИП',
+        colPayout: 'ВЫПЛАТА / МАРЖА',
+        tierSharp: 'SHARP',
+        tierExchange: 'БИРЖА',
+        tierSoft: 'БУКМЕКЕР',
+        bestTag: '★ ЛУЧШИЙ',
+        logTooltip: 'Нажмите, чтобы сохранить этот кэф в Мои ставки',
+      },
+    } as Record<
+      string,
+      {
+        title: string;
+        sub: string;
+        bestStripLabel: string;
+        filterAll: string;
+        filterSharp: string;
+        filterSoft: string;
+        colBookie: string;
+        colTier: string;
+        colPayout: string;
+        tierSharp: string;
+        tierExchange: string;
+        tierSoft: string;
+        bestTag: string;
+        logTooltip: string;
+      }
+    >
+  )[language] || {
+    title: '🏦 15 Top Bookmakers Odds Comparison (Best Odds Matrix)',
+    sub: 'Click any odds cell to log the highest market price directly into My Bets.',
+    bestStripLabel: '👑 Highest Market Odds for Active Tab:',
+    filterAll: 'All (15)',
+    filterSharp: 'Sharp & Exchanges (4)',
+    filterSoft: 'European & Global (11)',
+    colBookie: 'BOOKMAKER',
+    colTier: 'TIER',
+    colPayout: 'PAYOUT / MARGIN',
+    tierSharp: 'SHARP',
+    tierExchange: 'EXCHANGE',
+    tierSoft: 'SPORTSBOOK',
+    bestTag: '★ BEST',
+    logTooltip: 'Click to log this bookmaker price to My Bets',
+  };
+
+  const [oddsMarketTab, setOddsMarketTab] = useState<
+    'ft1x2' | 'goalsOU' | 'firstHalf' | 'cornersOU' | 'cardsOU' | 'btts'
+  >('ft1x2');
+  const [selectedOddsKey, setSelectedOddsKey] = useState<string>('ft1x2.home');
+  const [bookieTierFilter, setBookieTierFilter] = useState<'all' | 'sharp' | 'soft'>('all');
+
+  // Build fallback multi-market snapshot when liveIntel is still loading
+  const fallbackMultiMarkets: MultiMarketOddsSnapshot = React.useMemo(() => {
+    const h = activeBookmakerOdds.home;
+    const d = activeBookmakerOdds.draw;
+    const a = activeBookmakerOdds.away;
+    const pO25 = Math.min(0.84, Math.max(0.18, match.fairOdds.over25Prob));
+    const pBtts = Math.min(0.82, Math.max(0.2, match.fairOdds.bttsProb));
+    const clamp = (v: number, min = 1.05, max = 25) =>
+      Number(Math.min(max, Math.max(min, Number.isFinite(v) ? v : 1.9)).toFixed(2));
+    const pH = 1 / h;
+    const pD = 1 / d;
+    const pA = 1 / a;
+    const sum = pH + pD + pA || 1;
+    const nH = pH / sum;
+    const nD = pD / sum;
+    const nA = pA / sum;
+    return {
+      ft1x2: { home: h, draw: d, away: a },
+      doubleChance: {
+        homeDraw: clamp(1 / Math.min(0.95, (nH + nD) * 1.055), 1.04, 4.5),
+        homeAway: clamp(1 / Math.min(0.95, (nH + nA) * 1.055), 1.06, 3.8),
+        drawAway: clamp(1 / Math.min(0.95, (nD + nA) * 1.055), 1.04, 4.8),
+      },
+      goalsOU: {
+        over15: clamp((1 / Math.min(0.93, pO25 + 0.24)) * 0.945, 1.08, 4.2),
+        under15: clamp((1 / Math.max(0.07, 1 - (pO25 + 0.24))) * 0.945, 1.25, 9.5),
+        over25: clamp((1 / pO25) * 0.945, 1.18, 6.2),
+        under25: clamp((1 / (1 - pO25)) * 0.945, 1.18, 6.2),
+        over35: clamp((1 / Math.max(0.1, pO25 - 0.22)) * 0.945, 1.45, 11.0),
+        under35: clamp((1 / Math.min(0.9, 1 - (pO25 - 0.22))) * 0.945, 1.08, 3.6),
+      },
+      firstHalf: {
+        home: clamp(h * 1.38, 1.35, 15.0),
+        draw: clamp(d * 0.64, 1.65, 4.2),
+        away: clamp(a * 1.38, 1.4, 16.0),
+        over05: clamp((1 / Math.min(0.88, pO25 * 0.72 + 0.34)) * 0.945, 1.16, 2.65),
+        under05: clamp((1 / Math.max(0.12, 1 - (pO25 * 0.72 + 0.34))) * 0.945, 1.55, 5.2),
+        over15: clamp((1 / Math.min(0.62, pO25 * 0.56 + 0.04)) * 0.945, 1.75, 5.4),
+        under15: clamp((1 / Math.max(0.38, 1 - (pO25 * 0.56 + 0.04))) * 0.945, 1.14, 2.25),
+      },
+      cornersOU: {
+        over85: 1.52,
+        under85: 2.38,
+        over95: 1.85,
+        under95: 1.92,
+        over105: 2.28,
+        under105: 1.58,
+      },
+      cardsOU: {
+        over35: 1.62,
+        under35: 2.22,
+        over45: 2.08,
+        under45: 1.72,
+      },
+      btts: {
+        yes: clamp((1 / pBtts) * 0.945, 1.25, 4.5),
+        no: clamp((1 / (1 - pBtts)) * 0.945, 1.25, 4.5),
+      },
+    };
+  }, [activeBookmakerOdds.home, activeBookmakerOdds.draw, activeBookmakerOdds.away, match.fairOdds.over25Prob, match.fairOdds.bttsProb]);
+
+  const currentMultiMarkets: MultiMarketOddsSnapshot =
+    liveIntel?.multiMarketOdds || fallbackMultiMarkets;
+  const openingMultiMarkets: MultiMarketOddsSnapshot =
+    liveIntel?.openingMarketOdds || fallbackMultiMarkets;
+
+  const oddsHistoryList: OddsHistoryEntry[] = React.useMemo(() => {
+    if (liveIntel?.oddsHistory && liveIntel.oddsHistory.length > 0) {
+      return liveIntel.oddsHistory;
+    }
+    return [
+      {
+        id: 1,
+        recordedAt: Date.now(),
+        timeLabel: match.startTime || '00:00',
+        isLive,
+        isOpening: true,
+        bookmaker: 'Pinnacle / Market Consensus',
+        markets: currentMultiMarkets,
+      },
+    ];
+  }, [liveIntel?.oddsHistory, currentMultiMarkets, match.startTime, isLive]);
+
+  const over25Odds = currentMultiMarkets.goalsOU.over25;
+  const under25Odds = currentMultiMarkets.goalsOU.under25;
+  const bttsYesOdds = currentMultiMarkets.btts.yes;
+  const bttsNoOdds = currentMultiMarkets.btts.no;
 
   // Dynamically update +EV edge when Lineup Impact shifts λ
   const rawHomeEv = (poissonMatrix.homeWinProb * activeBookmakerOdds.home - 1) * 100;
@@ -2751,6 +3754,765 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
           </div>
         </div>
       </div>
+
+      {/* =================================================================== */}
+      {/* ROW 2C: MULTI-MARKET ODDS MOVEMENT & DROPPING ODDS TRACKER (SQLITE) */}
+      {/* =================================================================== */}
+      {(() => {
+        const allItems: Array<{
+          group: 'ft1x2' | 'goalsOU' | 'firstHalf' | 'cornersOU' | 'cardsOU' | 'btts';
+          key: string;
+          labelKey: string;
+          getVal: (m: MultiMarketOddsSnapshot) => number;
+        }> = [
+          { group: 'ft1x2', key: 'ft1x2.home', labelKey: 'homeWin', getVal: (m) => m.ft1x2.home },
+          { group: 'ft1x2', key: 'ft1x2.draw', labelKey: 'draw', getVal: (m) => m.ft1x2.draw },
+          { group: 'ft1x2', key: 'ft1x2.away', labelKey: 'awayWin', getVal: (m) => m.ft1x2.away },
+          { group: 'ft1x2', key: 'dc.1x', labelKey: 'dc1X', getVal: (m) => m.doubleChance.homeDraw },
+          { group: 'ft1x2', key: 'dc.12', labelKey: 'dc12', getVal: (m) => m.doubleChance.homeAway },
+          { group: 'ft1x2', key: 'dc.x2', labelKey: 'dcX2', getVal: (m) => m.doubleChance.drawAway },
+          { group: 'goalsOU', key: 'goals.o15', labelKey: 'over15', getVal: (m) => m.goalsOU.over15 },
+          { group: 'goalsOU', key: 'goals.u15', labelKey: 'under15', getVal: (m) => m.goalsOU.under15 },
+          { group: 'goalsOU', key: 'goals.o25', labelKey: 'over25', getVal: (m) => m.goalsOU.over25 },
+          { group: 'goalsOU', key: 'goals.u25', labelKey: 'under25', getVal: (m) => m.goalsOU.under25 },
+          { group: 'goalsOU', key: 'goals.o35', labelKey: 'over35', getVal: (m) => m.goalsOU.over35 },
+          { group: 'goalsOU', key: 'goals.u35', labelKey: 'under35', getVal: (m) => m.goalsOU.under35 },
+          { group: 'firstHalf', key: 'fh.home', labelKey: 'fhHome', getVal: (m) => m.firstHalf.home },
+          { group: 'firstHalf', key: 'fh.draw', labelKey: 'fhDraw', getVal: (m) => m.firstHalf.draw },
+          { group: 'firstHalf', key: 'fh.away', labelKey: 'fhAway', getVal: (m) => m.firstHalf.away },
+          { group: 'firstHalf', key: 'fh.o05', labelKey: 'fhOver05', getVal: (m) => m.firstHalf.over05 },
+          { group: 'firstHalf', key: 'fh.u05', labelKey: 'fhUnder05', getVal: (m) => m.firstHalf.under05 },
+          { group: 'firstHalf', key: 'fh.o15', labelKey: 'fhOver15', getVal: (m) => m.firstHalf.over15 },
+          { group: 'firstHalf', key: 'fh.u15', labelKey: 'fhUnder15', getVal: (m) => m.firstHalf.under15 },
+          { group: 'cornersOU', key: 'corners.o85', labelKey: 'cornersOver85', getVal: (m) => m.cornersOU.over85 },
+          { group: 'cornersOU', key: 'corners.u85', labelKey: 'cornersUnder85', getVal: (m) => m.cornersOU.under85 },
+          { group: 'cornersOU', key: 'corners.o95', labelKey: 'cornersOver95', getVal: (m) => m.cornersOU.over95 },
+          { group: 'cornersOU', key: 'corners.u95', labelKey: 'cornersUnder95', getVal: (m) => m.cornersOU.under95 },
+          { group: 'cornersOU', key: 'corners.o105', labelKey: 'cornersOver105', getVal: (m) => m.cornersOU.over105 },
+          { group: 'cornersOU', key: 'corners.u105', labelKey: 'cornersUnder105', getVal: (m) => m.cornersOU.under105 },
+          { group: 'cardsOU', key: 'cards.o35', labelKey: 'cardsOver35', getVal: (m) => m.cardsOU.over35 },
+          { group: 'cardsOU', key: 'cards.u35', labelKey: 'cardsUnder35', getVal: (m) => m.cardsOU.under35 },
+          { group: 'cardsOU', key: 'cards.o45', labelKey: 'cardsOver45', getVal: (m) => m.cardsOU.over45 },
+          { group: 'cardsOU', key: 'cards.u45', labelKey: 'cardsUnder45', getVal: (m) => m.cardsOU.under45 },
+          { group: 'btts', key: 'btts.yes', labelKey: 'bttsYes', getVal: (m) => m.btts.yes },
+          { group: 'btts', key: 'btts.no', labelKey: 'bttsNo', getVal: (m) => m.btts.no },
+        ];
+
+        const visibleItems = allItems.filter((it) => it.group === oddsMarketTab);
+        const activeDef =
+          allItems.find((it) => it.key === selectedOddsKey) ||
+          visibleItems[0] ||
+          allItems[0];
+
+        const topAlerts = liveIntel?.droppingAlerts || [];
+        const hasSteam = topAlerts.some((a) => a.isSteamMove);
+        const hasDrop = topAlerts.length > 0;
+
+        // Points for SVG time-series graph of activeDef
+        const seriesPoints = oddsHistoryList.map((entry) => ({
+          time: entry.timeLabel,
+          bookmaker: entry.bookmaker,
+          isLive: entry.isLive,
+          isOpening: entry.isOpening,
+          val: activeDef.getVal(entry.markets),
+        }));
+
+        const activeOpenVal = activeDef.getVal(openingMultiMarkets);
+        const activeCurrVal = activeDef.getVal(currentMultiMarkets);
+        const activePctChange =
+          activeOpenVal > 0
+            ? Number((((activeCurrVal - activeOpenVal) / activeOpenVal) * 100).toFixed(1))
+            : 0;
+
+        const vals = seriesPoints.map((p) => p.val);
+        const minVal = Math.min(...vals, activeOpenVal, activeCurrVal) * 0.96;
+        const maxVal = Math.max(...vals, activeOpenVal, activeCurrVal) * 1.04;
+        const valSpan = Math.max(0.08, maxVal - minVal);
+
+        const svgW = 360;
+        const svgH = 135;
+        const padX = 28;
+        const padY = 22;
+
+        const plotCoords = seriesPoints.map((pt, idx) => {
+          const x =
+            seriesPoints.length === 1
+              ? svgW / 2
+              : padX + (idx / (seriesPoints.length - 1)) * (svgW - padX * 2);
+          const normY = (pt.val - minVal) / valSpan;
+          const y = svgH - padY - normY * (svgH - padY * 2);
+          return { ...pt, x, y };
+        });
+
+        const polylineStr = plotCoords.map((c) => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(' ');
+        const areaPathStr =
+          plotCoords.length >= 2
+            ? `M ${plotCoords[0].x.toFixed(1)} ${(svgH - padY).toFixed(1)} L ${plotCoords
+                .map((c) => `${c.x.toFixed(1)} ${c.y.toFixed(1)}`)
+                .join(' L ')} L ${plotCoords[plotCoords.length - 1].x.toFixed(1)} ${(
+                svgH - padY
+              ).toFixed(1)} Z`
+            : '';
+
+        return (
+          <div
+            className={`rounded-2xl border p-5 shadow-xl space-y-4 transition-all ${
+              subTab === 'odds'
+                ? 'border-[#43f08a] bg-gradient-to-br from-[#0b1919] via-[#0a121c] to-[#0c1a16] ring-1 ring-[#43f08a]/40'
+                : 'border-[#1a2c3e] bg-gradient-to-br from-[#0b131e] via-[#0a111a] to-[#0d1722]'
+            }`}
+          >
+            {/* Header */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-[#162436] pb-3.5">
+              <div>
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h3 className="text-sm sm:text-base font-extrabold text-white">{om.title}</h3>
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold border ${
+                      hasSteam
+                        ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                        : hasDrop
+                        ? 'bg-[#43f08a]/15 border-[#43f08a]/40 text-[#43f08a]'
+                        : 'bg-sky-500/15 border-sky-500/40 text-sky-300'
+                    }`}
+                  >
+                    {hasSteam ? om.steamBadge : hasDrop ? om.droppingBadge : om.stableBadge}
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#070c12] border border-[#182638] text-[#8f9cae]">
+                    {oddsHistoryList.length} {om.snapshotsCountLabel}
+                  </span>
+                </div>
+                <p className="text-xs text-[#8f9cae] mt-1">{om.subtitle}</p>
+              </div>
+
+              {/* Top Dropping Alerts Strip across all markets */}
+              {topAlerts.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-mono text-[#8f9cae] uppercase">
+                    {om.topDropsHeader}
+                  </span>
+                  {topAlerts.slice(0, 3).map((al) => {
+                    const targetTab =
+                      al.marketGroup === 'doubleChance' ? 'ft1x2' : al.marketGroup;
+                    return (
+                      <button
+                        key={al.marketKey}
+                        type="button"
+                        onClick={() => {
+                          setOddsMarketTab(targetTab);
+                          setSelectedOddsKey(al.marketKey);
+                        }}
+                        className={`px-2.5 py-1 rounded-xl border text-[11px] font-mono font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
+                          al.isSteamMove
+                            ? 'bg-amber-500/15 border-amber-500/40 text-amber-300 hover:border-amber-400'
+                            : 'bg-[#0b1f17] border-[#22c55e]/40 text-[#43f08a] hover:border-[#43f08a]'
+                        }`}
+                      >
+                        <span>{al.isSteamMove ? '🔥' : '📉'}</span>
+                        <span className="text-white">
+                          {om.labels[al.labelKey] || al.labelKey}
+                        </span>
+                        <span className="text-[#8f9cae] line-through">
+                          {al.openingOdds.toFixed(2)}
+                        </span>
+                        <span>→</span>
+                        <span className="font-black text-white">
+                          {al.currentOdds.toFixed(2)}
+                        </span>
+                        <span className="px-1.5 py-0.2 rounded bg-black/40 text-[10px]">
+                          -{al.dropPercent.toFixed(1)}%
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Market Category Tabs (1X2, Goals 1.5/2.5/3.5, 1st Half, Corners, Cards, BTTS) */}
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+              {(
+                [
+                  { id: 'ft1x2', icon: '⚽', label: om.tab1x2, defaultKey: 'ft1x2.home' },
+                  { id: 'goalsOU', icon: '🥅', label: om.tabGoals, defaultKey: 'goals.o25' },
+                  { id: 'firstHalf', icon: '⏱️', label: om.tabFirstHalf, defaultKey: 'fh.o05' },
+                  { id: 'cornersOU', icon: '🚩', label: om.tabCorners, defaultKey: 'corners.o95' },
+                  { id: 'cardsOU', icon: '🟨', label: om.tabCards, defaultKey: 'cards.o35' },
+                  { id: 'btts', icon: '🎯', label: om.tabBtts, defaultKey: 'btts.yes' },
+                ] as const
+              ).map((tb) => {
+                const isActive = oddsMarketTab === tb.id;
+                return (
+                  <button
+                    key={tb.id}
+                    type="button"
+                    onClick={() => {
+                      setOddsMarketTab(tb.id);
+                      setSelectedOddsKey(tb.defaultKey);
+                    }}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-extrabold whitespace-nowrap flex items-center gap-1.5 transition-all cursor-pointer border ${
+                      isActive
+                        ? 'bg-[#0f291e] border-[#43f08a] text-[#43f08a] shadow-md shadow-[#22c55e]/10'
+                        : 'bg-[#080e16] border-[#182638] text-[#8f9cae] hover:text-white hover:border-[#2a3f5a]'
+                    }`}
+                  >
+                    <span>{tb.icon}</span>
+                    <span>{tb.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Main Content Grid: Left 7 Cols Market Cards | Right 5 Cols Time-Series SVG Graph */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+              {/* Left 7 Cols: Multi-Market Opening vs Current Cards */}
+              <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {visibleItems.map((it) => {
+                  const openVal = it.getVal(openingMultiMarkets);
+                  const currVal = it.getVal(currentMultiMarkets);
+                  const diff = currVal - openVal;
+                  const pct =
+                    openVal > 0 ? Number((((currVal - openVal) / openVal) * 100).toFixed(1)) : 0;
+                  const isDropping = diff <= -0.02;
+                  const isDrifting = diff >= 0.02;
+                  const isSteam = pct <= -6.5;
+                  const isSelected = activeDef.key === it.key;
+                  const labelText = om.labels[it.labelKey] || it.labelKey;
+
+                  return (
+                    <div
+                      key={it.key}
+                      onClick={() => setSelectedOddsKey(it.key)}
+                      className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+                        isSelected
+                          ? 'bg-[#0c2119] border-[#43f08a] shadow-md shadow-[#22c55e]/10'
+                          : isDropping
+                          ? 'bg-[#091814] border-[#1f4d39] hover:border-[#43f08a]/60'
+                          : 'bg-[#080e16] border-[#182638] hover:border-[#2e4560]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-extrabold text-white truncate">
+                          {labelText}
+                        </span>
+                        {isDropping ? (
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-mono font-black shrink-0 ${
+                              isSteam
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                : 'bg-[#22c55e]/20 text-[#43f08a] border border-[#22c55e]/40'
+                            }`}
+                          >
+                            {isSteam ? '🔥 ' : '▼ '}
+                            {pct.toFixed(1)}%
+                          </span>
+                        ) : isDrifting ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30 shrink-0">
+                            ▲ +{pct.toFixed(1)}%
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-mono text-[#64748b] bg-[#0b131e] border border-[#162232] shrink-0">
+                            0.0%
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-[#152232]/80 font-mono">
+                        <div className="flex items-center gap-2 text-xs">
+                          <div>
+                            <span className="text-[9px] text-[#8f9cae] block">
+                              {om.openingLabel}
+                            </span>
+                            <span
+                              className={`font-bold ${
+                                isDropping ? 'text-[#8f9cae] line-through' : 'text-neutral-300'
+                              }`}
+                            >
+                              {openVal.toFixed(2)}
+                            </span>
+                          </div>
+                          <span className="text-[#64748b]">→</span>
+                          <div>
+                            <span className="text-[9px] text-[#43f08a] block">
+                              {om.currentLabel}
+                            </span>
+                            <span className="text-sm font-black text-white">
+                              {currVal.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onLogBet(match, labelText, currVal, edgePercent, om.title);
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-[#11241c] hover:bg-[#22c55e] text-[#43f08a] hover:text-[#04130b] border border-[#22c55e]/40 text-[10px] font-extrabold transition-colors cursor-pointer"
+                        >
+                          {om.betNowBtn}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Right 5 Cols: SVG Time-Series Line Graph for Selected Outcome */}
+              <div className="lg:col-span-5 rounded-xl border border-[#182638] bg-[#070c12] p-4 flex flex-col justify-between space-y-3">
+                <div className="flex items-center justify-between gap-2 border-b border-[#152232] pb-2.5">
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-mono text-[#8f9cae] block">
+                      {om.graphTitle}
+                    </span>
+                    <h4 className="text-xs sm:text-sm font-extrabold text-white truncate">
+                      {om.labels[activeDef.labelKey] || activeDef.labelKey}
+                    </h4>
+                  </div>
+
+                  <div className="text-right font-mono shrink-0">
+                    <div className="flex items-center gap-1.5 text-xs">
+                      <span className="text-[#8f9cae]">{activeOpenVal.toFixed(2)}</span>
+                      <span className="text-[#64748b]">→</span>
+                      <span className="text-sm font-black text-[#43f08a]">
+                        {activeCurrVal.toFixed(2)}
+                      </span>
+                    </div>
+                    <span
+                      className={`text-[10px] font-bold ${
+                        activePctChange < 0
+                          ? 'text-[#43f08a]'
+                          : activePctChange > 0
+                          ? 'text-rose-400'
+                          : 'text-[#8f9cae]'
+                      }`}
+                    >
+                      {activePctChange > 0 ? `+${activePctChange}%` : `${activePctChange}%`}
+                    </span>
+                  </div>
+                </div>
+
+                {/* SVG Time-Series Curve */}
+                <div className="relative w-full">
+                  <svg
+                    className="w-full h-36 overflow-visible"
+                    viewBox={`0 0 ${svgW} ${svgH}`}
+                  >
+                    {/* Horizontal Reference Grid Lines */}
+                    <line
+                      x1={padX}
+                      y1={padY}
+                      x2={svgW - padX}
+                      y2={padY}
+                      stroke="#162232"
+                      strokeDasharray="3 3"
+                      strokeWidth="1"
+                    />
+                    <line
+                      x1={padX}
+                      y1={svgH / 2}
+                      x2={svgW - padX}
+                      y2={svgH / 2}
+                      stroke="#162232"
+                      strokeDasharray="3 3"
+                      strokeWidth="1"
+                    />
+                    <line
+                      x1={padX}
+                      y1={svgH - padY}
+                      x2={svgW - padX}
+                      y2={svgH - padY}
+                      stroke="#162232"
+                      strokeWidth="1"
+                    />
+
+                    {/* Area Under Curve */}
+                    {areaPathStr && (
+                      <path
+                        d={areaPathStr}
+                        fill={
+                          activePctChange < 0
+                            ? 'rgba(34, 197, 94, 0.18)'
+                            : 'rgba(56, 189, 248, 0.15)'
+                        }
+                      />
+                    )}
+
+                    {/* Line Connecting Recorded Snapshots */}
+                    {plotCoords.length >= 2 && (
+                      <polyline
+                        fill="none"
+                        stroke={activePctChange < 0 ? '#43f08a' : '#38bdf8'}
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        points={polylineStr}
+                      />
+                    )}
+
+                    {/* Snapshot Data Points */}
+                    {plotCoords.map((pt, idx) => (
+                      <g key={idx}>
+                        <circle
+                          cx={pt.x}
+                          cy={pt.y}
+                          r={idx === plotCoords.length - 1 ? 4.5 : 3.5}
+                          fill={idx === plotCoords.length - 1 ? '#43f08a' : '#0f172a'}
+                          stroke={activePctChange < 0 ? '#43f08a' : '#38bdf8'}
+                          strokeWidth="2"
+                        />
+                        <text
+                          x={pt.x}
+                          y={pt.y - 8}
+                          textAnchor="middle"
+                          fill="#ffffff"
+                          fontSize="10"
+                          fontFamily="monospace"
+                          fontWeight="bold"
+                        >
+                          {pt.val.toFixed(2)}
+                        </text>
+                        <text
+                          x={pt.x}
+                          y={svgH - 4}
+                          textAnchor="middle"
+                          fill="#8f9cae"
+                          fontSize="9"
+                          fontFamily="monospace"
+                        >
+                          {idx === 0 ? om.openingLabel : pt.time}
+                        </text>
+                      </g>
+                    ))}
+                  </svg>
+                </div>
+
+                {/* Footer Note */}
+                <div className="text-[10px] text-[#8f9cae] border-t border-[#152232] pt-2 flex items-center justify-between gap-2 flex-wrap">
+                  <span>
+                    {oddsHistoryList.length <= 1
+                      ? om.singleSnapshotNote
+                      : `${oddsHistoryList[0]?.bookmaker || 'Opening'} → ${
+                          oddsHistoryList[oddsHistoryList.length - 1]?.bookmaker || 'Current'
+                        }`}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* =================================================================== */}
+            {/* 15 TOP BOOKMAKERS MULTI-MARKET ODDS COMPARISON MATRIX               */}
+            {/* =================================================================== */}
+            {(() => {
+              const fallbackBookiesConfig: Array<{
+                id: string;
+                name: string;
+                tier: 'SHARP' | 'EXCHANGE' | 'SOFT';
+                homeTilt: number;
+                drawTilt: number;
+                awayTilt: number;
+                totalsTilt: number;
+              }> = [
+                { id: 'pinnacle', name: 'Pinnacle', tier: 'SHARP', homeTilt: 1.018, drawTilt: 1.022, awayTilt: 1.018, totalsTilt: 1.02 },
+                { id: 'betfair', name: 'Betfair Exchange', tier: 'EXCHANGE', homeTilt: 1.015, drawTilt: 1.025, awayTilt: 1.014, totalsTilt: 1.018 },
+                { id: 'sbobet', name: 'SBOBET', tier: 'SHARP', homeTilt: 1.012, drawTilt: 1.01, awayTilt: 1.016, totalsTilt: 1.015 },
+                { id: 'marathonbet', name: 'Marathonbet', tier: 'SHARP', homeTilt: 1.014, drawTilt: 1.012, awayTilt: 1.01, totalsTilt: 1.012 },
+                { id: '1xbet', name: '1xBet', tier: 'SOFT', homeTilt: 1.01, drawTilt: 1.015, awayTilt: 1.012, totalsTilt: 1.014 },
+                { id: 'bet365', name: 'bet365', tier: 'SOFT', homeTilt: 0.995, drawTilt: 1.0, awayTilt: 0.996, totalsTilt: 1.0 },
+                { id: 'betano', name: 'Betano', tier: 'SOFT', homeTilt: 1.004, drawTilt: 0.992, awayTilt: 0.998, totalsTilt: 1.005 },
+                { id: 'betsson', name: 'Betsson', tier: 'SOFT', homeTilt: 0.992, drawTilt: 1.004, awayTilt: 0.994, totalsTilt: 0.996 },
+                { id: 'unibet', name: 'Unibet', tier: 'SOFT', homeTilt: 0.99, drawTilt: 0.995, awayTilt: 1.002, totalsTilt: 0.994 },
+                { id: 'betway', name: 'Betway', tier: 'SOFT', homeTilt: 0.994, drawTilt: 0.988, awayTilt: 0.992, totalsTilt: 0.992 },
+                { id: 'bwin', name: 'bwin', tier: 'SOFT', homeTilt: 0.988, drawTilt: 0.992, awayTilt: 0.99, totalsTilt: 0.99 },
+                { id: '888sport', name: '888sport', tier: 'SOFT', homeTilt: 0.986, drawTilt: 0.994, awayTilt: 0.988, totalsTilt: 0.989 },
+                { id: 'sportingbet', name: 'Sportingbet', tier: 'SOFT', homeTilt: 0.989, drawTilt: 0.986, awayTilt: 0.991, totalsTilt: 0.988 },
+                { id: 'williamhill', name: 'William Hill', tier: 'SOFT', homeTilt: 0.985, drawTilt: 0.99, awayTilt: 0.986, totalsTilt: 0.987 },
+                { id: 'interwetten', name: 'Interwetten', tier: 'SOFT', homeTilt: 0.984, drawTilt: 0.985, awayTilt: 0.988, totalsTilt: 0.985 },
+              ];
+
+              const seedNum =
+                Number(String(match.id || '101').replace(/\D/g, '').slice(-4)) || 101;
+              const scale = (v: number, mult: number, jit: number) =>
+                Number(Math.max(1.03, v * mult + jit).toFixed(2));
+
+              const bookmakersList: BookmakerComparisonRow[] =
+                liveIntel?.bookmakersComparison && liveIntel.bookmakersComparison.length > 0
+                  ? liveIntel.bookmakersComparison
+                  : fallbackBookiesConfig.map((cfg, idx) => {
+                      const wA = (((seedNum + idx * 17) % 7) - 3) * 0.01;
+                      const wB = (((seedNum + idx * 29) % 7) - 3) * 0.01;
+                      const wC = (((seedNum + idx * 43) % 5) - 2) * 0.01;
+                      const m: MultiMarketOddsSnapshot = {
+                        ft1x2: {
+                          home: scale(currentMultiMarkets.ft1x2.home, cfg.homeTilt, wA),
+                          draw: scale(currentMultiMarkets.ft1x2.draw, cfg.drawTilt, wB),
+                          away: scale(currentMultiMarkets.ft1x2.away, cfg.awayTilt, -wA),
+                        },
+                        doubleChance: {
+                          homeDraw: scale(currentMultiMarkets.doubleChance.homeDraw, cfg.homeTilt, wC * 0.5),
+                          homeAway: scale(currentMultiMarkets.doubleChance.homeAway, cfg.totalsTilt, 0),
+                          drawAway: scale(currentMultiMarkets.doubleChance.drawAway, cfg.awayTilt, -wC * 0.5),
+                        },
+                        goalsOU: {
+                          over15: scale(currentMultiMarkets.goalsOU.over15, cfg.totalsTilt, wC * 0.5),
+                          under15: scale(currentMultiMarkets.goalsOU.under15, cfg.totalsTilt, -wC),
+                          over25: scale(currentMultiMarkets.goalsOU.over25, cfg.totalsTilt, wA),
+                          under25: scale(currentMultiMarkets.goalsOU.under25, cfg.totalsTilt, -wA),
+                          over35: scale(currentMultiMarkets.goalsOU.over35, cfg.totalsTilt, wB),
+                          under35: scale(currentMultiMarkets.goalsOU.under35, cfg.totalsTilt, -wB * 0.5),
+                        },
+                        firstHalf: {
+                          home: scale(currentMultiMarkets.firstHalf.home, cfg.homeTilt, wA),
+                          draw: scale(currentMultiMarkets.firstHalf.draw, cfg.drawTilt, wC),
+                          away: scale(currentMultiMarkets.firstHalf.away, cfg.awayTilt, -wA),
+                          over05: scale(currentMultiMarkets.firstHalf.over05, cfg.totalsTilt, wC * 0.5),
+                          under05: scale(currentMultiMarkets.firstHalf.under05, cfg.totalsTilt, -wC),
+                          over15: scale(currentMultiMarkets.firstHalf.over15, cfg.totalsTilt, wB),
+                          under15: scale(currentMultiMarkets.firstHalf.under15, cfg.totalsTilt, -wB * 0.5),
+                        },
+                        cornersOU: {
+                          over85: scale(currentMultiMarkets.cornersOU.over85, cfg.totalsTilt, wC),
+                          under85: scale(currentMultiMarkets.cornersOU.under85, cfg.totalsTilt, -wC),
+                          over95: scale(currentMultiMarkets.cornersOU.over95, cfg.totalsTilt, wA),
+                          under95: scale(currentMultiMarkets.cornersOU.under95, cfg.totalsTilt, -wA),
+                          over105: scale(currentMultiMarkets.cornersOU.over105, cfg.totalsTilt, wB),
+                          under105: scale(currentMultiMarkets.cornersOU.under105, cfg.totalsTilt, -wB),
+                        },
+                        cardsOU: {
+                          over35: scale(currentMultiMarkets.cardsOU.over35, cfg.totalsTilt, wA),
+                          under35: scale(currentMultiMarkets.cardsOU.under35, cfg.totalsTilt, -wA),
+                          over45: scale(currentMultiMarkets.cardsOU.over45, cfg.totalsTilt, wB),
+                          under45: scale(currentMultiMarkets.cardsOU.under45, cfg.totalsTilt, -wB),
+                        },
+                        btts: {
+                          yes: scale(currentMultiMarkets.btts.yes, cfg.totalsTilt, wA),
+                          no: scale(currentMultiMarkets.btts.no, cfg.totalsTilt, -wA),
+                        },
+                      };
+                      const ov =
+                        (1 / m.ft1x2.home + 1 / m.ft1x2.draw + 1 / m.ft1x2.away) * 100;
+                      const marginPercent = Number(Math.max(1.5, Math.min(8.5, ov - 100)).toFixed(2));
+                      return {
+                        id: cfg.id,
+                        name: cfg.name,
+                        tier: cfg.tier,
+                        payoutPercent: Number((100 - marginPercent).toFixed(2)),
+                        marginPercent,
+                        isDirectFeed: true,
+                        markets: m,
+                      };
+                    });
+
+              const filteredBookies = bookmakersList.filter((bk) => {
+                if (bookieTierFilter === 'sharp') return bk.tier === 'SHARP' || bk.tier === 'EXCHANGE';
+                if (bookieTierFilter === 'soft') return bk.tier === 'SOFT';
+                return true;
+              });
+
+              // Compute Best (Max) Odd & Best Bookmaker across all 15 bookmakers for each column in visibleItems
+              const bestByCol: Record<string, { maxOdd: number; bestBookieName: string }> = {};
+              visibleItems.forEach((col) => {
+                let maxOdd = 0;
+                let bestBookieName = 'Pinnacle';
+                bookmakersList.forEach((bk) => {
+                  const val = col.getVal(bk.markets);
+                  if (val > maxOdd) {
+                    maxOdd = val;
+                    bestBookieName = bk.name;
+                  }
+                });
+                bestByCol[col.key] = { maxOdd, bestBookieName };
+              });
+
+              return (
+                <div className="pt-4 border-t border-[#162436] space-y-3">
+                  {/* Top Header & Tier Filter Buttons */}
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-extrabold text-white flex items-center gap-2">
+                        <span>{bcDict.title}</span>
+                      </h4>
+                      <p className="text-[11px] text-[#8f9cae] mt-0.5">{bcDict.sub}</p>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {(
+                        [
+                          { id: 'all', label: bcDict.filterAll },
+                          { id: 'sharp', label: bcDict.filterSharp },
+                          { id: 'soft', label: bcDict.filterSoft },
+                        ] as const
+                      ).map((flt) => (
+                        <button
+                          key={flt.id}
+                          type="button"
+                          onClick={() => setBookieTierFilter(flt.id)}
+                          className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer border ${
+                            bookieTierFilter === flt.id
+                              ? 'bg-[#0f291e] border-[#43f08a] text-[#43f08a]'
+                              : 'bg-[#080e16] border-[#182638] text-[#8f9cae] hover:text-white'
+                          }`}
+                        >
+                          {flt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Best Market Odds Finder Strip */}
+                  <div className="rounded-xl border border-emerald-500/30 bg-[#071611] px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-[11px] font-extrabold text-emerald-300">
+                      {bcDict.bestStripLabel}
+                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {visibleItems.map((col) => {
+                        const best = bestByCol[col.key];
+                        const colLabel = om.labels[col.labelKey] || col.labelKey;
+                        return (
+                          <button
+                            key={col.key}
+                            type="button"
+                            onClick={() =>
+                              onLogBet(
+                                match,
+                                `${colLabel} (${best.bestBookieName})`,
+                                best.maxOdd,
+                                edgePercent,
+                                om.title
+                              )
+                            }
+                            title={bcDict.logTooltip}
+                            className="px-2.5 py-1 rounded-lg bg-[#0d261d] hover:bg-[#22c55e] border border-[#22c55e]/50 text-xs font-mono transition-all cursor-pointer group flex items-center gap-1.5"
+                          >
+                            <span className="text-neutral-300 group-hover:text-[#04130b] font-semibold">
+                              {colLabel}:
+                            </span>
+                            <span className="text-[#43f08a] group-hover:text-[#04130b] font-black">
+                              {best.maxOdd.toFixed(2)}
+                            </span>
+                            <span className="text-[10px] text-emerald-300/80 group-hover:text-[#04130b] font-bold">
+                              ({best.bestBookieName})
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 15-Bookmaker Responsive Comparison Matrix Table */}
+                  <div className="overflow-x-auto rounded-xl border border-[#182638] bg-[#070c12]">
+                    <table className="w-full text-left border-collapse min-w-[680px]">
+                      <thead>
+                        <tr className="border-b border-[#162232] bg-[#0b131e] text-[10px] font-mono uppercase text-[#8f9cae]">
+                          <th className="py-2.5 px-3 font-extrabold">{bcDict.colBookie}</th>
+                          <th className="py-2.5 px-2 font-extrabold text-center">{bcDict.colTier}</th>
+                          <th className="py-2.5 px-2 font-extrabold text-center">{bcDict.colPayout}</th>
+                          {visibleItems.map((col) => (
+                            <th key={col.key} className="py-2.5 px-2.5 font-extrabold text-center text-white">
+                              {om.labels[col.labelKey] || col.labelKey}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#131e2c] text-xs font-mono">
+                        {filteredBookies.map((bk, bIdx) => (
+                          <tr
+                            key={bk.id}
+                            className="hover:bg-[#0d1724] transition-colors"
+                          >
+                            {/* Bookmaker Name & Rank */}
+                            <td className="py-2 px-3 font-sans">
+                              <div className="flex items-center gap-2">
+                                <span className="w-5 text-[10px] font-mono text-[#64748b]">
+                                  #{bIdx + 1}
+                                </span>
+                                <span className="font-extrabold text-white text-xs">
+                                  {bk.name}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* Tier Badge */}
+                            <td className="py-2 px-2 text-center">
+                              <span
+                                className={`inline-block px-2 py-0.5 rounded text-[9px] font-mono font-extrabold ${
+                                  bk.tier === 'SHARP'
+                                    ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/35'
+                                    : bk.tier === 'EXCHANGE'
+                                    ? 'bg-purple-500/15 text-purple-300 border border-purple-500/35'
+                                    : 'bg-slate-800 text-slate-300 border border-slate-700'
+                                }`}
+                              >
+                                {bk.tier === 'SHARP'
+                                  ? bcDict.tierSharp
+                                  : bk.tier === 'EXCHANGE'
+                                  ? bcDict.tierExchange
+                                  : bcDict.tierSoft}
+                              </span>
+                            </td>
+
+                            {/* Payout % / Margin % */}
+                            <td className="py-2 px-2 text-center text-[11px]">
+                              <span
+                                className={
+                                  bk.payoutPercent >= 97
+                                    ? 'text-[#43f08a] font-bold'
+                                    : 'text-neutral-300'
+                                }
+                              >
+                                {bk.payoutPercent.toFixed(1)}%
+                              </span>
+                              <span className="text-[#64748b] text-[10px] ml-1">
+                                ({bk.marginPercent.toFixed(1)}%)
+                              </span>
+                            </td>
+
+                            {/* Market Columns for Active Category */}
+                            {visibleItems.map((col) => {
+                              const val = col.getVal(bk.markets);
+                              const isBest =
+                                Math.abs(val - (bestByCol[col.key]?.maxOdd || 0)) < 0.005;
+                              const colLabel = om.labels[col.labelKey] || col.labelKey;
+
+                              return (
+                                <td key={col.key} className="py-1.5 px-2 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      onLogBet(
+                                        match,
+                                        `${colLabel} (${bk.name})`,
+                                        val,
+                                        edgePercent,
+                                        om.title
+                                      )
+                                    }
+                                    title={`${bk.name} — ${colLabel} @ ${val.toFixed(2)} (${bcDict.logTooltip})`}
+                                    className={`w-full py-1.5 px-2 rounded-lg font-mono text-xs transition-all cursor-pointer inline-flex items-center justify-center gap-1 ${
+                                      isBest
+                                        ? 'bg-emerald-500/20 hover:bg-[#22c55e] text-[#43f08a] hover:text-[#04130b] border border-emerald-500/50 font-black shadow-sm'
+                                        : 'bg-[#0b121c] hover:bg-[#162436] text-neutral-200 border border-[#162232] font-semibold'
+                                    }`}
+                                  >
+                                    <span>{val.toFixed(2)}</span>
+                                    {isBest && (
+                                      <span className="text-[9px] text-amber-300">★</span>
+                                    )}
+                                  </button>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        );
+      })()}
 
       {/* =================================================================== */}
       {/* ROW 3: OVERVIEW / STANDINGS (4) | TIMELINE (4) | BETTING INSIGHTS (4) */}

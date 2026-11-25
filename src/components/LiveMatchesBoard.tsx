@@ -921,6 +921,101 @@ export function LiveMatchesBoard({
 }: LiveMatchesBoardProps) {
   const t = (DICT as Record<string, typeof DICT.en>)[language] || DICT.en;
 
+  const droppingUi = (
+    {
+      bg: {
+        tabLabel: '📉 Падащи коеф.',
+        marketOption: '📉 Падащи коеф. (Dropping Odds)',
+        steamBadge: '🔥 STEAM СРИВ',
+        dropBadge: '📉 ПАДАЩ КОЕФ.',
+        tooltip: 'Отварящ → Текущ коеф. Кликни за пълната графика по пазари (1X2, Голове, ПП, Корнери, Картони)',
+      },
+      en: {
+        tabLabel: '📉 Dropping Odds',
+        marketOption: '📉 Dropping Odds & Steam Moves',
+        steamBadge: '🔥 STEAM MOVE',
+        dropBadge: '📉 DROPPING',
+        tooltip: 'Opening → Current odds. Click for full multi-market chart (1X2, Goals, 1H, Corners, Cards)',
+      },
+      es: {
+        tabLabel: '📉 Cuotas a la Baja',
+        marketOption: '📉 Cuotas a la Baja (Dropping Odds)',
+        steamBadge: '🔥 STEAM MOVE',
+        dropBadge: '📉 BAJANDO',
+        tooltip: 'Cuota inicial → actual. Clic para ver el gráfico completo por mercados',
+      },
+      de: {
+        tabLabel: '📉 Fallende Quoten',
+        marketOption: '📉 Fallende Quoten (Dropping Odds)',
+        steamBadge: '🔥 STEAM MOVE',
+        dropBadge: '📉 FALLEND',
+        tooltip: 'Startquote → Aktuell. Klicken für den vollständigen Quotenverlauf',
+      },
+      it: {
+        tabLabel: '📉 Quote in Calo',
+        marketOption: '📉 Quote in Calo (Dropping Odds)',
+        steamBadge: '🔥 STEAM MOVE',
+        dropBadge: '📉 IN CALO',
+        tooltip: 'Quota iniziale → attuale. Clicca per il grafico completo dei mercati',
+      },
+      pt: {
+        tabLabel: '📉 Odds em Queda',
+        marketOption: '📉 Odds em Queda (Dropping Odds)',
+        steamBadge: '🔥 STEAM MOVE',
+        dropBadge: '📉 EM QUEDA',
+        tooltip: 'Odd inicial → atual. Clique para o gráfico completo de mercados',
+      },
+      fr: {
+        tabLabel: '📉 Cotes en Baisse',
+        marketOption: '📉 Cotes en Baisse (Dropping Odds)',
+        steamBadge: '🔥 STEAM MOVE',
+        dropBadge: '📉 EN BAISSE',
+        tooltip: 'Cote initiale → actuelle. Cliquez pour le graphique complet des marchés',
+      },
+      tr: {
+        tabLabel: '📉 Düşen Oranlar',
+        marketOption: '📉 Düşen Oranlar (Dropping Odds)',
+        steamBadge: '🔥 SERT DÜŞÜŞ',
+        dropBadge: '📉 DÜŞÜYOR',
+        tooltip: 'Açılış → Güncel oran. Tüm market grafiği için tıklayın',
+      },
+      pl: {
+        tabLabel: '📉 Spadające Kursy',
+        marketOption: '📉 Spadające Kursy (Dropping Odds)',
+        steamBadge: '🔥 STEAM MOVE',
+        dropBadge: '📉 SPADEK',
+        tooltip: 'Kurs otwarcia → obecny. Kliknij, aby zobaczyć pełny wykres rynków',
+      },
+      el: {
+        tabLabel: '📉 Πτώση Αποδόσεων',
+        marketOption: '📉 Πτώση Αποδόσεων (Dropping Odds)',
+        steamBadge: '🔥 STEAM MOVE',
+        dropBadge: '📉 ΠΤΩΣΗ',
+        tooltip: 'Αρχική → Τρέχουσα απόδοση. Κάντε κλικ για το πλήρες γράφημα αγορών',
+      },
+      ro: {
+        tabLabel: '📉 Cote în Scădere',
+        marketOption: '📉 Cote în Scădere (Dropping Odds)',
+        steamBadge: '🔥 STEAM MOVE',
+        dropBadge: '📉 ÎN SCĂDERE',
+        tooltip: 'Cotă deschidere → actuală. Click pentru graficul complet pe piețe',
+      },
+      ru: {
+        tabLabel: '📉 Падающие кэфы',
+        marketOption: '📉 Падающие кэфы (Dropping Odds)',
+        steamBadge: '🔥 ПРОГРУЗ',
+        dropBadge: '📉 ПАДЕНИЕ',
+        tooltip: 'Открытие → Текущий кэф. Нажмите для полного графика по всем рынкам',
+      },
+    } as Record<string, { tabLabel: string; marketOption: string; steamBadge: string; dropBadge: string; tooltip: string }>
+  )[language] || {
+    tabLabel: '📉 Dropping Odds',
+    marketOption: '📉 Dropping Odds & Steam Moves',
+    steamBadge: '🔥 STEAM MOVE',
+    dropBadge: '📉 DROPPING',
+    tooltip: 'Opening → Current odds. Click for full multi-market chart',
+  };
+
   const openMatchView = (m: Match) => {
     if (onOpenMatch) {
       onOpenMatch(m);
@@ -930,7 +1025,7 @@ export function LiveMatchesBoard({
   };
 
   // Filter states matching the reference screenshot
-  const [statusTab, setStatusTab] = useState<'all' | 'live' | 'upcoming' | 'finished' | 'favorites'>('all');
+  const [statusTab, setStatusTab] = useState<'all' | 'live' | 'upcoming' | 'finished' | 'favorites' | 'dropping'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [countryFilter, setCountryFilter] = useState<string>('all');
   const [leagueFilter, setLeagueFilter] = useState<string>('all');
@@ -1091,6 +1186,7 @@ export function LiveMatchesBoard({
   const liveMatchesCount = matches.filter((m) => m.status === 'LIVE').length;
   const upcomingMatchesCount = matches.filter((m) => m.status === 'SCHEDULED').length;
   const finishedMatchesCount = matches.filter((m) => m.status === 'FINISHED').length;
+  const droppingMatchesCount = matches.filter((m) => Boolean(m.droppingOdds)).length;
   const activeLeaguesCount = new Set(
     matches.map((m) => `${m.leagueCountry || ''}:${m.league || ''}`)
   ).size;
@@ -1109,12 +1205,14 @@ export function LiveMatchesBoard({
     if (statusTab === 'upcoming' && m.status !== 'SCHEDULED') return false;
     if (statusTab === 'finished' && m.status !== 'FINISHED') return false;
     if (statusTab === 'favorites' && !favorites.includes(m.id)) return false;
+    if (statusTab === 'dropping' && !m.droppingOdds) return false;
 
     if (countryFilter !== 'all' && m.leagueCountry !== countryFilter) return false;
     if (leagueFilter !== 'all' && m.league !== leagueFilter) return false;
     if (timeFilter === 'live' && m.status !== 'LIVE') return false;
     if (timeFilter === 'upcoming' && m.status !== 'SCHEDULED') return false;
     if (marketFilter === 'value' && !m.valueBetDetected) return false;
+    if (marketFilter === 'dropping' && !m.droppingOdds) return false;
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -1548,6 +1646,21 @@ export function LiveMatchesBoard({
                 </span>
               )}
             </button>
+
+            <button
+              type="button"
+              onClick={() => setStatusTab('dropping')}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                statusTab === 'dropping'
+                  ? 'bg-rose-500/15 border border-rose-500/60 text-rose-400 shadow-sm'
+                  : 'text-[#8f9cae] hover:text-rose-300 border border-transparent'
+              }`}
+            >
+              <span>{droppingUi.tabLabel}</span>
+              <span className="px-1.5 py-0.5 rounded-md bg-rose-500/20 text-rose-400 font-mono text-[10px]">
+                {droppingMatchesCount}
+              </span>
+            </button>
           </div>
 
           {/* 3. SEARCH, DROPDOWNS & COMPACT / SOUND CONTROLS ROW */}
@@ -1621,6 +1734,7 @@ export function LiveMatchesBoard({
               >
                 <option value="all">{t.allMarkets}</option>
                 <option value="value">+EV Value Markets</option>
+                <option value="dropping">{droppingUi.marketOption}</option>
               </select>
             </div>
 
@@ -1995,7 +2109,7 @@ export function LiveMatchesBoard({
                         onClick={() => openMatchView(match)}
                         className="flex-1 min-w-0 space-y-1.5 cursor-pointer group"
                       >
-                        <div className="flex items-center gap-1.5 text-[10px] font-medium text-[#8f9cae]">
+                        <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-medium text-[#8f9cae]">
                           <LeagueBadge
                             name={match.league}
                             logoUrl={match.leagueLogo}
@@ -2005,6 +2119,28 @@ export function LiveMatchesBoard({
                             {match.leagueCountry ? `${match.leagueCountry} · ` : ''}
                             {match.league}
                           </span>
+                          {match.droppingOdds && (
+                            <span
+                              title={droppingUi.tooltip}
+                              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-mono font-extrabold text-[9px] ${
+                                match.droppingOdds.isSteamMove
+                                  ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+                                  : 'bg-amber-500/15 text-amber-400 border border-amber-500/35'
+                              }`}
+                            >
+                              <span>
+                                {match.droppingOdds.isSteamMove
+                                  ? droppingUi.steamBadge
+                                  : droppingUi.dropBadge}
+                              </span>
+                              <span>
+                                ({match.droppingOdds.labelKey}:{' '}
+                                {match.droppingOdds.openingOdds.toFixed(2)} →{' '}
+                                {match.droppingOdds.currentOdds.toFixed(2)} / -
+                                {match.droppingOdds.dropPercent.toFixed(1)}%)
+                              </span>
+                            </span>
+                          )}
                         </div>
 
                         {/* Home Team Row */}
