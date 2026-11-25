@@ -195,6 +195,24 @@ function pruneOldOddsHistory(): void {
 
 pruneOldOddsHistory();
 
+// One-time cleanup migration to purge legacy mixed synthetic/live odds_history rows and stale match caches
+try {
+  const cleanRow = db
+    .prepare("SELECT setting_value FROM app_settings WHERE setting_key = 'odds_history_clean_v3'")
+    .get() as { setting_value: string } | undefined;
+  if (!cleanRow) {
+    db.exec(`
+      DELETE FROM odds_history;
+      DELETE FROM api_cache WHERE cache_key LIKE 'football:match_intel_%' OR cache_key LIKE 'football:normalized_live_feed_%';
+    `);
+    db.prepare(
+      "INSERT OR REPLACE INTO app_settings (setting_key, setting_value, updated_at) VALUES ('odds_history_clean_v3', 'done', ?)"
+    ).run(new Date().toISOString());
+  }
+} catch (err) {
+  console.error('Odds history v3 cleanup migration error:', err);
+}
+
 export interface ServerMultiMarketOdds {
   ft1x2: { home: number; draw: number; away: number };
   doubleChance: { homeDraw: number; homeAway: number; drawAway: number };
@@ -591,7 +609,65 @@ function applyApiBetsToSnapshot(
 }
 
 /**
- * Extracts both an Opening Consensus snapshot and the Sharp/Live Current snapshot from API-Football
+ * Clamps opening market odds to within a realistic pre-match dispersion window around the sharp consensus
+ * so partial or outlier bookmaker feeds never create artificial +150% / -60% jumps.
+ */
+function clampOpeningToConsensus(
+  opening: ServerMultiMarketOdds,
+  consensus: ServerMultiMarketOdds,
+  maxRatio = 0.22
+): ServerMultiMarketOdds {
+  const res: ServerMultiMarketOdds = JSON.parse(JSON.stringify(opening));
+  const clampPair = (openVal: number, consVal: number): number => {
+    if (!(openVal > 1.02) || !(consVal > 1.02)) return consVal;
+    const minAllowed = consVal * (1 - maxRatio);
+    const maxAllowed = consVal * (1 + maxRatio);
+    return Number(Math.min(maxAllowed, Math.max(minAllowed, openVal)).toFixed(2));
+  };
+
+  res.ft1x2.home = clampPair(res.ft1x2.home, consensus.ft1x2.home);
+  res.ft1x2.draw = clampPair(res.ft1x2.draw, consensus.ft1x2.draw);
+  res.ft1x2.away = clampPair(res.ft1x2.away, consensus.ft1x2.away);
+
+  res.doubleChance.homeDraw = clampPair(res.doubleChance.homeDraw, consensus.doubleChance.homeDraw);
+  res.doubleChance.homeAway = clampPair(res.doubleChance.homeAway, consensus.doubleChance.homeAway);
+  res.doubleChance.drawAway = clampPair(res.doubleChance.drawAway, consensus.doubleChance.drawAway);
+
+  res.goalsOU.over15 = clampPair(res.goalsOU.over15, consensus.goalsOU.over15);
+  res.goalsOU.under15 = clampPair(res.goalsOU.under15, consensus.goalsOU.under15);
+  res.goalsOU.over25 = clampPair(res.goalsOU.over25, consensus.goalsOU.over25);
+  res.goalsOU.under25 = clampPair(res.goalsOU.under25, consensus.goalsOU.under25);
+  res.goalsOU.over35 = clampPair(res.goalsOU.over35, consensus.goalsOU.over35);
+  res.goalsOU.under35 = clampPair(res.goalsOU.under35, consensus.goalsOU.under35);
+
+  res.firstHalf.home = clampPair(res.firstHalf.home, consensus.firstHalf.home);
+  res.firstHalf.draw = clampPair(res.firstHalf.draw, consensus.firstHalf.draw);
+  res.firstHalf.away = clampPair(res.firstHalf.away, consensus.firstHalf.away);
+  res.firstHalf.over05 = clampPair(res.firstHalf.over05, consensus.firstHalf.over05);
+  res.firstHalf.under05 = clampPair(res.firstHalf.under05, consensus.firstHalf.under05);
+  res.firstHalf.over15 = clampPair(res.firstHalf.over15, consensus.firstHalf.over15);
+  res.firstHalf.under15 = clampPair(res.firstHalf.under15, consensus.firstHalf.under15);
+
+  res.cornersOU.over85 = clampPair(res.cornersOU.over85, consensus.cornersOU.over85);
+  res.cornersOU.under85 = clampPair(res.cornersOU.under85, consensus.cornersOU.under85);
+  res.cornersOU.over95 = clampPair(res.cornersOU.over95, consensus.cornersOU.over95);
+  res.cornersOU.under95 = clampPair(res.cornersOU.under95, consensus.cornersOU.under95);
+  res.cornersOU.over105 = clampPair(res.cornersOU.over105, consensus.cornersOU.over105);
+  res.cornersOU.under105 = clampPair(res.cornersOU.under105, consensus.cornersOU.under105);
+
+  res.cardsOU.over35 = clampPair(res.cardsOU.over35, consensus.cardsOU.over35);
+  res.cardsOU.under35 = clampPair(res.cardsOU.under35, consensus.cardsOU.under35);
+  res.cardsOU.over45 = clampPair(res.cardsOU.over45, consensus.cardsOU.over45);
+  res.cardsOU.under45 = clampPair(res.cardsOU.under45, consensus.cardsOU.under45);
+
+  res.btts.yes = clampPair(res.btts.yes, consensus.btts.yes);
+  res.btts.no = clampPair(res.btts.no, consensus.btts.no);
+
+  return res;
+}
+
+/**
+ * Extracts both an Opening Consensus snapshot, Pre-Match Sharp snapshot, and Live Current snapshot from API-Football
  */
 function parseMultiMarketsFromApi(
   prematchItem: Record<string, any> | null | undefined,
@@ -600,17 +676,23 @@ function parseMultiMarketsFromApi(
 ): {
   currentMarkets: ServerMultiMarketOdds;
   openingMarkets: ServerMultiMarketOdds;
+  prematchMarkets: ServerMultiMarketOdds;
+  hasRealPrematch: boolean;
+  hasRealLive: boolean;
   bookmakerName: string;
 } {
+  let prematchMarkets: ServerMultiMarketOdds = JSON.parse(JSON.stringify(baseline));
   let openingMarkets: ServerMultiMarketOdds = JSON.parse(JSON.stringify(baseline));
   let currentMarkets: ServerMultiMarketOdds = JSON.parse(JSON.stringify(baseline));
-  let bookmakerName = 'Pinnacle / Market Consensus';
+  let bookmakerName = 'Model Baseline Estimate';
 
   const bookmakers: Array<Record<string, any>> = Array.isArray(prematchItem?.bookmakers)
-    ? prematchItem!.bookmakers
+    ? prematchItem!.bookmakers.filter((b) => Array.isArray(b?.bets) && b.bets.length > 0)
     : [];
 
-  if (bookmakers.length > 0) {
+  const hasRealPrematch = bookmakers.length > 0;
+
+  if (hasRealPrematch) {
     // Priority scoring for sharp bookmakers
     const scoreBookie = (b: Record<string, any>): number => {
       const id = Number(b?.id || 0);
@@ -626,37 +708,61 @@ function parseMultiMarketsFromApi(
 
     const sorted = [...bookmakers].sort((a, b) => scoreBookie(b) - scoreBookie(a));
     const sharpBookie = sorted[0];
-    const softOrEarlyBookie = sorted[sorted.length - 1];
 
-    if (sharpBookie?.name) {
-      bookmakerName = `${sharpBookie.name} (Sharp Line)`;
-    }
+    bookmakerName = sharpBookie?.name
+      ? `${sharpBookie.name} (Sharp Line)`
+      : 'Pinnacle / Market Consensus';
 
-    // Build Opening from earlier/soft bookmaker consensus first
-    if (softOrEarlyBookie && Array.isArray(softOrEarlyBookie.bets)) {
-      openingMarkets = applyApiBetsToSnapshot(softOrEarlyBookie.bets, openingMarkets);
-    }
-
-    // Build Current Pre-Match by merging from soft -> sharp so sharp overrides
+    // 1. Build Current Pre-Match by merging from soft -> sharp so sharp overrides
     for (let i = sorted.length - 1; i >= 0; i--) {
       const b = sorted[i];
       if (Array.isArray(b?.bets)) {
-        currentMarkets = applyApiBetsToSnapshot(b.bets, currentMarkets);
+        prematchMarkets = applyApiBetsToSnapshot(b.bets, prematchMarkets);
       }
     }
+
+    // 2. Start Opening Pre-Match from prematchMarkets (NOT synthetic baseline!) so un-overridden markets stay 100% consistent
+    openingMarkets = JSON.parse(JSON.stringify(prematchMarkets));
+
+    // Find an early/soft bookmaker that actually has a 1X2 market
+    const earlyBookieWith1x2 = [...sorted]
+      .reverse()
+      .find(
+        (b) =>
+          b !== sharpBookie &&
+          Array.isArray(b?.bets) &&
+          b.bets.some((bet: Record<string, any>) => {
+            const bid = Number(bet?.id || 0);
+            const bname = String(bet?.name || '').toLowerCase();
+            return bid === 1 || bid === 59 || bname === 'match winner' || bname === '1x2';
+          })
+      );
+
+    if (earlyBookieWith1x2 && Array.isArray(earlyBookieWith1x2.bets)) {
+      const candidateOpen = applyApiBetsToSnapshot(earlyBookieWith1x2.bets, openingMarkets);
+      openingMarkets = clampOpeningToConsensus(candidateOpen, prematchMarkets, 0.22);
+    }
+
+    currentMarkets = JSON.parse(JSON.stringify(prematchMarkets));
   }
 
+  const hasRealLive = Array.isArray(liveItem?.odds) && liveItem!.odds.length > 0;
+
   // If live in-play odds exist from /odds/live, currentMarkets becomes the live line
-  // while openingMarkets preserves the pre-match bookmaker line!
-  if (Array.isArray(liveItem?.odds) && liveItem!.odds.length > 0) {
-    if (bookmakers.length > 0) {
-      openingMarkets = JSON.parse(JSON.stringify(currentMarkets));
-    }
-    currentMarkets = applyApiBetsToSnapshot(liveItem!.odds, currentMarkets);
+  // while openingMarkets and prematchMarkets preserve the pre-match bookmaker lines
+  if (hasRealLive) {
+    currentMarkets = applyApiBetsToSnapshot(liveItem!.odds, prematchMarkets);
     bookmakerName = 'In-Play Live Feed (Pinnacle / Bet365)';
   }
 
-  return { currentMarkets, openingMarkets, bookmakerName };
+  return {
+    currentMarkets,
+    openingMarkets,
+    prematchMarkets,
+    hasRealPrematch,
+    hasRealLive,
+    bookmakerName,
+  };
 }
 
 interface ServerBookmakerComparisonRow {
@@ -860,7 +966,12 @@ function recordAndGetOddsHistory(
   currentMarkets: ServerMultiMarketOdds,
   isLive: boolean,
   bookmakerName = 'Pinnacle / Market Consensus',
-  openingCandidate?: ServerMultiMarketOdds
+  openingCandidate?: ServerMultiMarketOdds,
+  meta?: {
+    hasRealPrematch?: boolean;
+    hasRealLive?: boolean;
+    prematchMarkets?: ServerMultiMarketOdds;
+  }
 ): {
   history: Array<{
     id: number;
@@ -886,6 +997,11 @@ function recordAndGetOddsHistory(
 } {
   const cleanId = String(rawFixtureId || '').replace(/^api-/, '').trim();
   const now = Date.now();
+  const isRealFeed = Boolean(
+    meta?.hasRealPrematch ||
+      meta?.hasRealLive ||
+      (bookmakerName && bookmakerName !== 'Model Baseline Estimate')
+  );
 
   let rows = db
     .prepare(
@@ -900,12 +1016,24 @@ function recordAndGetOddsHistory(
     markets_json: string;
   }>;
 
+  // If existing rows are all synthetic model baselines and real bookmaker odds just arrived,
+  // wipe the synthetic rows so the chart never shows an artificial jump from synthetic to real bookmaker odds.
+  if (rows.length > 0 && isRealFeed) {
+    const allSynthetic = rows.every((r) => r.bookmaker === 'Model Baseline Estimate');
+    if (allSynthetic) {
+      db.prepare('DELETE FROM odds_history WHERE fixture_id = ?').run(cleanId);
+      rows = [];
+    }
+  }
+
+  const hasExistingRealRows = rows.some((r) => r.bookmaker !== 'Model Baseline Estimate');
+
   const insertStmt = db.prepare(
     'INSERT INTO odds_history (fixture_id, recorded_at, is_live, is_opening, bookmaker, markets_json) VALUES (?, ?, ?, ?, ?, ?)'
   );
 
   if (rows.length === 0) {
-    if (openingCandidate && hasSignificantOddsDiff(openingCandidate, currentMarkets)) {
+    if (isRealFeed && openingCandidate && hasSignificantOddsDiff(openingCandidate, currentMarkets)) {
       const openTime = now - 2 * 60 * 60 * 1000; // Pre-match opening baseline timestamp
       insertStmt.run(
         cleanId,
@@ -915,6 +1043,22 @@ function recordAndGetOddsHistory(
         'Market Consensus (Opening)',
         JSON.stringify(openingCandidate)
       );
+      if (
+        isLive &&
+        meta?.hasRealPrematch &&
+        meta?.prematchMarkets &&
+        hasSignificantOddsDiff(openingCandidate, meta.prematchMarkets) &&
+        hasSignificantOddsDiff(meta.prematchMarkets, currentMarkets)
+      ) {
+        insertStmt.run(
+          cleanId,
+          now - 15 * 60 * 1000,
+          0,
+          0,
+          'Pinnacle (Closing Pre-Match)',
+          JSON.stringify(meta.prematchMarkets)
+        );
+      }
       insertStmt.run(
         cleanId,
         now,
@@ -938,7 +1082,8 @@ function recordAndGetOddsHistory(
         'SELECT id, recorded_at, is_live, is_opening, bookmaker, markets_json FROM odds_history WHERE fixture_id = ? ORDER BY recorded_at ASC, id ASC'
       )
       .all(cleanId) as typeof rows;
-  } else {
+  } else if (isRealFeed || !hasExistingRealRows) {
+    // Only append a new snapshot if it comes from a consistent source (never append a synthetic baseline on top of real bookmaker rows!)
     const lastRow = rows[rows.length - 1];
     let lastMarkets: ServerMultiMarketOdds = currentMarkets;
     try {
@@ -947,8 +1092,8 @@ function recordAndGetOddsHistory(
       // ignore
     }
 
-    // If only 1 row exists and we now discovered an openingCandidate that differs from currentMarkets
     if (
+      isRealFeed &&
       rows.length === 1 &&
       openingCandidate &&
       hasSignificantOddsDiff(openingCandidate, currentMarkets) &&
@@ -974,6 +1119,7 @@ function recordAndGetOddsHistory(
         )
         .all(cleanId) as typeof rows;
     } else if (
+      isRealFeed &&
       hasSignificantOddsDiff(lastMarkets, currentMarkets) &&
       now - lastRow.recorded_at >= 30 * 1000
     ) {
@@ -1019,22 +1165,55 @@ function recordAndGetOddsHistory(
   const firstSnap = history[0]?.markets || currentMarkets;
   const latestSnap = history[history.length - 1]?.markets || currentMarkets;
 
+  // IMPORTANT: Dropping Odds & Steam Moves must NEVER be triggered by Live In-Play score changes (e.g. 0-3 live goals)!
+  // We evaluate Dropping Odds strictly from Pre-Match snapshots (isLive === false).
+  const prematchSnapshots = history.filter(
+    (h) => !h.isLive && h.bookmaker !== 'Model Baseline Estimate'
+  );
+
   const droppingAlerts: ServerDroppingAlert[] = [];
-  for (const def of MARKET_DEFINITIONS) {
-    const openVal = def.getVal(firstSnap);
-    const currVal = def.getVal(latestSnap);
-    if (openVal > currVal && openVal > 1.04) {
-      const dropPercent = Number((((openVal - currVal) / openVal) * 100).toFixed(1));
-      if (dropPercent >= 1.5) {
-        droppingAlerts.push({
-          marketGroup: def.group,
-          marketKey: def.key,
-          labelKey: def.labelKey,
-          openingOdds: openVal,
-          currentOdds: currVal,
-          dropPercent,
-          isSteamMove: dropPercent >= 6.5,
-        });
+
+  if (!isLive && prematchSnapshots.length >= 2) {
+    const pmOpen = prematchSnapshots[0].markets;
+    const pmLatest = prematchSnapshots[prematchSnapshots.length - 1].markets;
+
+    for (const def of MARKET_DEFINITIONS) {
+      const openVal = def.getVal(pmOpen);
+      const currVal = def.getVal(pmLatest);
+      if (openVal > currVal && openVal > 1.04) {
+        const dropPercent = Number((((openVal - currVal) / openVal) * 100).toFixed(1));
+        // Cap valid pre-match steam moves between 1.5% and 35.0%
+        if (dropPercent >= 1.5 && dropPercent <= 35.0) {
+          droppingAlerts.push({
+            marketGroup: def.group,
+            marketKey: def.key,
+            labelKey: def.labelKey,
+            openingOdds: openVal,
+            currentOdds: currVal,
+            dropPercent,
+            isSteamMove: dropPercent >= 6.5,
+          });
+        }
+      }
+    }
+  } else if (isLive && meta?.hasRealPrematch && meta?.prematchMarkets && openingCandidate) {
+    // When match is LIVE, only show pre-match line movement (Opening Pre-Match -> Closing Pre-Match), never live goal drops
+    for (const def of MARKET_DEFINITIONS) {
+      const openVal = def.getVal(openingCandidate);
+      const closePmVal = def.getVal(meta.prematchMarkets);
+      if (openVal > closePmVal && openVal > 1.04) {
+        const dropPercent = Number((((openVal - closePmVal) / openVal) * 100).toFixed(1));
+        if (dropPercent >= 2.0 && dropPercent <= 30.0) {
+          droppingAlerts.push({
+            marketGroup: def.group,
+            marketKey: def.key,
+            labelKey: def.labelKey,
+            openingOdds: openVal,
+            currentOdds: closePmVal,
+            dropPercent,
+            isSteamMove: dropPercent >= 6.5,
+          });
+        }
       }
     }
   }
@@ -1048,7 +1227,7 @@ function recordAndGetOddsHistory(
     currentMarkets: latestSnap,
     droppingAlerts,
     topDrop:
-      top && top.dropPercent >= 3.0
+      !isLive && top && top.dropPercent >= 3.0
         ? {
             marketKey: top.marketKey,
             labelKey: top.labelKey,
@@ -2331,7 +2510,7 @@ async function startServer() {
       return;
     }
 
-    const cacheKey = 'football:normalized_live_feed_v10';
+    const cacheKey = 'football:normalized_live_feed_v11';
     const ttlMs = 2 * 60 * 1000; // 2 minutes SQLite cache
 
     const getFeedSubCached = async (subKey: string, subTtlMs: number, url: string) => {
@@ -2640,9 +2819,8 @@ async function startServer() {
           };
         });
 
-        // Base pre-match xG seeded by fixture ID
-        const seedNum =
-          fixId.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0) + idx * 17;
+        // Base pre-match xG deterministically seeded by fixture ID (never depends on array index!)
+        const seedNum = fixId.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
         const baseXgHome = 1.32 + (seedNum % 65) / 100;
         const baseXgAway = 0.98 + ((seedNum * 7) % 58) / 100;
 
@@ -2737,8 +2915,7 @@ async function startServer() {
 
         const openingCandidate = isLive
           ? prematchOddsByFixture.has(fixId)
-            ? parseMultiMarketsFromApi(prematchOddsByFixture.get(fixId), null, prematchBaselineSnap)
-                .currentMarkets
+            ? parsedMulti.openingMarkets
             : prematchBaselineSnap
           : parsedMulti.openingMarkets;
 
@@ -2747,7 +2924,12 @@ async function startServer() {
           parsedMulti.currentMarkets,
           isLive,
           parsedMulti.bookmakerName,
-          openingCandidate
+          openingCandidate,
+          {
+            hasRealPrematch: parsedMulti.hasRealPrematch,
+            hasRealLive: parsedMulti.hasRealLive,
+            prematchMarkets: parsedMulti.prematchMarkets,
+          }
         );
 
         const finalBookieOdds = oddsTracked.currentMarkets.ft1x2;
@@ -2904,7 +3086,7 @@ async function startServer() {
       return;
     }
 
-    const cacheKey = `football:match_intel_v7:${rawId}`;
+    const cacheKey = `football:match_intel_v8:${rawId}`;
     const ttlMs = 45 * 1000; // 45-second cache for live match telemetry
 
     const getCachedHelper = async (subKey: string, subTtlMs: number, url: string) => {
@@ -3363,7 +3545,7 @@ async function startServer() {
 
       const openingCandidate = isLive
         ? prematchOddsItem
-          ? parseMultiMarketsFromApi(prematchOddsItem, null, prematchBaseline).currentMarkets
+          ? parsedMulti.openingMarkets
           : prematchBaseline
         : parsedMulti.openingMarkets;
 
@@ -3372,7 +3554,12 @@ async function startServer() {
         parsedMulti.currentMarkets,
         isLive,
         parsedMulti.bookmakerName,
-        openingCandidate
+        openingCandidate,
+        {
+          hasRealPrematch: parsedMulti.hasRealPrematch,
+          hasRealLive: parsedMulti.hasRealLive,
+          prematchMarkets: parsedMulti.prematchMarkets,
+        }
       );
 
       const bookmakersComparison = buildTop15BookmakersComparison(

@@ -3935,8 +3935,10 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
           visibleItems[0] ||
           allItems[0];
 
-        const topAlerts = liveIntel?.droppingAlerts || [];
-        const hasSteam = topAlerts.some((a) => a.isSteamMove);
+        const topAlerts = (liveIntel?.droppingAlerts || []).filter(
+          (a) => a.dropPercent >= 1.5 && a.dropPercent <= 35.0
+        );
+        const hasSteam = !isLive && topAlerts.some((a) => a.isSteamMove);
         const hasDrop = topAlerts.length > 0;
 
         // Points for SVG time-series graph of activeDef
@@ -3998,17 +4000,23 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
               <div>
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <h3 className="text-sm sm:text-base font-extrabold text-white">{om.title}</h3>
-                  <span
-                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold border ${
-                      hasSteam
-                        ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
-                        : hasDrop
-                        ? 'bg-[#43f08a]/15 border-[#43f08a]/40 text-[#43f08a]'
-                        : 'bg-sky-500/15 border-sky-500/40 text-sky-300'
-                    }`}
-                  >
-                    {hasSteam ? om.steamBadge : hasDrop ? om.droppingBadge : om.stableBadge}
-                  </span>
+                  {isLive ? (
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold border bg-rose-500/20 border-rose-500/50 text-rose-300">
+                      🔴 LIVE IN-PLAY ({displayHomeScore}-{displayAwayScore})
+                    </span>
+                  ) : (
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-extrabold border ${
+                        hasSteam
+                          ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                          : hasDrop
+                          ? 'bg-[#43f08a]/15 border-[#43f08a]/40 text-[#43f08a]'
+                          : 'bg-sky-500/15 border-sky-500/40 text-sky-300'
+                      }`}
+                    >
+                      {hasSteam ? om.steamBadge : hasDrop ? om.droppingBadge : om.stableBadge}
+                    </span>
+                  )}
                   <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#070c12] border border-[#182638] text-[#8f9cae]">
                     {oddsHistoryList.length} {om.snapshotsCountLabel}
                   </span>
@@ -4106,7 +4114,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                     openVal > 0 ? Number((((currVal - openVal) / openVal) * 100).toFixed(1)) : 0;
                   const isDropping = diff <= -0.02;
                   const isDrifting = diff >= 0.02;
-                  const isSteam = pct <= -6.5;
+                  const isSteam = !isLive && pct <= -6.5 && pct >= -35.0;
                   const isSelected = activeDef.key === it.key;
                   const labelText = om.labels[it.labelKey] || it.labelKey;
 
