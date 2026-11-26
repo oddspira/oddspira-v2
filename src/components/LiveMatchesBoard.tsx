@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { ActiveTab, BetRecord, Language, Match } from '../types';
-import { computePoissonMatrix } from '../utils/mathModels';
 import { TeamBadge, LeagueBadge, openTeamProfile } from './TeamBadge';
 
 interface LiveMatchesBoardProps {
@@ -1552,8 +1551,9 @@ export function LiveMatchesBoard({
     const simInterval = setInterval(() => {
       setMatches((prevMatches) =>
         prevMatches.map((m) => {
-          if (m.status !== 'LIVE' || !m.minute) return m;
-          const nextMin = m.minute >= 89 ? 63 : m.minute + (Math.random() < 0.35 ? 1 : 0);
+          // Never mutate real API-Football fixtures with client-side random simulation
+          if (String(m.id).startsWith('api-') || m.status !== 'LIVE' || !m.minute) return m;
+          const nextMin = m.minute >= 89 ? 89 : m.minute + (Math.random() < 0.35 ? 1 : 0);
           const addAttack = Math.random() < 0.45;
           const isHome = Math.random() < m.stats.possessionHome / 100;
 
@@ -1565,21 +1565,10 @@ export function LiveMatchesBoard({
               addAttack && !isHome ? m.stats.dangerousAttacksAway + 1 : m.stats.dangerousAttacksAway,
           };
 
-          const remaining = Math.max((90 - nextMin) / 90, 0.08);
-          const l1 = Math.max(m.fairOdds.expectedGoalsHome * remaining, 0.12);
-          const l2 = Math.max(m.fairOdds.expectedGoalsAway * remaining, 0.1);
-          const matrix = computePoissonMatrix(l1, l2, true);
-
           return {
             ...m,
             minute: nextMin,
             stats: updatedStats,
-            fairOdds: {
-              ...m.fairOdds,
-              homeProb: matrix.homeWinProb,
-              drawProb: matrix.drawProb,
-              awayProb: matrix.awayWinProb,
-            },
           };
         })
       );
@@ -3287,41 +3276,73 @@ export function LiveMatchesBoard({
               </div>
 
               {/* Totals & BTTS Markets */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleDirectAddBet(detailMatch, 'Over 2.5 Goals', 1.78, 'Total Goals');
-                    setDetailMatch(null);
-                  }}
-                  className="p-3 rounded-xl border border-[#1e2d40] bg-[#0e1723] hover:border-[#43f08a] flex items-center justify-between transition-all cursor-pointer"
-                >
-                  <div>
-                    <div className="text-xs font-bold text-white">Over 2.5 Goals</div>
-                    <div className="text-[10px] text-[#43f08a] font-mono">
-                      Poisson Prob: {(detailMatch.fairOdds.over25Prob * 100).toFixed(0)}%
-                    </div>
-                  </div>
-                  <span className="text-base font-mono font-black text-[#43f08a]">@1.78</span>
-                </button>
+              {(() => {
+                const dynOver25Odd = Number(
+                  Math.min(
+                    4.5,
+                    Math.max(1.22, (1 / Math.max(0.18, detailMatch.fairOdds.over25Prob)) * 0.945)
+                  ).toFixed(2)
+                );
+                const dynBttsOdd = Number(
+                  Math.min(
+                    4.5,
+                    Math.max(1.22, (1 / Math.max(0.18, detailMatch.fairOdds.bttsProb)) * 0.945)
+                  ).toFixed(2)
+                );
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleDirectAddBet(
+                          detailMatch,
+                          'Over 2.5 Goals',
+                          dynOver25Odd,
+                          'Total Goals'
+                        );
+                        setDetailMatch(null);
+                      }}
+                      className="p-3 rounded-xl border border-[#1e2d40] bg-[#0e1723] hover:border-[#43f08a] flex items-center justify-between transition-all cursor-pointer"
+                    >
+                      <div>
+                        <div className="text-xs font-bold text-white">Over 2.5 Goals</div>
+                        <div className="text-[10px] text-[#43f08a] font-mono">
+                          Poisson Prob: {(detailMatch.fairOdds.over25Prob * 100).toFixed(0)}%
+                        </div>
+                      </div>
+                      <span className="text-base font-mono font-black text-[#43f08a]">
+                        @{dynOver25Odd.toFixed(2)}
+                      </span>
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleDirectAddBet(detailMatch, 'BTTS — Yes', 1.72, 'Both Teams To Score');
-                    setDetailMatch(null);
-                  }}
-                  className="p-3 rounded-xl border border-[#1e2d40] bg-[#0e1723] hover:border-[#43f08a] flex items-center justify-between transition-all cursor-pointer"
-                >
-                  <div>
-                    <div className="text-xs font-bold text-white">Both Teams To Score (Yes)</div>
-                    <div className="text-[10px] text-[#43f08a] font-mono">
-                      Poisson Prob: {(detailMatch.fairOdds.bttsProb * 100).toFixed(0)}%
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleDirectAddBet(
+                          detailMatch,
+                          'BTTS — Yes',
+                          dynBttsOdd,
+                          'Both Teams To Score'
+                        );
+                        setDetailMatch(null);
+                      }}
+                      className="p-3 rounded-xl border border-[#1e2d40] bg-[#0e1723] hover:border-[#43f08a] flex items-center justify-between transition-all cursor-pointer"
+                    >
+                      <div>
+                        <div className="text-xs font-bold text-white">
+                          Both Teams To Score (Yes)
+                        </div>
+                        <div className="text-[10px] text-[#43f08a] font-mono">
+                          Poisson Prob: {(detailMatch.fairOdds.bttsProb * 100).toFixed(0)}%
+                        </div>
+                      </div>
+                      <span className="text-base font-mono font-black text-[#43f08a]">
+                        @{dynBttsOdd.toFixed(2)}
+                      </span>
+                    </button>
                   </div>
-                  <span className="text-base font-mono font-black text-[#43f08a]">@1.72</span>
-                </button>
-              </div>
+                );
+              })()}
             </div>
           </div>
         </div>

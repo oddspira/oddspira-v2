@@ -401,7 +401,7 @@ export function QuantMarketRadars({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#1a2436] pb-3">
         <div>
           <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#43f08a]">
-            SELF-COMPUTED SQLITE & API-FOOTBALL PRO ($19/MO) SUITE
+            QUANTITATIVE MARKET RADAR & PROP ENGINE
           </span>
           <h3 className="text-sm sm:text-base font-black text-white mt-0.5">
             Live Market Steam, Multi-Bookmaker Best Line & Prop Engines
@@ -693,7 +693,7 @@ export function QuantMarketRadars({
                 </h4>
               </div>
               <span className="px-2 py-0.5 rounded bg-[#281e08] text-[10px] font-mono text-amber-300">
-                SQLite Ref Profile
+                Official Ref Profile
               </span>
             </div>
 

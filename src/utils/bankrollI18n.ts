@@ -186,7 +186,7 @@ export const BANKROLL_I18N: Record<Language, BankrollTranslation> = {
     colSelection: 'Селекция',
     colOdds: 'Коеф.',
     colStake: 'Залог (% Банка)',
-    colEv: 'Мат. Ръб (+EV)',
+    colEv: 'Предимство (+EV)',
     colStatus: 'Статус',
     colPnl: 'Печалба (P&L)',
     colActions: 'Действия',

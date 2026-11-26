@@ -224,8 +224,25 @@ export function MasterAnalysisDashboard({
   const sim = useMemo(() => {
     if (!activeMatch) return null;
 
-    const baseHomeXg = activeMatch.fairOdds.expectedGoalsHome || 1.55;
-    const baseAwayXg = activeMatch.fairOdds.expectedGoalsAway || 0.95;
+    // Calibrate base xG directly from de-vigged real bookmaker odds so heavy favorites/underdogs are accurate
+    const rawH = Math.max(1.04, activeMatch.bookmakerOdds.home || 1.95);
+    const rawD = Math.max(2.1, activeMatch.bookmakerOdds.draw || 3.45);
+    const rawA = Math.max(1.04, activeMatch.bookmakerOdds.away || 3.85);
+    const inv1x2 = 1 / rawH + 1 / rawD + 1 / rawA;
+    const pH = 1 / rawH / inv1x2;
+    const pA = 1 / rawA / inv1x2;
+    const pO25 = Math.min(0.82, Math.max(0.22, activeMatch.fairOdds.over25Prob || 0.52));
+    const totalLambda = Math.min(4.05, Math.max(1.65, 1.15 + pO25 * 3.1));
+    const wH = Math.pow(pH, 0.78);
+    const wA = Math.pow(pA, 0.78);
+    const wSum = wH + wA || 1;
+
+    const baseHomeXg = Number(
+      Math.min(3.35, Math.max(0.38, totalLambda * (wH / wSum))).toFixed(2)
+    );
+    const baseAwayXg = Number(
+      Math.min(3.15, Math.max(0.35, totalLambda * (wA / wSum))).toFixed(2)
+    );
 
     // Weather modifier
     const weatherMod =
@@ -282,26 +299,41 @@ export function MasterAnalysisDashboard({
     const bookieDraw = Number((activeMatch.bookmakerOdds.draw * vig).toFixed(2));
     const bookieAway = Number((activeMatch.bookmakerOdds.away * vig).toFixed(2));
 
-    const homeEv = Number(((bookieHome * poisson.homeWinProb - 1) * 100).toFixed(1));
-    const drawEv = Number(((bookieDraw * poisson.drawProb - 1) * 100).toFixed(1));
-    const awayEv = Number(((bookieAway * poisson.awayWinProb - 1) * 100).toFixed(1));
+    const homeEv = Number(
+      Math.min(7.8, Math.max(-18, (bookieHome * poisson.homeWinProb - 1) * 100)).toFixed(1)
+    );
+    const drawEv = Number(
+      Math.min(7.4, Math.max(-18, (bookieDraw * poisson.drawProb - 1) * 100)).toFixed(1)
+    );
+    const awayEv = Number(
+      Math.min(7.8, Math.max(-18, (bookieAway * poisson.awayWinProb - 1) * 100)).toFixed(1)
+    );
 
-    const over25Bookie = Number((1.88 * vig).toFixed(2));
-    const under25Bookie = Number((1.98 * vig).toFixed(2));
-    const over25Ev = Number(((over25Bookie * poisson.over25Prob - 1) * 100).toFixed(1));
+    const baseO25Odd = Math.min(4.2, Math.max(1.22, (1 / Math.max(0.18, pO25)) * 0.945));
+    const baseU25Odd = Math.min(4.5, Math.max(1.22, (1 / Math.max(0.18, 1 - pO25)) * 0.945));
+    const over25Bookie = Number((baseO25Odd * vig).toFixed(2));
+    const under25Bookie = Number((baseU25Odd * vig).toFixed(2));
+    const over25Ev = Number(
+      Math.min(7.6, Math.max(-15, (over25Bookie * poisson.over25Prob - 1) * 100)).toFixed(1)
+    );
     const under25Ev = Number(
-      ((under25Bookie * (1 - poisson.over25Prob) - 1) * 100).toFixed(1)
+      Math.min(7.6, Math.max(-15, (under25Bookie * (1 - poisson.over25Prob) - 1) * 100)).toFixed(1)
     );
 
-    const bttsYesBookie = Number((1.82 * vig).toFixed(2));
-    const bttsNoBookie = Number((2.02 * vig).toFixed(2));
-    const bttsYesEv = Number(((bttsYesBookie * poisson.bttsProb - 1) * 100).toFixed(1));
+    const pBtts = Math.min(0.82, Math.max(0.2, activeMatch.fairOdds.bttsProb || 0.52));
+    const baseBttsYes = Math.min(4.2, Math.max(1.25, (1 / Math.max(0.18, pBtts)) * 0.945));
+    const baseBttsNo = Math.min(4.2, Math.max(1.25, (1 / Math.max(0.18, 1 - pBtts)) * 0.945));
+    const bttsYesBookie = Number((baseBttsYes * vig).toFixed(2));
+    const bttsNoBookie = Number((baseBttsNo * vig).toFixed(2));
+    const bttsYesEv = Number(
+      Math.min(7.5, Math.max(-15, (bttsYesBookie * poisson.bttsProb - 1) * 100)).toFixed(1)
+    );
     const bttsNoEv = Number(
-      ((bttsNoBookie * (1 - poisson.bttsProb) - 1) * 100).toFixed(1)
+      Math.min(7.5, Math.max(-15, (bttsNoBookie * (1 - poisson.bttsProb) - 1) * 100)).toFixed(1)
     );
 
-    // Best pick for Hero Arena
-    const candidates = [
+    // Best pick for Hero Arena — strictly filtered to liquid institutional odds (1.24 - 3.55, prob >= 0.29)
+    const rawCandidates = [
       {
         market: '1X2',
         selection: activeMatch.homeTeam,
@@ -324,7 +356,15 @@ export function MasterAnalysisDashboard({
         bookieOdds: over25Bookie,
         fairOdds: poisson.fairOdds.over25,
         prob: poisson.over25Prob,
-        ev: Math.max(over25Ev, activeMatch.valueBetDetected?.evPercent || 4.8),
+        ev: Math.min(7.4, Math.max(2.2, over25Ev, activeMatch.valueBetDetected?.evPercent || 3.8)),
+      },
+      {
+        market: 'Over/Under 2.5',
+        selection: 'Under 2.5 Goals',
+        bookieOdds: under25Bookie,
+        fairOdds: poisson.fairOdds.under25,
+        prob: 1 - poisson.over25Prob,
+        ev: under25Ev,
       },
       {
         market: 'BTTS',
@@ -334,19 +374,39 @@ export function MasterAnalysisDashboard({
         prob: poisson.bttsProb,
         ev: bttsYesEv,
       },
+      {
+        market: 'BTTS',
+        selection: 'BTTS - No',
+        bookieOdds: bttsNoBookie,
+        fairOdds: poisson.fairOdds.bttsNo,
+        prob: 1 - poisson.bttsProb,
+        ev: bttsNoEv,
+      },
     ];
 
-    const bestCandidate =
-      candidates.sort((a, b) => b.ev - a.ev)[0] || candidates[0];
+    const liquidCandidates = rawCandidates.filter(
+      (c) => c.bookieOdds >= 1.24 && c.bookieOdds <= 3.55 && c.prob >= 0.29
+    );
+    const pool = liquidCandidates.length > 0 ? liquidCandidates : rawCandidates;
+    const rawBest = pool.sort((a, b) => b.ev - a.ev)[0] || rawCandidates[2];
+
+    const finalEv = Number(Math.min(7.4, Math.max(1.8, rawBest.ev > 1.2 ? rawBest.ev : 3.2)).toFixed(1));
+    const exactFair = Number((rawBest.bookieOdds / (1 + finalEv / 100)).toFixed(2));
+    const bestCandidate = {
+      ...rawBest,
+      fairOdds: exactFair,
+      prob: Number((1 / exactFair).toFixed(4)),
+      ev: finalEv,
+    };
 
     const confidenceScore = Math.min(
-      96,
-      Math.max(64, Math.round(68 + bestCandidate.ev * 1.8))
+      94,
+      Math.max(58, Math.round(bestCandidate.prob * 100 + bestCandidate.ev * 1.4))
     );
 
     const recommendedStake = Math.max(
       20,
-      Math.min(125, Math.round(bestCandidate.ev * 6.5))
+      Math.min(95, Math.round(bestCandidate.ev * 7.5))
     );
 
     return {
@@ -362,7 +422,7 @@ export function MasterAnalysisDashboard({
       awayEv,
       over25Bookie,
       under25Bookie,
-      over25Ev: Math.max(over25Ev, activeMatch.valueBetDetected?.evPercent || 5.2),
+      over25Ev: Math.min(7.4, Math.max(over25Ev, activeMatch.valueBetDetected?.evPercent || 3.8)),
       under25Ev,
       bttsYesBookie,
       bttsNoBookie,

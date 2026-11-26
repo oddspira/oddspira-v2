@@ -101,7 +101,7 @@ export const ANALYSIS_I18N: Record<Language, AnalysisTranslation> = {
     bestPickLabel: 'Топ Селекция на Модела',
     bookieOddsLabel: 'Коеф. на Букмейкъра',
     fairOddsLabel: 'Реален (Fair) Коеф.',
-    mathEdgeLabel: 'Математически Ръб (+EV)',
+    mathEdgeLabel: 'Математическо Предимство (+EV)',
     kellyStakeLabel: 'Препоръчителен Залог',
     logBetCta: '⚡ Запиши Залога с 1 Клик',
     openFullMatchCta: 'Детайли за Мача →',

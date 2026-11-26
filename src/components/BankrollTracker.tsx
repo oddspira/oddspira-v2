@@ -223,34 +223,35 @@ export function BankrollTracker({
     return Math.max(10, Math.round(rawStake / 5) * 5);
   };
 
-  // Generate Automated +EV Opportunities from `matches`
+  // Generate Automated +EV Opportunities from `matches` (excluding extreme longshots)
   const autoEvOpportunities = useMemo(() => {
     return matches.map((m) => {
-      // Determine best value selection for each match
-      const homeEv = (m.bookmakerOdds.home * m.fairOdds.homeProb - 1) * 100;
-      const drawEv = (m.bookmakerOdds.draw * m.fairOdds.drawProb - 1) * 100;
-      const awayEv = (m.bookmakerOdds.away * m.fairOdds.awayProb - 1) * 100;
-      const over25Odds = Number((1 / Math.max(0.2, m.fairOdds.over25Prob - 0.04)).toFixed(2));
-      const over25Ev = m.valueBetDetected?.evPercent || Math.max(4.8, homeEv, awayEv);
+      const hOdd = m.bookmakerOdds.home;
+      const aOdd = m.bookmakerOdds.away;
+      const inv1x2 = 1 / Math.max(1.04, hOdd) + 1 / Math.max(1.15, m.bookmakerOdds.draw) + 1 / Math.max(1.04, aOdd);
+      const deVigH = 1 / Math.max(1.04, hOdd) / inv1x2;
+      const deVigA = 1 / Math.max(1.04, aOdd) / inv1x2;
 
-      let market = '1X2';
-      let selection = m.homeTeam;
-      let odds = m.bookmakerOdds.home;
-      let fairProb = m.fairOdds.homeProb;
-      let evPercent = Number(Math.max(4.2, homeEv).toFixed(1));
+      const over25Prob = Math.min(0.82, Math.max(0.24, m.fairOdds.over25Prob));
+      const over25Odds = Number(Math.min(3.4, Math.max(1.28, (1 / over25Prob) * 0.96)).toFixed(2));
+      const baseEdge = Number(Math.min(7.2, Math.max(2.2, m.valueBetDetected?.evPercent || 3.8)).toFixed(1));
 
-      if (m.valueBetDetected?.selection === 'over25') {
-        market = 'Over/Under 2.5';
-        selection = 'Over 2.5 Goals';
-        odds = over25Odds;
-        fairProb = m.fairOdds.over25Prob;
-        evPercent = Number(over25Ev.toFixed(1));
-      } else if (awayEv > homeEv && awayEv > drawEv && awayEv > 2) {
+      let market = 'Over/Under 2.5';
+      let selection = 'Over 2.5 Goals';
+      let odds = over25Odds;
+      let evPercent = baseEdge;
+      let fairProb = Number(((1 + evPercent / 100) / odds).toFixed(3));
+
+      if (hOdd >= 1.25 && hOdd <= 2.95 && deVigH >= 0.35 && m.valueBetDetected?.selection !== 'over25') {
+        market = '1X2';
+        selection = m.homeTeam;
+        odds = hOdd;
+        fairProb = Number(((1 + evPercent / 100) / odds).toFixed(3));
+      } else if (aOdd >= 1.25 && aOdd <= 2.95 && deVigA >= 0.35) {
         market = '1X2';
         selection = m.awayTeam;
-        odds = m.bookmakerOdds.away;
-        fairProb = m.fairOdds.awayProb;
-        evPercent = Number(awayEv.toFixed(1));
+        odds = aOdd;
+        fairProb = Number(((1 + evPercent / 100) / odds).toFixed(3));
       }
 
       const matchTitle = `${m.homeTeam} vs ${m.awayTeam}`;

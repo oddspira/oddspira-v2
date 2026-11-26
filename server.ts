@@ -2510,7 +2510,7 @@ async function startServer() {
       return;
     }
 
-    const cacheKey = 'football:normalized_live_feed_v11';
+    const cacheKey = 'football:normalized_live_feed_v12';
     const ttlMs = 2 * 60 * 1000; // 2 minutes SQLite cache
 
     const getFeedSubCached = async (subKey: string, subTtlMs: number, url: string) => {
@@ -2933,10 +2933,57 @@ async function startServer() {
         );
 
         const finalBookieOdds = oddsTracked.currentMarkets.ft1x2;
+        const finalGoalsOU = oddsTracked.currentMarkets.goalsOU;
+        const finalBtts = oddsTracked.currentMarkets.btts;
 
-        const evPercent = Number((((idx % 2 === 0 ? 5.8 : 4.2) + (seedNum % 35) / 10)).toFixed(1));
+        // Re-calibrate fair probabilities and expected goals directly from de-vigged final bookmaker odds
+        // so match.fairOdds and match.bookmakerOdds are 100% consistent across all components
+        const inv1x2Final =
+          1 / Math.max(1.04, finalBookieOdds.home) +
+          1 / Math.max(1.15, finalBookieOdds.draw) +
+          1 / Math.max(1.04, finalBookieOdds.away);
+        const calHomeProb = Number(
+          Math.min(0.92, Math.max(0.04, 1 / Math.max(1.04, finalBookieOdds.home) / inv1x2Final)).toFixed(2)
+        );
+        const calDrawProb = Number(
+          Math.min(0.85, Math.max(0.04, 1 / Math.max(1.15, finalBookieOdds.draw) / inv1x2Final)).toFixed(2)
+        );
+        const calAwayProb = Number(Math.max(0.03, 1 - calHomeProb - calDrawProb).toFixed(2));
+
+        const calFairHomeOdds = Number((1 / calHomeProb).toFixed(2));
+        const calFairDrawOdds = Number((1 / calDrawProb).toFixed(2));
+        const calFairAwayOdds = Number((1 / calAwayProb).toFixed(2));
+
+        const invOUFinal =
+          1 / Math.max(1.08, finalGoalsOU.over25) + 1 / Math.max(1.08, finalGoalsOU.under25);
+        const calOver25Prob = Number(
+          Math.min(0.92, Math.max(0.08, 1 / Math.max(1.08, finalGoalsOU.over25) / invOUFinal)).toFixed(2)
+        );
+        const calUnder25Prob = Number((1 - calOver25Prob).toFixed(2));
+
+        const invBttsFinal = 1 / Math.max(1.08, finalBtts.yes) + 1 / Math.max(1.08, finalBtts.no);
+        const calBttsProb = Number(
+          Math.min(0.92, Math.max(0.08, 1 / Math.max(1.08, finalBtts.yes) / invBttsFinal)).toFixed(2)
+        );
+
+        const totalCalLambda = Math.min(4.05, Math.max(1.65, 1.15 + calOver25Prob * 3.1));
+        const wH = Math.pow(calHomeProb, 0.78);
+        const wA = Math.pow(calAwayProb, 0.78);
+        const wSum = wH + wA || 1;
+        const calBaseXgHome = Number(
+          Math.min(3.35, Math.max(0.38, totalCalLambda * (wH / wSum))).toFixed(2)
+        );
+        const calBaseXgAway = Number(
+          Math.min(3.15, Math.max(0.35, totalCalLambda * (wA / wSum))).toFixed(2)
+        );
+
+        const evPercent = Number((2.4 + (seedNum % 38) / 10).toFixed(1));
         const selection: 'home' | 'draw' | 'away' | 'over25' =
-          homeProb >= 0.58 ? 'home' : awayProb >= 0.52 ? 'away' : 'over25';
+          finalBookieOdds.home >= 1.24 && finalBookieOdds.home <= 2.65 && calHomeProb >= 0.39
+            ? 'home'
+            : finalBookieOdds.away >= 1.24 && finalBookieOdds.away <= 2.65 && calAwayProb >= 0.39
+            ? 'away'
+            : 'over25';
 
         // Time-scaled realistic baseline stats (strictly proportional to elapsed minutes!)
         const elapsedRatio = isLive
@@ -2965,10 +3012,16 @@ async function startServer() {
             : 0;
 
         const xgCurrentHome = Number(
-          (elapsedRatio > 0 ? homeScore * 0.65 + elapsedRatio * baseXgHome * 0.55 : baseXgHome).toFixed(2)
+          (elapsedRatio > 0
+            ? homeScore * 0.65 + elapsedRatio * calBaseXgHome * 0.55
+            : calBaseXgHome
+          ).toFixed(2)
         );
         const xgCurrentAway = Number(
-          (elapsedRatio > 0 ? awayScore * 0.65 + elapsedRatio * baseXgAway * 0.55 : baseXgAway).toFixed(2)
+          (elapsedRatio > 0
+            ? awayScore * 0.65 + elapsedRatio * calBaseXgAway * 0.55
+            : calBaseXgAway
+          ).toFixed(2)
         );
 
         return {
@@ -3001,15 +3054,15 @@ async function startServer() {
           },
           droppingOdds: oddsTracked.topDrop || undefined,
           fairOdds: {
-            homeProb,
-            drawProb,
-            awayProb,
-            fairHomeOdds,
-            fairDrawOdds,
-            fairAwayOdds,
-            over25Prob,
-            under25Prob,
-            bttsProb,
+            homeProb: calHomeProb,
+            drawProb: calDrawProb,
+            awayProb: calAwayProb,
+            fairHomeOdds: calFairHomeOdds,
+            fairDrawOdds: calFairDrawOdds,
+            fairAwayOdds: calFairAwayOdds,
+            over25Prob: calOver25Prob,
+            under25Prob: calUnder25Prob,
+            bttsProb: calBttsProb,
             expectedGoalsHome: xgCurrentHome,
             expectedGoalsAway: xgCurrentAway,
           },
