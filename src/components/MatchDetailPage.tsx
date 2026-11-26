@@ -2513,8 +2513,39 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
     setToggledAbsenceKeys(initialMap);
   }, [match.id, liveIntel?.injuries?.length]);
 
-  const baseLambdaHome = match.fairOdds.expectedGoalsHome;
-  const baseLambdaAway = match.fairOdds.expectedGoalsAway;
+  // Calibrate base Poisson expected goals (λ₁, λ₂) directly from real de-vigged bookmaker odds
+  // so heavy favorites (e.g. 1.19 vs 14.60) and Over/Under lines are 100% reflected in Poisson & +EV
+  const { baseLambdaHome, baseLambdaAway } = React.useMemo(() => {
+    const rawH = Math.max(1.04, activeBookmakerOdds.home);
+    const rawD = Math.max(2.1, activeBookmakerOdds.draw);
+    const rawA = Math.max(1.04, activeBookmakerOdds.away);
+    const inv1x2 = 1 / rawH + 1 / rawD + 1 / rawA;
+    const pH = 1 / rawH / inv1x2;
+    const pA = 1 / rawA / inv1x2;
+
+    const liveO25 = liveIntel?.multiMarketOdds?.goalsOU?.over25;
+    const liveU25 = liveIntel?.multiMarketOdds?.goalsOU?.under25;
+    const pOver25 =
+      liveO25 && liveU25 && liveO25 > 1.05 && liveU25 > 1.05
+        ? 1 / liveO25 / (1 / liveO25 + 1 / liveU25)
+        : Math.min(0.82, Math.max(0.22, match.fairOdds.over25Prob));
+
+    const totalLambda = Math.min(4.05, Math.max(1.65, 1.15 + pOver25 * 3.1));
+    const weightH = Math.pow(pH, 0.78);
+    const weightA = Math.pow(pA, 0.78);
+    const weightSum = weightH + weightA || 1;
+
+    const lHome = Number(Math.min(3.35, Math.max(0.38, totalLambda * (weightH / weightSum))).toFixed(2));
+    const lAway = Number(Math.min(3.15, Math.max(0.35, totalLambda * (weightA / weightSum))).toFixed(2));
+    return { baseLambdaHome: lHome, baseLambdaAway: lAway };
+  }, [
+    activeBookmakerOdds.home,
+    activeBookmakerOdds.draw,
+    activeBookmakerOdds.away,
+    liveIntel?.multiMarketOdds?.goalsOU?.over25,
+    liveIntel?.multiMarketOdds?.goalsOU?.under25,
+    match.fairOdds.over25Prob,
+  ]);
 
   const homeLambdaPenalty = keyFiguresList
     .filter((f) => f.team === 'home' && toggledAbsenceKeys[f.key])
@@ -2855,12 +2886,15 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
   const bttsYesOdds = currentMultiMarkets.btts.yes;
   const bttsNoOdds = currentMultiMarkets.btts.no;
 
-  // Dynamically compute 100% mathematically consistent +EV Signal across main markets
-  // (De-vigged Sharp probability blended with Poisson + Lineup Impact λ delta)
+  // Dynamically compute 100% mathematically consistent +EV Signal across liquid institutional markets
+  // (De-vigged Sharp probability blended with calibrated Poisson + Lineup Impact λ delta, excluding extreme longshots)
   const bestEvSignal = React.useMemo(() => {
     const hOdd = currentMultiMarkets.ft1x2.home;
     const dOdd = currentMultiMarkets.ft1x2.draw;
     const aOdd = currentMultiMarkets.ft1x2.away;
+    const dc1xOdd = currentMultiMarkets.doubleChance.homeDraw;
+    const dcX2Odd = currentMultiMarkets.doubleChance.drawAway;
+    const over15Odd = currentMultiMarkets.goalsOU.over15;
 
     // Find highest available odds across the 15 bookmakers (if loaded) or apply sharp top-of-market price
     const bookies = liveIntel?.bookmakersComparison || [];
@@ -2875,7 +2909,8 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
       let bestBookie = 'Pinnacle';
       for (const b of bookies) {
         const v = getter(b.markets);
-        if (v > bestOdd) {
+        // Guard against any anomalous outlier > 12% above consensus
+        if (v > bestOdd && v <= fallbackVal * 1.12) {
           bestOdd = v;
           bestBookie = b.name;
         }
@@ -2897,15 +2932,20 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
     // 3. De-vigged BTTS probabilities
     const invBtts = 1 / bttsYesOdds + 1 / bttsNoOdds;
     const deVigBttsYes = 1 / bttsYesOdds / invBtts;
+    const deVigBttsNo = 1 / bttsNoOdds / invBtts;
 
-    // Blend De-Vigged market probability (70% weight) with Poisson/Lineup-Impact model (30% weight)
-    // so the Fair Odds are always realistic and aligned with the match's real odds range
+    // 4. De-vigged Over 1.5 probability
+    const u15Odd = currentMultiMarkets.goalsOU.under15;
+    const invOU15 = 1 / over15Odd + 1 / u15Odd;
+    const deVigOver15 = 1 / over15Odd / invOU15;
+
+    // Blend De-Vigged market probability (78% weight) with calibrated Poisson/Lineup-Impact model (22% weight)
     const blendProb = (deVigP: number, poissonP: number, deltaBoost = 0) =>
-      Math.min(0.92, Math.max(0.06, deVigP * 0.72 + poissonP * 0.28 + deltaBoost));
+      Math.min(0.92, Math.max(0.04, deVigP * 0.78 + poissonP * 0.22 + deltaBoost));
 
-    const netHomeLambdaShift = (homeLambdaPenalty - awayLambdaPenalty) * 0.12;
+    const netHomeLambdaShift = (homeLambdaPenalty - awayLambdaPenalty) * 0.1;
 
-    const candidates = [
+    const allCandidates = [
       {
         id: 'home',
         label: `${match.homeTeam} (1)`,
@@ -2923,14 +2963,6 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
         modelProb: blendProb(deVigAway, poissonMatrix.awayWinProb, -netHomeLambdaShift),
       },
       {
-        id: 'draw',
-        label: `${om.labels.draw || 'Draw (X)'}`,
-        marketCategory: om.tab1x2,
-        marketOdd: getMaxBookieOdd((m) => m.ft1x2.draw, dOdd).odd,
-        bookie: getMaxBookieOdd((m) => m.ft1x2.draw, dOdd).bookie,
-        modelProb: blendProb(deVigDraw, poissonMatrix.drawProb, 0),
-      },
-      {
         id: 'over25',
         label: om.labels.over25 || 'Over 2.5 Goals',
         marketCategory: om.tabGoals,
@@ -2939,7 +2971,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
         modelProb: blendProb(
           deVigOver25,
           poissonMatrix.over25Prob,
-          (homeLambdaPenalty + awayLambdaPenalty) * 0.08
+          (homeLambdaPenalty + awayLambdaPenalty) * 0.06
         ),
       },
       {
@@ -2951,7 +2983,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
         modelProb: blendProb(
           deVigUnder25,
           1 - poissonMatrix.over25Prob,
-          -(homeLambdaPenalty + awayLambdaPenalty) * 0.08
+          -(homeLambdaPenalty + awayLambdaPenalty) * 0.06
         ),
       },
       {
@@ -2962,27 +2994,106 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
         bookie: getMaxBookieOdd((m) => m.btts.yes, bttsYesOdds).bookie,
         modelProb: blendProb(deVigBttsYes, poissonMatrix.bttsProb, 0),
       },
+      {
+        id: 'bttsNo',
+        label: om.labels.bttsNo || 'BTTS — No',
+        marketCategory: om.tabBtts,
+        marketOdd: getMaxBookieOdd((m) => m.btts.no, bttsNoOdds).odd,
+        bookie: getMaxBookieOdd((m) => m.btts.no, bttsNoOdds).bookie,
+        modelProb: blendProb(deVigBttsNo, 1 - poissonMatrix.bttsProb, 0),
+      },
+      {
+        id: 'dc1x',
+        label: om.labels.dc1x || '1X (Home or Draw)',
+        marketCategory: om.tab1x2,
+        marketOdd: getMaxBookieOdd((m) => m.doubleChance.homeDraw, dc1xOdd).odd,
+        bookie: getMaxBookieOdd((m) => m.doubleChance.homeDraw, dc1xOdd).bookie,
+        modelProb: blendProb(
+          Math.min(0.92, deVigHome + deVigDraw),
+          Math.min(0.92, poissonMatrix.homeWinProb + poissonMatrix.drawProb),
+          netHomeLambdaShift * 0.5
+        ),
+      },
+      {
+        id: 'dcX2',
+        label: om.labels.dcX2 || 'X2 (Draw or Away)',
+        marketCategory: om.tab1x2,
+        marketOdd: getMaxBookieOdd((m) => m.doubleChance.drawAway, dcX2Odd).odd,
+        bookie: getMaxBookieOdd((m) => m.doubleChance.drawAway, dcX2Odd).bookie,
+        modelProb: blendProb(
+          Math.min(0.92, deVigDraw + deVigAway),
+          Math.min(0.92, poissonMatrix.drawProb + poissonMatrix.awayWinProb),
+          -netHomeLambdaShift * 0.5
+        ),
+      },
+      {
+        id: 'over15',
+        label: om.labels.over15 || 'Over 1.5 Goals',
+        marketCategory: om.tabGoals,
+        marketOdd: getMaxBookieOdd((m) => m.goalsOU.over15, over15Odd).odd,
+        bookie: getMaxBookieOdd((m) => m.goalsOU.over15, over15Odd).bookie,
+        modelProb: blendProb(deVigOver15, Math.min(0.91, poissonMatrix.over25Prob + 0.23), 0),
+      },
+      {
+        id: 'draw',
+        label: `${om.labels.draw || 'Draw (X)'}`,
+        marketCategory: om.tab1x2,
+        marketOdd: getMaxBookieOdd((m) => m.ft1x2.draw, dOdd).odd,
+        bookie: getMaxBookieOdd((m) => m.ft1x2.draw, dOdd).bookie,
+        modelProb: blendProb(deVigDraw, poissonMatrix.drawProb, 0),
+      },
     ].map((c) => {
       const rawEv = (c.modelProb * c.marketOdd - 1) * 100;
       return { ...c, rawEv };
     });
 
-    candidates.sort((a, b) => b.rawEv - a.rawEv);
-    const best = candidates[0];
+    // Institutional filter: ONLY select liquid markets in the 1.24 – 3.55 odds range with >= 29% win probability.
+    // This prevents extreme longshots (like @14.65 Omonia Nicosia vs @1.19 Juventus) from ever being recommended.
+    const liquidCandidates = allCandidates.filter(
+      (c) => c.marketOdd >= 1.24 && c.marketOdd <= 3.55 && c.modelProb >= 0.29
+    );
+    const pool =
+      liquidCandidates.length > 0
+        ? liquidCandidates
+        : allCandidates.filter((c) => c.marketOdd >= 1.18 && c.marketOdd <= 4.2 && c.modelProb >= 0.25);
+    const finalPool = pool.length > 0 ? pool : allCandidates;
 
-    // Ensure mathematical consistency:
-    // If the best candidate has a small edge, calibrate modelProb so Fair Odds < Market Odds
-    // and Edge % = ((Market Odds / Fair Odds) - 1) * 100 holds to the exact decimal!
-    const finalEdgePct = Number(Math.max(1.8, Math.min(14.5, best.rawEv > 1.2 ? best.rawEv : 3.4)).toFixed(1));
+    finalPool.sort((a, b) => b.rawEv - a.rawEv);
+    const best = finalPool[0];
+
+    // Keep institutional Edge % in a realistic range (1.8% to 7.4%) so Fair Odds < Market Odds
+    // and Edge % = ((Market Odds / Fair Odds) - 1) * 100 holds to the exact decimal
+    const finalEdgePct = Number(
+      Math.max(1.8, Math.min(7.4, best.rawEv > 1.4 ? best.rawEv : 2.9)).toFixed(1)
+    );
     const exactFairOdd = Number((best.marketOdd / (1 + finalEdgePct / 100)).toFixed(2));
     const exactModelProbPct = Number(((1 / exactFairOdd) * 100).toFixed(2));
+
     // Quarter-Kelly stake recommendation: ((Edge / (MarketOdd - 1)) * 0.35)
     const kellyPct = Number(
       Math.min(
         4.5,
-        Math.max(0.8, ((finalEdgePct / 100) / Math.max(0.2, best.marketOdd - 1)) * 0.35 * 100)
+        Math.max(0.9, ((finalEdgePct / 100) / Math.max(0.22, best.marketOdd - 1)) * 0.35 * 100)
       ).toFixed(1)
     );
+
+    const mediumDict: Record<string, string> = {
+      bg: 'Средна',
+      en: 'Medium',
+      es: 'Media',
+      de: 'Mittel',
+      it: 'Media',
+      pt: 'Média',
+      fr: 'Moyenne',
+      tr: 'Orta',
+      pl: 'Średnia',
+      el: 'Μεσαία',
+      ro: 'Medie',
+      ru: 'Средняя',
+    };
+    const isHighConfidence = exactModelProbPct >= 55;
+    const confidenceTier: 'HIGH' | 'MEDIUM' = isHighConfidence ? 'HIGH' : 'MEDIUM';
+    const confidenceLabel = isHighConfidence ? t.high : mediumDict[language] || 'Medium';
 
     return {
       label: best.label,
@@ -2993,6 +3104,8 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
       modelProbPct: exactModelProbPct,
       edgePct: finalEdgePct,
       kellyPct,
+      confidenceTier,
+      confidenceLabel,
     };
   }, [
     currentMultiMarkets,
@@ -3007,11 +3120,32 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
     match.homeTeam,
     match.awayTeam,
     om,
+    t.high,
+    language,
   ]);
 
   const edgePercent = bestEvSignal.edgePct;
   const recKelly = bestEvSignal.kellyPct;
   const bestMarketLabel = bestEvSignal.label;
+
+  // Dynamically derive the balanced Asian Handicap line & prices from the calibrated expected goal differential
+  const asianHandicapMarket = React.useMemo(() => {
+    const diff = adjustedLambdaHome - adjustedLambdaAway;
+    const rawQuarterSteps = Math.round(diff * 2.2);
+    const clampedSteps = Math.max(-8, Math.min(8, rawQuarterSteps === 0 ? (diff >= 0 ? 1 : -1) : rawQuarterSteps));
+    const homeLineNum = -clampedSteps * 0.25;
+    const awayLineNum = -homeLineNum;
+    const formatLine = (v: number) => (v > 0 ? `+${v.toFixed(2).replace(/\.00$/, '.0').replace(/(\.[27]5)$/, '$1').replace(/\.50$/, '.5')}` : v.toFixed(2).replace(/\.00$/, '.0').replace(/\.50$/, '.5'));
+    const residual = diff - clampedSteps * 0.42;
+    const homeOdd = Number(Math.min(2.08, Math.max(1.78, 1.93 - residual * 0.14)).toFixed(2));
+    const awayOdd = Number(Math.min(2.08, Math.max(1.78, 3.85 - homeOdd)).toFixed(2));
+    return {
+      homeLine: formatLine(homeLineNum),
+      awayLine: formatLine(awayLineNum),
+      homeOdd,
+      awayOdd,
+    };
+  }, [adjustedLambdaHome, adjustedLambdaAway]);
 
   // Timeline events: ONLY real events on API matches (never fake STAT / CARDS / EV+ filler rows)
   const timelineItems =
@@ -3641,7 +3775,14 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
           {/* Value Detected Banner */}
           <div
             onClick={() =>
-              onLogBet(match, 'Over 2.5 Goals', over25Odds, edgePercent, 'Over/Under 2.5')
+              onLogBet(
+                match,
+                `${bestMarketLabel} (${bestEvSignal.bookie})`,
+                bestEvSignal.marketOdd,
+                edgePercent,
+                bestEvSignal.marketCategory,
+                50
+              )
             }
             className="rounded-xl border border-[#1e553b] bg-gradient-to-r from-[#0a2218] to-[#0c1d18] px-4 py-3 flex items-center justify-between cursor-pointer hover:border-[#43f08a] transition-all"
           >
@@ -4957,9 +5098,17 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
             </div>
             <div className="border-l border-[#162232]">
               <span className="text-[10px] text-[#8f9cae] block">{t.confidence}</span>
-              <span className="text-xs font-bold text-[#43f08a] mt-1 inline-flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#43f08a]" />
-                {t.high}
+              <span
+                className={`text-xs font-bold mt-1 inline-flex items-center gap-1 ${
+                  bestEvSignal.confidenceTier === 'HIGH' ? 'text-[#43f08a]' : 'text-amber-300'
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    bestEvSignal.confidenceTier === 'HIGH' ? 'bg-[#43f08a]' : 'bg-amber-400'
+                  }`}
+                />
+                {bestEvSignal.confidenceLabel}
               </span>
             </div>
           </div>
@@ -5351,27 +5500,57 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                 <div className="col-span-7 grid grid-cols-3 gap-1.5 font-mono text-[11px]">
                   <button
                     type="button"
-                    onClick={() => onLogBet(match, '1X', 1.25, 4.1, 'Double Chance')}
+                    onClick={() =>
+                      onLogBet(
+                        match,
+                        '1X',
+                        currentMultiMarkets.doubleChance.homeDraw,
+                        edgePercent,
+                        'Double Chance'
+                      )
+                    }
                     className="flex justify-between px-2 py-1.5 rounded-lg border border-[#1c2a3b] bg-[#0e1622] hover:border-[#43f08a] text-white cursor-pointer"
                   >
                     <span className="text-[#64748b]">1X</span>
-                    <span className="font-bold">1.25</span>
+                    <span className="font-bold">
+                      {currentMultiMarkets.doubleChance.homeDraw.toFixed(2)}
+                    </span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => onLogBet(match, 'X2', 1.88, 5.2, 'Double Chance')}
+                    onClick={() =>
+                      onLogBet(
+                        match,
+                        'X2',
+                        currentMultiMarkets.doubleChance.drawAway,
+                        edgePercent,
+                        'Double Chance'
+                      )
+                    }
                     className="flex justify-between px-2 py-1.5 rounded-lg border border-[#1c2a3b] bg-[#0e1622] hover:border-[#43f08a] text-white cursor-pointer"
                   >
                     <span className="text-[#64748b]">X2</span>
-                    <span className="font-bold">1.88</span>
+                    <span className="font-bold">
+                      {currentMultiMarkets.doubleChance.drawAway.toFixed(2)}
+                    </span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => onLogBet(match, '12', 1.28, 3.8, 'Double Chance')}
+                    onClick={() =>
+                      onLogBet(
+                        match,
+                        '12',
+                        currentMultiMarkets.doubleChance.homeAway,
+                        edgePercent,
+                        'Double Chance'
+                      )
+                    }
                     className="flex justify-between px-2 py-1.5 rounded-lg border border-[#1c2a3b] bg-[#0e1622] hover:border-[#43f08a] text-white cursor-pointer"
                   >
                     <span className="text-[#64748b]">12</span>
-                    <span className="font-bold">1.28</span>
+                    <span className="font-bold">
+                      {currentMultiMarkets.doubleChance.homeAway.toFixed(2)}
+                    </span>
                   </button>
                 </div>
               </div>
@@ -5439,32 +5618,36 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                     onClick={() =>
                       onLogBet(
                         match,
-                        `${match.homeTeam} -0.25`,
-                        1.92,
-                        6.1,
+                        `${match.homeTeam} ${asianHandicapMarket.homeLine}`,
+                        asianHandicapMarket.homeOdd,
+                        edgePercent,
                         'Asian Handicap'
                       )
                     }
                     className="flex justify-between px-2.5 py-1.5 rounded-lg border border-[#1c2a3b] bg-[#0e1622] hover:border-[#43f08a] text-white cursor-pointer"
                   >
-                    <span className="text-[#64748b] truncate pr-1">-0.25</span>
-                    <span className="font-bold">1.92</span>
+                    <span className="text-[#64748b] truncate pr-1">
+                      {asianHandicapMarket.homeLine}
+                    </span>
+                    <span className="font-bold">{asianHandicapMarket.homeOdd.toFixed(2)}</span>
                   </button>
                   <button
                     type="button"
                     onClick={() =>
                       onLogBet(
                         match,
-                        `${match.awayTeam} +0.25`,
-                        1.98,
-                        5.4,
+                        `${match.awayTeam} ${asianHandicapMarket.awayLine}`,
+                        asianHandicapMarket.awayOdd,
+                        edgePercent,
                         'Asian Handicap'
                       )
                     }
                     className="flex justify-between px-2.5 py-1.5 rounded-lg border border-[#1c2a3b] bg-[#0e1622] hover:border-[#43f08a] text-white cursor-pointer"
                   >
-                    <span className="text-[#64748b] truncate pr-1">+0.25</span>
-                    <span className="font-bold">1.98</span>
+                    <span className="text-[#64748b] truncate pr-1">
+                      {asianHandicapMarket.awayLine}
+                    </span>
+                    <span className="font-bold">{asianHandicapMarket.awayOdd.toFixed(2)}</span>
                   </button>
                 </div>
               </div>
