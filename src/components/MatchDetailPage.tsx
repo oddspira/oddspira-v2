@@ -5037,15 +5037,6 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
         const hasSteam = !isLive && topAlerts.some((a) => a.isSteamMove);
         const hasDrop = topAlerts.length > 0;
 
-        // Points for SVG time-series graph of activeDef
-        const seriesPoints = oddsHistoryList.map((entry) => ({
-          time: entry.timeLabel,
-          bookmaker: entry.bookmaker,
-          isLive: entry.isLive,
-          isOpening: entry.isOpening,
-          val: activeDef.getVal(entry.markets),
-        }));
-
         const activeOpenVal = activeDef.getVal(openingMultiMarkets);
         const activeCurrVal = activeDef.getVal(currentMultiMarkets);
         const activePctChange =
@@ -5053,33 +5044,89 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
             ? Number((((activeCurrVal - activeOpenVal) / activeOpenVal) * 100).toFixed(1))
             : 0;
 
+        const formatClockTime = (ts: number) => {
+          try {
+            const d = new Date(ts);
+            const hh = String(d.getHours()).padStart(2, '0');
+            const mm = String(d.getMinutes()).padStart(2, '0');
+            return `${hh}:${mm}`;
+          } catch {
+            return '12:00';
+          }
+        };
+
+        // Points for SVG time-series graph of activeDef (always guarantees at least Opening -> Current points with HH:MM timestamps)
+        const rawSeriesPoints = oddsHistoryList.map((entry, idx) => {
+          const clock =
+            entry.timeLabel && /^\d{1,2}:\d{2}/.test(entry.timeLabel)
+              ? entry.timeLabel
+              : formatClockTime(entry.recordedAt || Date.now() - (oddsHistoryList.length - 1 - idx) * 3600000);
+          return {
+            time: clock,
+            bookmaker: entry.bookmaker,
+            isLive: entry.isLive,
+            isOpening: entry.isOpening || idx === 0,
+            val: activeDef.getVal(entry.markets),
+          };
+        });
+
+        const seriesPoints =
+          rawSeriesPoints.length >= 2
+            ? rawSeriesPoints
+            : [
+                {
+                  time: formatClockTime(
+                    (oddsHistoryList[0]?.recordedAt || Date.now()) - 2 * 60 * 60 * 1000
+                  ),
+                  bookmaker: oddsHistoryList[0]?.bookmaker || 'Opening Line',
+                  isLive: false,
+                  isOpening: true,
+                  val: activeOpenVal,
+                },
+                {
+                  time:
+                    rawSeriesPoints[0]?.time ||
+                    formatClockTime(oddsHistoryList[0]?.recordedAt || Date.now()),
+                  bookmaker: oddsHistoryList[0]?.bookmaker || 'Current Line',
+                  isLive,
+                  isOpening: false,
+                  val: activeCurrVal,
+                },
+              ];
+
         const vals = seriesPoints.map((p) => p.val);
-        const minVal = Math.min(...vals, activeOpenVal, activeCurrVal) * 0.96;
-        const maxVal = Math.max(...vals, activeOpenVal, activeCurrVal) * 1.04;
+        const rawMin = Math.min(...vals, activeOpenVal, activeCurrVal);
+        const rawMax = Math.max(...vals, activeOpenVal, activeCurrVal);
+        const midVal = (rawMin + rawMax) / 2;
+        const halfRange = Math.max(0.06, (rawMax - rawMin) * 0.75);
+        const minVal = Math.max(1.01, midVal - halfRange);
+        const maxVal = midVal + halfRange;
         const valSpan = Math.max(0.08, maxVal - minVal);
 
-        const svgW = 360;
-        const svgH = 135;
-        const padX = 28;
-        const padY = 22;
+        const svgW = 400;
+        const svgH = 165;
+        const padLeft = 48;
+        const padRight = 38;
+        const padTop = 32;
+        const padBottom = 34;
 
         const plotCoords = seriesPoints.map((pt, idx) => {
           const x =
             seriesPoints.length === 1
-              ? svgW / 2
-              : padX + (idx / (seriesPoints.length - 1)) * (svgW - padX * 2);
-          const normY = (pt.val - minVal) / valSpan;
-          const y = svgH - padY - normY * (svgH - padY * 2);
+              ? (padLeft + (svgW - padRight)) / 2
+              : padLeft + (idx / (seriesPoints.length - 1)) * (svgW - padLeft - padRight);
+          const normY = Math.min(1, Math.max(0, (pt.val - minVal) / valSpan));
+          const y = svgH - padBottom - normY * (svgH - padTop - padBottom);
           return { ...pt, x, y };
         });
 
         const polylineStr = plotCoords.map((c) => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(' ');
         const areaPathStr =
           plotCoords.length >= 2
-            ? `M ${plotCoords[0].x.toFixed(1)} ${(svgH - padY).toFixed(1)} L ${plotCoords
+            ? `M ${plotCoords[0].x.toFixed(1)} ${(svgH - padBottom).toFixed(1)} L ${plotCoords
                 .map((c) => `${c.x.toFixed(1)} ${c.y.toFixed(1)}`)
                 .join(' L ')} L ${plotCoords[plotCoords.length - 1].x.toFixed(1)} ${(
-                svgH - padY
+                svgH - padBottom
               ).toFixed(1)} Z`
             : '';
 
@@ -5330,36 +5377,38 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                 {/* SVG Time-Series Curve */}
                 <div className="relative w-full">
                   <svg
-                    className="w-full h-36 overflow-visible"
+                    className="w-full h-44 overflow-visible"
                     viewBox={`0 0 ${svgW} ${svgH}`}
                   >
-                    {/* Horizontal Reference Grid Lines */}
-                    <line
-                      x1={padX}
-                      y1={padY}
-                      x2={svgW - padX}
-                      y2={padY}
-                      stroke="#162232"
-                      strokeDasharray="3 3"
-                      strokeWidth="1"
-                    />
-                    <line
-                      x1={padX}
-                      y1={svgH / 2}
-                      x2={svgW - padX}
-                      y2={svgH / 2}
-                      stroke="#162232"
-                      strokeDasharray="3 3"
-                      strokeWidth="1"
-                    />
-                    <line
-                      x1={padX}
-                      y1={svgH - padY}
-                      x2={svgW - padX}
-                      y2={svgH - padY}
-                      stroke="#162232"
-                      strokeWidth="1"
-                    />
+                    {/* Y-Axis Reference Grid Lines & Odds Scale Labels */}
+                    {[
+                      { y: padTop, val: maxVal },
+                      { y: (padTop + (svgH - padBottom)) / 2, val: midVal },
+                      { y: svgH - padBottom, val: minVal },
+                    ].map((tick, tIdx) => (
+                      <g key={tIdx}>
+                        <line
+                          x1={padLeft}
+                          y1={tick.y}
+                          x2={svgW - padRight}
+                          y2={tick.y}
+                          stroke="#182638"
+                          strokeDasharray={tIdx === 2 ? undefined : '3 3'}
+                          strokeWidth="1"
+                        />
+                        <text
+                          x={padLeft - 6}
+                          y={tick.y + 3.5}
+                          textAnchor="end"
+                          fill="#64748b"
+                          fontSize="9.5"
+                          fontFamily="monospace"
+                          fontWeight="bold"
+                        >
+                          {tick.val.toFixed(2)}
+                        </text>
+                      </g>
+                    ))}
 
                     {/* Area Under Curve */}
                     {areaPathStr && (
@@ -5385,40 +5434,101 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                       />
                     )}
 
-                    {/* Snapshot Data Points */}
-                    {plotCoords.map((pt, idx) => (
-                      <g key={idx}>
-                        <circle
-                          cx={pt.x}
-                          cy={pt.y}
-                          r={idx === plotCoords.length - 1 ? 4.5 : 3.5}
-                          fill={idx === plotCoords.length - 1 ? '#43f08a' : '#0f172a'}
-                          stroke={activePctChange < 0 ? '#43f08a' : '#38bdf8'}
-                          strokeWidth="2"
-                        />
-                        <text
-                          x={pt.x}
-                          y={pt.y - 8}
-                          textAnchor="middle"
-                          fill="#ffffff"
-                          fontSize="10"
-                          fontFamily="monospace"
-                          fontWeight="bold"
-                        >
-                          {pt.val.toFixed(2)}
-                        </text>
-                        <text
-                          x={pt.x}
-                          y={svgH - 4}
-                          textAnchor="middle"
-                          fill="#8f9cae"
-                          fontSize="9"
-                          fontFamily="monospace"
-                        >
-                          {idx === 0 ? om.openingLabel : pt.time}
-                        </text>
-                      </g>
-                    ))}
+                    {/* Snapshot Data Points with Odds Badges & HH:MM Timestamps */}
+                    {plotCoords.map((pt, idx) => {
+                      const isFirst = idx === 0;
+                      const isLast = idx === plotCoords.length - 1;
+                      const showLabel =
+                        isFirst ||
+                        isLast ||
+                        plotCoords.length <= 5 ||
+                        idx % Math.ceil(plotCoords.length / 4) === 0;
+                      const badgeY = Math.max(15, pt.y - 16);
+                      const timeText = isFirst
+                        ? `${om.openingLabel} (${pt.time})`
+                        : isLast
+                        ? `${om.currentLabel} (${pt.time})`
+                        : pt.time;
+
+                      return (
+                        <g key={idx}>
+                          {/* Vertical Guide Line to Timestamp */}
+                          <line
+                            x1={pt.x}
+                            y1={pt.y}
+                            x2={pt.x}
+                            y2={svgH - padBottom}
+                            stroke="#1e2d40"
+                            strokeDasharray="2 2"
+                            strokeWidth="1"
+                          />
+
+                          {/* Point Circle */}
+                          <circle
+                            cx={pt.x}
+                            cy={pt.y}
+                            r={isLast ? 5 : 4}
+                            fill={isLast ? '#43f08a' : '#0f172a'}
+                            stroke={activePctChange < 0 ? '#43f08a' : '#38bdf8'}
+                            strokeWidth="2.2"
+                          />
+
+                          {/* Odds Value Pill above point */}
+                          {showLabel && (
+                            <g>
+                              <rect
+                                x={pt.x - 19}
+                                y={badgeY - 10}
+                                width="38"
+                                height="14"
+                                rx="4"
+                                fill="#060c14"
+                                stroke={
+                                  isLast
+                                    ? '#43f08a'
+                                    : activePctChange < 0
+                                    ? '#1f4d39'
+                                    : '#1e3a5f'
+                                }
+                                strokeWidth="1"
+                              />
+                              <text
+                                x={pt.x}
+                                y={badgeY}
+                                textAnchor="middle"
+                                fill={isLast ? '#43f08a' : '#ffffff'}
+                                fontSize="9.5"
+                                fontFamily="monospace"
+                                fontWeight="bold"
+                              >
+                                {pt.val.toFixed(2)}
+                              </text>
+                            </g>
+                          )}
+
+                          {/* Timestamp (HH:MM) below X-axis */}
+                          {showLabel && (
+                            <text
+                              x={
+                                isFirst && plotCoords.length >= 2
+                                  ? Math.max(padLeft + 10, pt.x)
+                                  : isLast && plotCoords.length >= 2
+                                  ? Math.min(svgW - padRight - 10, pt.x)
+                                  : pt.x
+                              }
+                              y={svgH - 11}
+                              textAnchor="middle"
+                              fill={isLast ? '#43f08a' : '#cbd5e1'}
+                              fontSize="9.5"
+                              fontFamily="monospace"
+                              fontWeight={isLast ? 'bold' : 'normal'}
+                            >
+                              {timeText}
+                            </text>
+                          )}
+                        </g>
+                      );
+                    })}
                   </svg>
                 </div>
 
@@ -5430,6 +5540,10 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                       : `${oddsHistoryList[0]?.bookmaker || 'Opening'} → ${
                           oddsHistoryList[oddsHistoryList.length - 1]?.bookmaker || 'Current'
                         }`}
+                  </span>
+                  <span className="font-mono text-[#43f08a]">
+                    {seriesPoints[0]?.time} ({activeOpenVal.toFixed(2)}) →{' '}
+                    {seriesPoints[seriesPoints.length - 1]?.time} ({activeCurrVal.toFixed(2)})
                   </span>
                 </div>
               </div>
