@@ -9,7 +9,7 @@ import {
   OddsHistoryEntry,
 } from '../types';
 import { computePoissonMatrix } from '../utils/mathModels';
-import { TeamBadge, LeagueBadge, openTeamProfile, registerMatchLogos } from './TeamBadge';
+import { TeamBadge, LeagueBadge, openTeamProfile, openPlayerProfile, registerMatchLogos } from './TeamBadge';
 
 export interface FormMatchItem {
   fixtureId?: string | number;
@@ -111,9 +111,15 @@ interface LiveMatchIntel {
     homeFormation: string;
     awayFormation: string;
     homeCoach: string;
+    homeCoachId?: number;
+    homeCoachPhoto?: string;
     awayCoach: string;
+    awayCoachId?: number;
+    awayCoachPhoto?: string;
     homePlayers: PlayerNode[];
     awayPlayers: PlayerNode[];
+    homeSubstitutes?: SubstituteNode[];
+    awaySubstitutes?: SubstituteNode[];
   } | null;
   events?: {
     min: string;
@@ -1063,10 +1069,21 @@ interface MatchDetailPageProps {
 }
 
 interface PlayerNode {
+  playerId?: number;
   num: number;
   name: string;
+  pos?: string;
+  photo?: string;
   x: number; // 0 to 100 percentage across pitch width
   y: number; // 0 to 100 percentage across pitch height
+}
+
+interface SubstituteNode {
+  playerId?: number;
+  num: number;
+  name: string;
+  pos?: string;
+  photo?: string;
 }
 
 interface MatchMetadata {
@@ -1077,10 +1094,18 @@ interface MatchMetadata {
   pitch: string;
   homeFormation: string;
   awayFormation: string;
+  homeCoach?: string;
+  homeCoachId?: number;
+  homeCoachPhoto?: string;
+  awayCoach?: string;
+  awayCoachId?: number;
+  awayCoachPhoto?: string;
   homeScorerText: string;
   awayScorerText?: string;
   homePlayers: PlayerNode[];
   awayPlayers: PlayerNode[];
+  homeSubstitutes: SubstituteNode[];
+  awaySubstitutes: SubstituteNode[];
   homeFormMatches: FormMatchItem[];
   awayFormMatches: FormMatchItem[];
   h2h: {
@@ -1173,9 +1198,23 @@ const getMatchMetadata = (match: Match, liveIntel?: LiveMatchIntel | null): Matc
       pitch: 'Good',
       homeFormation: '4-3-3',
       awayFormation: '4-2-3-1',
+      homeCoach: 'Eddie Howe',
+      awayCoach: 'Erik ten Hag',
       homeScorerText: "A. Gordon 32'",
       homePlayers: DEFAULT_HOME_PLAYERS,
       awayPlayers: DEFAULT_AWAY_PLAYERS,
+      homeSubstitutes: [
+        { num: 1, name: 'Dúbravka', pos: 'G' },
+        { num: 6, name: 'Lascelles', pos: 'D' },
+        { num: 15, name: 'Barnes', pos: 'M' },
+        { num: 9, name: 'Wilson', pos: 'F' },
+      ],
+      awaySubstitutes: [
+        { num: 1, name: 'Bayındır', pos: 'G' },
+        { num: 5, name: 'Maguire', pos: 'D' },
+        { num: 14, name: 'Eriksen', pos: 'M' },
+        { num: 21, name: 'Antony', pos: 'F' },
+      ],
       homeFormMatches: [
         { date: '10.11.2026', league: match.league, homeTeam: match.homeTeam, awayTeam: 'Brighton', homeScore: 4, awayScore: 1, opp: 'vs Brighton', res: 'W', score: '4-1' },
         { date: '03.11.2026', league: match.league, homeTeam: 'Everton', awayTeam: match.homeTeam, homeScore: 0, awayScore: 1, opp: '@ Everton', res: 'W', score: '1-0' },
@@ -1384,6 +1423,12 @@ const getMatchMetadata = (match: Match, liveIntel?: LiveMatchIntel | null): Matc
     awayFormation:
       liveIntel?.lineups?.awayFormation ||
       formationsPool[(seed + 2) % formationsPool.length],
+    homeCoach: liveIntel?.lineups?.homeCoach || '',
+    homeCoachId: liveIntel?.lineups?.homeCoachId,
+    homeCoachPhoto: liveIntel?.lineups?.homeCoachPhoto,
+    awayCoach: liveIntel?.lineups?.awayCoach || '',
+    awayCoachId: liveIntel?.lineups?.awayCoachId,
+    awayCoachPhoto: liveIntel?.lineups?.awayCoachPhoto,
     homeScorerText:
       homeGoalsList.length > 0
         ? homeGoalsList.join(', ')
@@ -1404,6 +1449,8 @@ const getMatchMetadata = (match: Match, liveIntel?: LiveMatchIntel | null): Matc
       liveIntel?.lineups?.awayPlayers && liveIntel.lineups.awayPlayers.length > 0
         ? liveIntel.lineups.awayPlayers
         : buildTeamSpecificPitchNodes(match.awayTeam, false),
+    homeSubstitutes: liveIntel?.lineups?.homeSubstitutes || [],
+    awaySubstitutes: liveIntel?.lineups?.awaySubstitutes || [],
     homeFormMatches:
       liveIntel?.homeFormMatches && liveIntel.homeFormMatches.length > 0
         ? liveIntel.homeFormMatches
@@ -3415,6 +3462,510 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
     );
   };
 
+  const renderInteractiveLineupHoverCard = (opts: {
+    name: string;
+    num?: number | null;
+    pos?: string;
+    photo?: string;
+    teamName: string;
+    isHome: boolean;
+    isCoach?: boolean;
+    above?: boolean;
+  }) => {
+    const resolvedPhoto =
+      opts.photo ||
+      (opts.isCoach
+        ? ''
+        : '');
+    const posLabel = opts.isCoach
+      ? language === 'bg'
+        ? 'Старши Треньор'
+        : 'Head Coach'
+      : opts.pos === 'G' || opts.pos === 'GK'
+      ? language === 'bg'
+        ? 'Вратар (GK)'
+        : 'Goalkeeper (GK)'
+      : opts.pos === 'D' || opts.pos === 'DF'
+      ? language === 'bg'
+        ? 'Защитник (DF)'
+        : 'Defender (DF)'
+      : opts.pos === 'M' || opts.pos === 'MF'
+      ? language === 'bg'
+        ? 'Полузащитник (MF)'
+        : 'Midfielder (MF)'
+      : opts.pos === 'F' || opts.pos === 'FW'
+      ? language === 'bg'
+        ? 'Нападател (FW)'
+        : 'Forward (FW)'
+      : opts.pos || (language === 'bg' ? 'Играч' : 'Player');
+
+    return (
+      <div
+        className={`pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 absolute z-50 left-1/2 -translate-x-1/2 ${
+          opts.above !== false ? 'bottom-full mb-2' : 'top-full mt-2'
+        } w-52 rounded-xl border border-[#22c55e]/60 bg-[#060c14]/95 backdrop-blur-md p-2.5 shadow-2xl`}
+      >
+        <div className="flex items-center gap-2.5">
+          <div
+            className={`w-10 h-10 rounded-full overflow-hidden shrink-0 border-2 ${
+              opts.isHome ? 'border-[#43f08a] bg-[#0f172a]' : 'border-[#ef4444] bg-[#450a0a]'
+            } flex items-center justify-center text-xs font-mono font-black text-white`}
+          >
+            {resolvedPhoto ? (
+              <img
+                src={resolvedPhoto}
+                alt={opts.name}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            ) : (
+              <span>{opts.isCoach ? '👔' : opts.num ?? '👕'}</span>
+            )}
+          </div>
+          <div className="min-w-0 flex-1 text-left">
+            <div className="text-xs font-extrabold text-white truncate">{opts.name}</div>
+            <div className="text-[10px] text-[#8f9cae] truncate">
+              {opts.num ? `#${opts.num} · ` : ''}
+              {posLabel}
+            </div>
+            <div className="text-[9px] font-bold text-[#43f08a] truncate mt-0.5">
+              {opts.teamName} · {language === 'bg' ? 'Кликни за профил ↗' : 'Click for profile ↗'}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderFullLineupsContent = (expandedPitch: boolean = false) => {
+    const homeCoachName =
+      meta.homeCoach || (language === 'bg' ? 'Старши треньор' : 'Head Coach');
+    const awayCoachName =
+      meta.awayCoach || (language === 'bg' ? 'Старши треньор' : 'Head Coach');
+
+    return (
+      <div className="space-y-4">
+        {/* Teams & Formations Header */}
+        <div className="flex items-center justify-between text-xs px-1">
+          <div className="flex items-center gap-2">
+            <TeamBadge
+              name={match.homeTeam}
+              logoUrl={liveIntel?.homeLogo || match.homeLogo}
+              size="sm"
+            />
+            <div>
+              <div className="font-bold text-white leading-tight">{match.homeTeam}</div>
+              <div className="text-[10px] font-mono text-[#43f08a]">{meta.homeFormation}</div>
+            </div>
+          </div>
+
+          <span className="text-[10px] text-[#8f9cae] hidden sm:inline">
+            {language === 'bg'
+              ? 'Задръж мишката за снимка и име · Кликни за профил'
+              : 'Hover for photo & name · Click to open profile'}
+          </span>
+
+          <div className="flex items-center gap-2 text-right">
+            <div>
+              <div className="font-bold text-white leading-tight">{match.awayTeam}</div>
+              <div className="text-[10px] font-mono text-rose-400">{meta.awayFormation}</div>
+            </div>
+            <TeamBadge
+              name={match.awayTeam}
+              logoUrl={liveIntel?.awayLogo || match.awayLogo}
+              size="sm"
+            />
+          </div>
+        </div>
+
+        {/* 2D Tactical Football Pitch */}
+        <div
+          className={`relative w-full ${
+            expandedPitch ? 'h-72 sm:h-80' : 'h-64'
+          } rounded-xl border border-[#1f3347] bg-gradient-to-r from-[#0a1921] via-[#0c2228] to-[#0a1921] select-none`}
+        >
+          <svg
+            className="absolute inset-0 w-full h-full rounded-xl overflow-hidden pointer-events-none"
+            viewBox="0 0 400 240"
+            preserveAspectRatio="none"
+          >
+            <rect
+              x="10"
+              y="10"
+              width="380"
+              height="220"
+              fill="none"
+              stroke="#1e3a4c"
+              strokeWidth="1.5"
+            />
+            <line x1="200" y1="10" x2="200" y2="230" stroke="#1e3a4c" strokeWidth="1.5" />
+            <circle cx="200" cy="120" r="32" fill="none" stroke="#1e3a4c" strokeWidth="1.5" />
+            <circle cx="200" cy="120" r="2" fill="#1e3a4c" />
+            <rect
+              x="10"
+              y="55"
+              width="55"
+              height="130"
+              fill="none"
+              stroke="#1e3a4c"
+              strokeWidth="1.5"
+            />
+            <rect
+              x="10"
+              y="85"
+              width="22"
+              height="70"
+              fill="none"
+              stroke="#1e3a4c"
+              strokeWidth="1.5"
+            />
+            <rect
+              x="335"
+              y="55"
+              width="55"
+              height="130"
+              fill="none"
+              stroke="#1e3a4c"
+              strokeWidth="1.5"
+            />
+            <rect
+              x="368"
+              y="85"
+              width="22"
+              height="70"
+              fill="none"
+              stroke="#1e3a4c"
+              strokeWidth="1.5"
+            />
+          </svg>
+
+          {/* Home Team Starting XI Nodes */}
+          {meta.homePlayers.map((p, idx) => (
+            <div
+              key={`home-${p.num}-${idx}`}
+              style={{ left: `${p.x}%`, top: `${p.y}%` }}
+              onClick={(e) =>
+                openPlayerProfile(
+                  {
+                    playerId: p.playerId,
+                    playerName: p.name,
+                    playerPhoto: p.photo,
+                    teamId: match.homeTeamId,
+                    teamName: match.homeTeam,
+                    teamLogo: liveIntel?.homeLogo || match.homeLogo,
+                    leagueId: match.leagueId,
+                    leagueName: liveIntel?.league || match.league,
+                    position: p.pos,
+                    number: p.num,
+                  },
+                  e
+                )
+              }
+              className="group absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-pointer z-10 hover:z-40"
+            >
+              {renderInteractiveLineupHoverCard({
+                name: p.name,
+                num: p.num,
+                pos: p.pos,
+                photo: p.photo,
+                teamName: match.homeTeam,
+                isHome: true,
+                above: p.y > 28,
+              })}
+              <div className="w-7 h-7 rounded-full bg-[#0f172a] border-2 border-[#43f08a] group-hover:scale-125 group-hover:bg-[#43f08a] group-hover:text-[#04130b] text-white font-mono font-bold text-[10px] flex items-center justify-center shadow-md transition-all">
+                {p.num}
+              </div>
+              <span className="text-[9px] font-semibold text-neutral-100 group-hover:text-[#43f08a] bg-black/65 px-1.5 py-0.5 rounded mt-0.5 whitespace-nowrap transition-colors">
+                {p.name}
+              </span>
+            </div>
+          ))}
+
+          {/* Away Team Starting XI Nodes */}
+          {meta.awayPlayers.map((p, idx) => (
+            <div
+              key={`away-${p.num}-${idx}`}
+              style={{ left: `${p.x}%`, top: `${p.y}%` }}
+              onClick={(e) =>
+                openPlayerProfile(
+                  {
+                    playerId: p.playerId,
+                    playerName: p.name,
+                    playerPhoto: p.photo,
+                    teamId: match.awayTeamId,
+                    teamName: match.awayTeam,
+                    teamLogo: liveIntel?.awayLogo || match.awayLogo,
+                    leagueId: match.leagueId,
+                    leagueName: liveIntel?.league || match.league,
+                    position: p.pos,
+                    number: p.num,
+                  },
+                  e
+                )
+              }
+              className="group absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-pointer z-10 hover:z-40"
+            >
+              {renderInteractiveLineupHoverCard({
+                name: p.name,
+                num: p.num,
+                pos: p.pos,
+                photo: p.photo,
+                teamName: match.awayTeam,
+                isHome: false,
+                above: p.y > 28,
+              })}
+              <div className="w-7 h-7 rounded-full bg-[#450a0a] border-2 border-[#ef4444] group-hover:scale-125 group-hover:bg-[#ef4444] text-white font-mono font-bold text-[10px] flex items-center justify-center shadow-md transition-all">
+                {p.num}
+              </div>
+              <span className="text-[9px] font-semibold text-neutral-100 group-hover:text-rose-300 bg-black/65 px-1.5 py-0.5 rounded mt-0.5 whitespace-nowrap transition-colors">
+                {p.name}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Coaches (Треньор) Row for Home & Away */}
+        {(meta.homeCoach || meta.awayCoach || !isApiMatch) && (
+          <div className="rounded-xl border border-[#182638] bg-[#080e16] p-3">
+            <div className="text-[10px] font-mono uppercase tracking-wider text-[#8f9cae] mb-2 flex items-center justify-between">
+              <span>👔 {language === 'bg' ? 'Треньори' : 'Head Coaches'}</span>
+              <span>{language === 'bg' ? 'Кликни за треньорско досие' : 'Click for coach profile'}</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {/* Home Coach */}
+              <div
+                onClick={(e) =>
+                  openPlayerProfile(
+                    {
+                      playerName: homeCoachName,
+                      playerPhoto: meta.homeCoachPhoto,
+                      teamId: match.homeTeamId,
+                      teamName: match.homeTeam,
+                      teamLogo: liveIntel?.homeLogo || match.homeLogo,
+                      leagueId: match.leagueId,
+                      leagueName: liveIntel?.league || match.league,
+                      position: language === 'bg' ? 'Старши Треньор' : 'Head Coach',
+                    },
+                    e
+                  )
+                }
+                className="group relative flex items-center gap-2.5 p-2 rounded-lg border border-[#162232] bg-[#0b131e] hover:border-[#43f08a] cursor-pointer transition-all"
+              >
+                {renderInteractiveLineupHoverCard({
+                  name: homeCoachName,
+                  photo: meta.homeCoachPhoto,
+                  teamName: match.homeTeam,
+                  isHome: true,
+                  isCoach: true,
+                  above: true,
+                })}
+                <div className="w-8 h-8 rounded-full overflow-hidden border border-[#43f08a] bg-[#0f172a] shrink-0 flex items-center justify-center text-xs">
+                  {meta.homeCoachPhoto ? (
+                    <img
+                      src={meta.homeCoachPhoto}
+                      alt={homeCoachName}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <span>👔</span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-extrabold text-white group-hover:text-[#43f08a] truncate transition-colors">
+                    {homeCoachName}
+                  </div>
+                  <div className="text-[10px] text-[#8f9cae] truncate">
+                    {match.homeTeam} · {meta.homeFormation}
+                  </div>
+                </div>
+              </div>
+
+              {/* Away Coach */}
+              <div
+                onClick={(e) =>
+                  openPlayerProfile(
+                    {
+                      playerName: awayCoachName,
+                      playerPhoto: meta.awayCoachPhoto,
+                      teamId: match.awayTeamId,
+                      teamName: match.awayTeam,
+                      teamLogo: liveIntel?.awayLogo || match.awayLogo,
+                      leagueId: match.leagueId,
+                      leagueName: liveIntel?.league || match.league,
+                      position: language === 'bg' ? 'Старши Треньор' : 'Head Coach',
+                    },
+                    e
+                  )
+                }
+                className="group relative flex items-center gap-2.5 p-2 rounded-lg border border-[#162232] bg-[#0b131e] hover:border-rose-400 cursor-pointer transition-all"
+              >
+                {renderInteractiveLineupHoverCard({
+                  name: awayCoachName,
+                  photo: meta.awayCoachPhoto,
+                  teamName: match.awayTeam,
+                  isHome: false,
+                  isCoach: true,
+                  above: true,
+                })}
+                <div className="w-8 h-8 rounded-full overflow-hidden border border-[#ef4444] bg-[#450a0a] shrink-0 flex items-center justify-center text-xs">
+                  {meta.awayCoachPhoto ? (
+                    <img
+                      src={meta.awayCoachPhoto}
+                      alt={awayCoachName}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <span>👔</span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-extrabold text-white group-hover:text-rose-300 truncate transition-colors">
+                    {awayCoachName}
+                  </div>
+                  <div className="text-[10px] text-[#8f9cae] truncate">
+                    {match.awayTeam} · {meta.awayFormation}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Substitutes (Резерви) Two-Column Grid */}
+        {(meta.homeSubstitutes.length > 0 || meta.awaySubstitutes.length > 0) && (
+          <div className="rounded-xl border border-[#182638] bg-[#080e16] p-3 space-y-2.5">
+            <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-[#8f9cae]">
+              <span>🪑 {language === 'bg' ? 'Резервни играчи' : 'Substitutes Bench'}</span>
+              <span>
+                {meta.homeSubstitutes.length} vs {meta.awaySubstitutes.length}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Home Substitutes Column */}
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-bold text-[#43f08a] border-b border-[#162232] pb-1 truncate">
+                  {match.homeTeam} ({language === 'bg' ? 'Резерви' : 'Subs'})
+                </div>
+                <div className="space-y-1 max-h-56 overflow-y-auto pr-1">
+                  {meta.homeSubstitutes.map((sub, sIdx) => (
+                    <div
+                      key={`hsub-${sub.num}-${sIdx}`}
+                      onClick={(e) =>
+                        openPlayerProfile(
+                          {
+                            playerId: sub.playerId,
+                            playerName: sub.name,
+                            playerPhoto: sub.photo,
+                            teamId: match.homeTeamId,
+                            teamName: match.homeTeam,
+                            teamLogo: liveIntel?.homeLogo || match.homeLogo,
+                            leagueId: match.leagueId,
+                            leagueName: liveIntel?.league || match.league,
+                            position: sub.pos,
+                            number: sub.num,
+                          },
+                          e
+                        )
+                      }
+                      className="group relative flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg border border-transparent bg-[#0b131e] hover:border-[#43f08a]/60 cursor-pointer transition-all text-xs"
+                    >
+                      {renderInteractiveLineupHoverCard({
+                        name: sub.name,
+                        num: sub.num,
+                        pos: sub.pos,
+                        photo: sub.photo,
+                        teamName: match.homeTeam,
+                        isHome: true,
+                        above: true,
+                      })}
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-5 h-5 rounded-full bg-[#0f172a] border border-[#43f08a]/70 text-[10px] font-mono font-bold text-[#43f08a] flex items-center justify-center shrink-0">
+                          {sub.num}
+                        </span>
+                        <span className="font-semibold text-neutral-200 group-hover:text-[#43f08a] truncate transition-colors">
+                          {sub.name}
+                        </span>
+                      </div>
+                      {sub.pos && (
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#111c2a] text-[#8f9cae] shrink-0">
+                          {sub.pos}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Away Substitutes Column */}
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-bold text-rose-400 border-b border-[#162232] pb-1 truncate">
+                  {match.awayTeam} ({language === 'bg' ? 'Резерви' : 'Subs'})
+                </div>
+                <div className="space-y-1 max-h-56 overflow-y-auto pr-1">
+                  {meta.awaySubstitutes.map((sub, sIdx) => (
+                    <div
+                      key={`asub-${sub.num}-${sIdx}`}
+                      onClick={(e) =>
+                        openPlayerProfile(
+                          {
+                            playerId: sub.playerId,
+                            playerName: sub.name,
+                            playerPhoto: sub.photo,
+                            teamId: match.awayTeamId,
+                            teamName: match.awayTeam,
+                            teamLogo: liveIntel?.awayLogo || match.awayLogo,
+                            leagueId: match.leagueId,
+                            leagueName: liveIntel?.league || match.league,
+                            position: sub.pos,
+                            number: sub.num,
+                          },
+                          e
+                        )
+                      }
+                      className="group relative flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg border border-transparent bg-[#0b131e] hover:border-rose-400/60 cursor-pointer transition-all text-xs"
+                    >
+                      {renderInteractiveLineupHoverCard({
+                        name: sub.name,
+                        num: sub.num,
+                        pos: sub.pos,
+                        photo: sub.photo,
+                        teamName: match.awayTeam,
+                        isHome: false,
+                        above: true,
+                      })}
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-5 h-5 rounded-full bg-[#450a0a] border border-rose-500/70 text-[10px] font-mono font-bold text-rose-300 flex items-center justify-center shrink-0">
+                          {sub.num}
+                        </span>
+                        <span className="font-semibold text-neutral-200 group-hover:text-rose-300 truncate transition-colors">
+                          {sub.name}
+                        </span>
+                      </div>
+                      {sub.pos && (
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#111c2a] text-[#8f9cae] shrink-0">
+                          {sub.pos}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Sub-navigation tabs filtered dynamically so we NEVER show empty/fake tabs
   const navTabs = [
     { key: 'overview', label: t.tabOverview, icon: '📊', visible: true },
@@ -3826,7 +4377,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
       {/* STANDINGS SUB-TAB SPECIAL VIEW (Full League Standings Table) */}
       {/* =================================================================== */}
       {subTab === 'standings' && (
-        <div className="rounded-2xl border border-[#1a2938] bg-[#0b111a] p-5 sm:p-6 space-y-4 shadow-xl">
+        <div className="rounded-2xl border border-[#1e553b] bg-[#0b111a] p-5 sm:p-6 space-y-4 shadow-2xl">
           <div className="flex items-center justify-between border-b border-[#162232] pb-3 flex-wrap gap-2">
             <div className="flex items-center gap-2.5">
               <span className="text-lg">🏆</span>
@@ -3841,8 +4392,401 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
                 </p>
               </div>
             </div>
+            <button
+              type="button"
+              onClick={() => setSubTab('overview')}
+              className="px-3 py-1 rounded-lg border border-[#1e2d40] bg-[#0e1622] hover:border-[#43f08a] text-xs text-[#43f08a] cursor-pointer"
+            >
+              ✕ {t.tabOverview}
+            </button>
           </div>
           {renderStandingsTable(false)}
+        </div>
+      )}
+
+      {/* =================================================================== */}
+      {/* STATS SUB-TAB SPECIAL VIEW (Mounted right at the top!) */}
+      {/* =================================================================== */}
+      {subTab === 'stats' && showStatsPanel && (
+        <div className="rounded-2xl border border-[#1e553b] bg-[#0b111a] p-5 sm:p-6 space-y-5 shadow-2xl">
+          <div className="flex items-center justify-between border-b border-[#162232] pb-3 flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <span className="text-lg">📈</span>
+              <div>
+                <h3 className="text-base font-extrabold text-white">
+                  {t.tabStats} — {match.homeTeam} vs {match.awayTeam}
+                </h3>
+                <p className="text-[11px] text-[#8f9cae]">
+                  {isLive ? `${t.liveBadge} · ${displayMinute}'` : t.scheduledBadge}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSubTab('overview')}
+              className="px-3 py-1 rounded-lg border border-[#1e2d40] bg-[#0e1622] hover:border-[#43f08a] text-xs text-[#43f08a] cursor-pointer"
+            >
+              ✕ {t.tabOverview}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+            {/* Left Stat Bars (8 cols) */}
+            <div className="lg:col-span-8 space-y-3 text-xs font-mono">
+              {[
+                {
+                  label: 'xG (Очаквани голове)',
+                  homeVal: (liveIntel?.stats?.xgHome || match.fairOdds.expectedGoalsHome).toFixed(2),
+                  awayVal: (liveIntel?.stats?.xgAway || match.fairOdds.expectedGoalsAway).toFixed(2),
+                  homePct:
+                    ((liveIntel?.stats?.xgHome || match.fairOdds.expectedGoalsHome) /
+                      Math.max(
+                        (liveIntel?.stats?.xgHome || match.fairOdds.expectedGoalsHome) +
+                          (liveIntel?.stats?.xgAway || match.fairOdds.expectedGoalsAway),
+                        0.1
+                      )) *
+                    100,
+                },
+                {
+                  label: t.possession,
+                  homeVal: `${posHome}%`,
+                  awayVal: `${posAway}%`,
+                  homePct: posHome,
+                },
+                {
+                  label: t.shots,
+                  homeVal: shotsHome,
+                  awayVal: shotsAway,
+                  homePct: (shotsHome / Math.max(shotsHome + shotsAway, 1)) * 100,
+                },
+                {
+                  label: t.shotsOnTarget,
+                  homeVal: sotHome,
+                  awayVal: sotAway,
+                  homePct: (sotHome / Math.max(sotHome + sotAway, 1)) * 100,
+                },
+                {
+                  label: t.corners,
+                  homeVal: cornersHome,
+                  awayVal: cornersAway,
+                  homePct: (cornersHome / Math.max(cornersHome + cornersAway, 1)) * 100,
+                },
+                {
+                  label: t.fouls,
+                  homeVal: foulsHome,
+                  awayVal: foulsAway,
+                  homePct: (foulsHome / Math.max(foulsHome + foulsAway, 1)) * 100,
+                },
+                {
+                  label: `🟨 ${t.yellowCards}`,
+                  homeVal: yellowHome,
+                  awayVal: yellowAway,
+                  homePct:
+                    yellowHome + yellowAway > 0
+                      ? (yellowHome / (yellowHome + yellowAway)) * 100
+                      : 50,
+                },
+                {
+                  label: `🟥 ${t.redCards}`,
+                  homeVal: redHome,
+                  awayVal: redAway,
+                  homePct:
+                    redHome + redAway > 0 ? (redHome / (redHome + redAway)) * 100 : 50,
+                },
+              ].map((st, idx) => (
+                <div key={idx}>
+                  <div className="flex justify-between text-neutral-300 mb-1">
+                    <span className="font-bold text-[#43f08a]">{st.homeVal}</span>
+                    <span className="text-[#8f9cae] font-sans font-semibold">{st.label}</span>
+                    <span className="font-bold text-white">{st.awayVal}</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-[#162230] overflow-hidden flex">
+                    <div className="bg-[#22c55e] h-full" style={{ width: `${st.homePct}%` }} />
+                    <div
+                      className="bg-[#334155] h-full"
+                      style={{ width: `${100 - st.homePct}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Right Momentum & Last 5 Min Possession (4 cols) */}
+            <div className="lg:col-span-4 flex flex-col justify-between space-y-4 rounded-xl border border-[#162232] bg-[#080e16] p-4">
+              <div>
+                <span className="text-xs font-bold text-white block mb-2">{t.momentum}</span>
+                <svg className="w-full h-24 overflow-visible" viewBox="0 0 120 60">
+                  <line x1="0" y1="30" x2="120" y2="30" stroke="#1e293b" strokeWidth="1" />
+                  <path
+                    d="M 5 30 L 18 18 L 32 24 L 48 10 L 62 22 L 78 26 L 94 38 L 110 34 L 110 30 L 5 30 Z"
+                    fill="rgba(34, 197, 94, 0.35)"
+                  />
+                  <path
+                    d="M 5 30 L 18 18 L 32 24 L 48 10 L 62 22 L 78 26 L 94 38 L 110 34"
+                    fill="none"
+                    stroke="#43f08a"
+                    strokeWidth="1.8"
+                  />
+                  <circle cx="48" cy="10" r="3" fill="#ffffff" />
+                </svg>
+              </div>
+              <div className="text-center pt-2 border-t border-[#162232]">
+                <span className="text-xs font-semibold text-neutral-300 block mb-2">
+                  {t.last5MinPos}
+                </span>
+                <div className="flex items-center justify-center gap-3 font-mono text-sm">
+                  <span className="font-bold text-[#43f08a]">{last5PosHome}%</span>
+                  <span className="text-[#64748b]">vs</span>
+                  <span className="font-bold text-neutral-300">{last5PosAway}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =================================================================== */}
+      {/* TIMELINE SUB-TAB SPECIAL VIEW (Mounted right at the top!) */}
+      {/* =================================================================== */}
+      {subTab === 'timeline' && (
+        <div className="rounded-2xl border border-[#1e553b] bg-[#0b111a] p-5 sm:p-6 space-y-4 shadow-2xl">
+          <div className="flex items-center justify-between border-b border-[#162232] pb-3 flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <span className="text-lg">⏱️</span>
+              <div>
+                <h3 className="text-base font-extrabold text-white">
+                  {t.timeline} — {match.homeTeam} vs {match.awayTeam}
+                </h3>
+                <p className="text-[11px] text-[#8f9cae]">
+                  {language === 'bg'
+                    ? 'Пълна хронология на голове, картони и ключови събития в мача'
+                    : 'Full match chronology of goals, cards, and key events'}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSubTab('overview')}
+              className="px-3 py-1 rounded-lg border border-[#1e2d40] bg-[#0e1622] hover:border-[#43f08a] text-xs text-[#43f08a] cursor-pointer"
+            >
+              ✕ {t.tabOverview}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {(liveIntel?.events && liveIntel.events.length > 0
+              ? liveIntel.events
+              : timelineItems
+            ).map((item, idx) => (
+              <div
+                key={idx}
+                className={`flex items-center gap-3 p-3 rounded-xl border ${
+                  item.highlight
+                    ? 'border-[#1e553b] bg-[#0d2119]'
+                    : 'border-[#162232] bg-[#080e16]'
+                } text-xs`}
+              >
+                <span className="w-11 font-mono font-bold text-[#43f08a] text-xs shrink-0">
+                  {item.min}
+                </span>
+                <span className="text-base shrink-0">{item.icon}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold text-white truncate">{item.title}</div>
+                  <div className="text-[11px] text-[#8f9cae] truncate">{item.sub}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* =================================================================== */}
+      {/* LINEUPS SUB-TAB SPECIAL VIEW (Mounted right at the top!) */}
+      {/* =================================================================== */}
+      {subTab === 'lineups' && showLineupsPanel && (
+        <div className="rounded-2xl border border-[#1e553b] bg-[#0b111a] p-5 sm:p-6 space-y-4 shadow-2xl">
+          <div className="flex items-center justify-between border-b border-[#162232] pb-3 flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <span className="text-lg">👕</span>
+              <div>
+                <h3 className="text-base font-extrabold text-white">
+                  {t.lineups} — {match.homeTeam} vs {match.awayTeam}
+                </h3>
+                <p className="text-[11px] text-[#8f9cae]">
+                  {language === 'bg'
+                    ? 'Стартови състави, резерви и треньори (Задръж мишката за снимка · Кликни за профил)'
+                    : 'Starting XI, Substitutes & Coaches (Hover for photo · Click for profile)'}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSubTab('overview')}
+              className="px-3 py-1 rounded-lg border border-[#1e2d40] bg-[#0e1622] hover:border-[#43f08a] text-xs text-[#43f08a] cursor-pointer"
+            >
+              ✕ {t.tabOverview}
+            </button>
+          </div>
+          {renderFullLineupsContent(true)}
+        </div>
+      )}
+
+      {/* =================================================================== */}
+      {/* H2H & FORM SUB-TAB SPECIAL VIEW (Mounted right at the top!) */}
+      {/* =================================================================== */}
+      {subTab === 'h2h' && (
+        <div className="rounded-2xl border border-[#1e553b] bg-[#0b111a] p-5 sm:p-6 space-y-5 shadow-2xl">
+          <div className="flex items-center justify-between border-b border-[#162232] pb-3 flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <span className="text-lg">⚔️</span>
+              <div>
+                <h3 className="text-base font-extrabold text-white">
+                  {t.h2hTitle} & {t.formTitle}
+                </h3>
+                <p className="text-[11px] text-[#8f9cae]">
+                  {match.homeTeam} vs {match.awayTeam}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSubTab('overview')}
+              className="px-3 py-1 rounded-lg border border-[#1e2d40] bg-[#0e1622] hover:border-[#43f08a] text-xs text-[#43f08a] cursor-pointer"
+            >
+              ✕ {t.tabOverview}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            {/* Left 7 cols: Form of both teams */}
+            <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-xl border border-[#162232] bg-[#080e16] p-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 pb-1">
+                  <TeamBadge
+                    name={match.homeTeam}
+                    logoUrl={liveIntel?.homeLogo || match.homeLogo}
+                    size="sm"
+                  />
+                  <div>
+                    <div className="text-xs font-bold text-white">{match.homeTeam}</div>
+                    <div className="mt-1">{renderInteractiveFormPills(meta.homeFormMatches)}</div>
+                  </div>
+                </div>
+                <div className="space-y-1.5 text-[11px]">
+                  {meta.homeFormMatches.map((m, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setSelectedPastMatch(m)}
+                      className="w-full flex items-center justify-between text-neutral-300 hover:bg-[#0e1622] px-2.5 py-1.5 rounded-lg border border-[#162232] hover:border-[#43f08a]/50 transition-colors cursor-pointer text-left"
+                    >
+                      <span className="text-[#8f9cae] truncate pr-2">{m.opp}</span>
+                      <div className="flex items-center gap-1.5 font-mono shrink-0">
+                        <span
+                          className={`px-1.5 py-0.2 rounded text-[9px] font-black ${
+                            m.res === 'W'
+                              ? 'bg-[#10b981] text-[#04130b]'
+                              : m.res === 'D'
+                              ? 'bg-[#334155] text-white'
+                              : 'bg-[#ef4444] text-white'
+                          }`}
+                        >
+                          {m.res}
+                        </span>
+                        <span className="text-white font-bold">{m.score}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2 sm:border-l border-[#162232] sm:pl-4">
+                <div className="flex items-center gap-2 pb-1">
+                  <TeamBadge
+                    name={match.awayTeam}
+                    logoUrl={liveIntel?.awayLogo || match.awayLogo}
+                    size="sm"
+                  />
+                  <div>
+                    <div className="text-xs font-bold text-white">{match.awayTeam}</div>
+                    <div className="mt-1">{renderInteractiveFormPills(meta.awayFormMatches)}</div>
+                  </div>
+                </div>
+                <div className="space-y-1.5 text-[11px]">
+                  {meta.awayFormMatches.map((m, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setSelectedPastMatch(m)}
+                      className="w-full flex items-center justify-between text-neutral-300 hover:bg-[#0e1622] px-2.5 py-1.5 rounded-lg border border-[#162232] hover:border-[#43f08a]/50 transition-colors cursor-pointer text-left"
+                    >
+                      <span className="text-[#8f9cae] truncate pr-2">{m.opp}</span>
+                      <div className="flex items-center gap-1.5 font-mono shrink-0">
+                        <span
+                          className={`px-1.5 py-0.2 rounded text-[9px] font-black ${
+                            m.res === 'W'
+                              ? 'bg-[#10b981] text-[#04130b]'
+                              : m.res === 'D'
+                              ? 'bg-[#334155] text-white'
+                              : 'bg-[#ef4444] text-white'
+                          }`}
+                        >
+                          {m.res}
+                        </span>
+                        <span className="text-white font-bold">{m.score}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Right 5 cols: Head to Head summary & past meetings */}
+            <div className="lg:col-span-5 rounded-xl border border-[#162232] bg-[#080e16] p-4 space-y-3 flex flex-col justify-between">
+              <div className="flex items-center justify-between text-xs">
+                <div>
+                  <span className="text-[#8f9cae] block text-[10px]">
+                    {match.homeTeam} {t.wins}
+                  </span>
+                  <span className="text-lg font-mono font-black text-[#43f08a]">
+                    {meta.h2h.homeWins}
+                  </span>
+                </div>
+                <div className="text-center">
+                  <span className="text-[#8f9cae] block text-[10px]">{t.draws}</span>
+                  <span className="text-lg font-mono font-black text-white">{meta.h2h.draws}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[#8f9cae] block text-[10px]">
+                    {match.awayTeam} {t.wins}
+                  </span>
+                  <span className="text-lg font-mono font-black text-rose-400">
+                    {meta.h2h.awayWins}
+                  </span>
+                </div>
+              </div>
+
+              <div className="h-2.5 rounded-full overflow-hidden flex gap-0.5 bg-[#162230]">
+                <div
+                  className="bg-[#22c55e] h-full"
+                  style={{ width: `${(meta.h2h.homeWins / h2hTotal) * 100}%` }}
+                />
+                <div
+                  className="bg-[#64748b] h-full"
+                  style={{ width: `${(meta.h2h.draws / h2hTotal) * 100}%` }}
+                />
+                <div
+                  className="bg-[#ef4444] h-full"
+                  style={{ width: `${(meta.h2h.awayWins / h2hTotal) * 100}%` }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-2 text-[11px] text-[#8f9cae]">
+                <span>{t.last5Meetings}:</span>
+                {renderInteractiveFormPills(meta.h2h.matches, meta.h2h.last5)}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -3850,17 +4794,26 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
       {/* PREDICTIONS SUB-TAB SPECIAL VIEW (Poisson Scoreline Matrix) */}
       {/* =================================================================== */}
       {subTab === 'predictions' && (
-        <div className="rounded-2xl border border-[#1a2938] bg-[#0b111a] p-6 space-y-4">
-          <div className="flex items-center justify-between border-b border-[#162232] pb-3">
+        <div className="rounded-2xl border border-[#1e553b] bg-[#0b111a] p-6 space-y-4 shadow-2xl">
+          <div className="flex items-center justify-between border-b border-[#162232] pb-3 flex-wrap gap-2">
             <h3 className="text-base font-extrabold text-white">
               Dixon-Coles Bivariate Poisson Exact Score Matrix ({match.homeTeam} vs {match.awayTeam})
             </h3>
-            <span className="text-xs font-mono text-[#43f08a]">
-              λ₁ = {adjustedLambdaHome.toFixed(2)} · λ₂ = {adjustedLambdaAway.toFixed(2)}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-mono text-[#43f08a]">
+                λ₁ = {adjustedLambdaHome.toFixed(2)} · λ₂ = {adjustedLambdaAway.toFixed(2)}
+              </span>
+              <button
+                type="button"
+                onClick={() => setSubTab('overview')}
+                className="px-3 py-1 rounded-lg border border-[#1e2d40] bg-[#0e1622] hover:border-[#43f08a] text-xs text-[#43f08a] cursor-pointer"
+              >
+                ✕ {t.tabOverview}
+              </button>
+            </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {poissonMatrix.mostLikelyScores.slice(0, 4).map((sc, idx) => (
+            {poissonMatrix.mostLikelyScores.slice(0, 8).map((sc, idx) => (
               <div
                 key={idx}
                 className="p-4 rounded-xl border border-[#1e2d40] bg-[#0e1622] text-center space-y-1"
@@ -3879,6 +4832,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
       {/* =================================================================== */}
       {/* ROW 2B: MISSING KEY FIGURES / LINEUP IMPACT ON POISSON (λ) & +EV */}
       {/* =================================================================== */}
+      {subTab !== 'odds' && (
       <div className="rounded-2xl border border-[#1a2c3e] bg-gradient-to-br from-[#0b131e] via-[#0a111a] to-[#0d1824] p-5 shadow-xl space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-[#162436] pb-3.5">
           <div>
@@ -4026,6 +4980,7 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
           </div>
         </div>
       </div>
+      )}
 
       {/* =================================================================== */}
       {/* ROW 2C: MULTI-MARKET ODDS MOVEMENT & DROPPING ODDS TRACKER (SQLITE) */}
@@ -5173,85 +6128,17 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
       {/* ROW 4: LINEUPS (ONLY IF AVAILABLE) | FORM & H2H | TOP MARKETS & RELATED */}
       {/* =================================================================== */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-        {/* PANEL 4: Lineups 2D Tactical Pitch — HIDDEN when API-Football does not provide lineups */}
+        {/* PANEL 4: Lineups 2D Tactical Pitch + Coaches + Substitutes — HIDDEN when API-Football does not provide lineups */}
         {showLineupsPanel && (
           <div className="lg:col-span-4 rounded-2xl border border-[#182434] bg-[#0b111a] p-5 flex flex-col justify-between shadow-xl space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between border-b border-[#162232] pb-2.5">
               <h3 className="text-sm font-extrabold text-white">{t.lineups}</h3>
+              <span className="text-[10px] text-[#8f9cae]">
+                {language === 'bg' ? 'Задръж за снимка · Кликни за профил' : 'Hover for photo · Click for profile'}
+              </span>
             </div>
 
-            {/* Teams & Formations Header */}
-            <div className="flex items-center justify-between text-xs px-1">
-              <div className="flex items-center gap-2">
-                <TeamBadge name={match.homeTeam} logoUrl={liveIntel?.homeLogo || match.homeLogo} size="sm" />
-                <div>
-                  <div className="font-bold text-white leading-tight">{match.homeTeam}</div>
-                  <div className="text-[10px] font-mono text-[#8f9cae]">{meta.homeFormation}</div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 text-right">
-                <div>
-                  <div className="font-bold text-white leading-tight">{match.awayTeam}</div>
-                  <div className="text-[10px] font-mono text-[#8f9cae]">{meta.awayFormation}</div>
-                </div>
-                <TeamBadge name={match.awayTeam} logoUrl={liveIntel?.awayLogo || match.awayLogo} size="sm" />
-              </div>
-            </div>
-
-            {/* 2D Tactical Football Pitch */}
-            <div className="relative w-full h-64 rounded-xl border border-[#1f3347] bg-gradient-to-r from-[#0a1921] via-[#0c2228] to-[#0a1921] overflow-hidden select-none">
-              <svg className="absolute inset-0 w-full h-full" viewBox="0 0 400 240" preserveAspectRatio="none">
-                <rect x="10" y="10" width="380" height="220" fill="none" stroke="#1e3a4c" strokeWidth="1.5" />
-                <line x1="200" y1="10" x2="200" y2="230" stroke="#1e3a4c" strokeWidth="1.5" />
-                <circle cx="200" cy="120" r="32" fill="none" stroke="#1e3a4c" strokeWidth="1.5" />
-                <circle cx="200" cy="120" r="2" fill="#1e3a4c" />
-                <rect x="10" y="55" width="55" height="130" fill="none" stroke="#1e3a4c" strokeWidth="1.5" />
-                <rect x="10" y="85" width="22" height="70" fill="none" stroke="#1e3a4c" strokeWidth="1.5" />
-                <rect x="335" y="55" width="55" height="130" fill="none" stroke="#1e3a4c" strokeWidth="1.5" />
-                <rect x="368" y="85" width="22" height="70" fill="none" stroke="#1e3a4c" strokeWidth="1.5" />
-              </svg>
-
-              {/* Home Team Nodes */}
-              {meta.homePlayers.map((p) => (
-                <div
-                  key={`home-${p.num}`}
-                  style={{ left: `${p.x}%`, top: `${p.y}%` }}
-                  className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
-                >
-                  <div className="w-6 h-6 rounded-full bg-[#0f172a] border-2 border-[#43f08a] text-white font-mono font-bold text-[9px] flex items-center justify-center shadow-md">
-                    {p.num}
-                  </div>
-                  <span className="text-[8px] font-medium text-neutral-200 bg-black/50 px-1 rounded mt-0.5 whitespace-nowrap">
-                    {p.name}
-                  </span>
-                </div>
-              ))}
-
-              {/* Away Team Nodes */}
-              {meta.awayPlayers.map((p) => (
-                <div
-                  key={`away-${p.num}`}
-                  style={{ left: `${p.x}%`, top: `${p.y}%` }}
-                  className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
-                >
-                  <div className="w-6 h-6 rounded-full bg-[#450a0a] border-2 border-[#ef4444] text-white font-mono font-bold text-[9px] flex items-center justify-center shadow-md">
-                    {p.num}
-                  </div>
-                  <span className="text-[8px] font-medium text-neutral-200 bg-black/50 px-1 rounded mt-0.5 whitespace-nowrap">
-                    {p.name}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setSubTab('lineups')}
-              className="w-full py-2 rounded-xl border border-[#1c2a3b] bg-[#0e1622] hover:border-[#43f08a]/50 text-xs text-neutral-300 hover:text-white transition-colors cursor-pointer"
-            >
-              {t.viewFullLineups}
-            </button>
+            {renderFullLineupsContent(false)}
           </div>
         )}
 

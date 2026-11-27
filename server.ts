@@ -3139,7 +3139,7 @@ async function startServer() {
       return;
     }
 
-    const cacheKey = `football:match_intel_v8:${rawId}`;
+    const cacheKey = `football:match_intel_v9:${rawId}`;
     const ttlMs = 45 * 1000; // 45-second cache for live match telemetry
 
     const getCachedHelper = async (subKey: string, subTtlMs: number, url: string) => {
@@ -3624,7 +3624,7 @@ async function startServer() {
       const liveBookmakerOdds: { home: number; draw: number; away: number } =
         oddsTracked.currentMarkets.ft1x2;
 
-      // Parse real Starting XI Lineups
+      // Parse real Starting XI Lineups, Substitutes & Coaches
       const lineupsArr: Array<Record<string, any>> = Array.isArray(item?.lineups)
         ? item.lineups
         : [];
@@ -3656,14 +3656,31 @@ async function startServer() {
           { x: 56, y: 78 },
         ];
         const coords = isHome ? homeCoords : awayCoords;
-        return xiList.slice(0, 11).map((entry, idx) => ({
-          playerId: entry?.player?.id ? Number(entry.player.id) : undefined,
-          num: Number(entry?.player?.number || idx + 1),
-          name: String(entry?.player?.name || `Player ${idx + 1}`),
-          pos: String(entry?.player?.pos || ''),
-          x: coords[idx]?.x ?? 50,
-          y: coords[idx]?.y ?? 50,
-        }));
+        return xiList.slice(0, 11).map((entry, idx) => {
+          const pid = entry?.player?.id ? Number(entry.player.id) : undefined;
+          return {
+            playerId: pid,
+            num: Number(entry?.player?.number || idx + 1),
+            name: String(entry?.player?.name || `Player ${idx + 1}`),
+            pos: String(entry?.player?.pos || ''),
+            photo: proxyMediaUrl(entry?.player?.photo, 'players', pid),
+            x: coords[idx]?.x ?? 50,
+            y: coords[idx]?.y ?? 50,
+          };
+        });
+      };
+
+      const mapSubstituteNodes = (subList: Array<Record<string, any>>) => {
+        return (Array.isArray(subList) ? subList : []).map((entry, idx) => {
+          const pid = entry?.player?.id ? Number(entry.player.id) : undefined;
+          return {
+            playerId: pid,
+            num: Number(entry?.player?.number || idx + 12),
+            name: String(entry?.player?.name || `Sub ${idx + 1}`),
+            pos: String(entry?.player?.pos || ''),
+            photo: proxyMediaUrl(entry?.player?.photo, 'players', pid),
+          };
+        });
       };
 
       const hasRealLineups =
@@ -3671,14 +3688,23 @@ async function startServer() {
         Array.isArray(lineupsArr[0]?.startXI) &&
         lineupsArr[0].startXI.length > 0;
 
+      const homeCoachId = lineupsArr[0]?.coach?.id ? Number(lineupsArr[0].coach.id) : undefined;
+      const awayCoachId = lineupsArr[1]?.coach?.id ? Number(lineupsArr[1].coach.id) : undefined;
+
       const lineups = hasRealLineups
         ? {
             homeFormation: String(lineupsArr[0]?.formation || '4-3-3'),
             awayFormation: String(lineupsArr[1]?.formation || '4-2-3-1'),
             homeCoach: String(lineupsArr[0]?.coach?.name || ''),
+            homeCoachId,
+            homeCoachPhoto: proxyMediaUrl(lineupsArr[0]?.coach?.photo, 'coachs', homeCoachId),
             awayCoach: String(lineupsArr[1]?.coach?.name || ''),
+            awayCoachId,
+            awayCoachPhoto: proxyMediaUrl(lineupsArr[1]?.coach?.photo, 'coachs', awayCoachId),
             homePlayers: mapLineupNodes(lineupsArr[0]?.startXI || [], true),
             awayPlayers: mapLineupNodes(lineupsArr[1]?.startXI || [], false),
+            homeSubstitutes: mapSubstituteNodes(lineupsArr[0]?.substitutes || []),
+            awaySubstitutes: mapSubstituteNodes(lineupsArr[1]?.substitutes || []),
           }
         : null;
 
@@ -5184,6 +5210,175 @@ async function startServer() {
               resolvedPlayerId = Number(exact?.player?.id || 0);
             }
           }
+        }
+      }
+
+      // 1b. If still not resolved (or if querying a Coach by name), check /coachs?search= or /coachs?team=
+      if (!resolvedPlayerId && rawName) {
+        let coachEntry: Record<string, any> | null = null;
+        if (hintTeamId > 0) {
+          const teamCoachJson = await getCachedSub(
+            `football:coach_team_v1:${hintTeamId}`,
+            12 * 60 * 60 * 1000,
+            `https://v3.football.api-sports.io/coachs?team=${hintTeamId}`
+          );
+          const cList: Array<Record<string, any>> = Array.isArray(teamCoachJson?.response)
+            ? teamCoachJson.response
+            : [];
+          const lowerTarget = rawName.toLowerCase();
+          coachEntry =
+            cList.find((c) => String(c?.name || '').toLowerCase().includes(lowerTarget)) ||
+            cList[0] ||
+            null;
+        }
+        if (!coachEntry) {
+          const words = rawName
+            .replace(/[^a-zA-Z0-9\s-]/g, ' ')
+            .split(/\s+/)
+            .map((w) => w.trim())
+            .filter((w) => w.length >= 3);
+          const apiTerm = words.length > 0 ? words[words.length - 1] : rawName;
+          if (apiTerm.length >= 3) {
+            const coachSearchJson = await getCachedSub(
+              `football:coach_search_v1:${apiTerm.toLowerCase()}`,
+              24 * 60 * 60 * 1000,
+              `https://v3.football.api-sports.io/coachs?search=${encodeURIComponent(apiTerm)}`
+            );
+            const cList: Array<Record<string, any>> = Array.isArray(coachSearchJson?.response)
+              ? coachSearchJson.response
+              : [];
+            const lowerTarget = rawName.toLowerCase();
+            coachEntry =
+              cList.find((c) => String(c?.name || '').toLowerCase() === lowerTarget) ||
+              cList.find((c) =>
+                `${c?.firstname || ''} ${c?.lastname || ''}`
+                  .trim()
+                  .toLowerCase()
+                  .includes(lowerTarget)
+              ) ||
+              cList[0] ||
+              null;
+          }
+        }
+
+        if (coachEntry?.id) {
+          const cid = Number(coachEntry.id);
+          const cTrophiesJson = await getCachedSub(
+            `football:coach_trophies_v1:${cid}`,
+            48 * 60 * 60 * 1000,
+            `https://v3.football.api-sports.io/trophies?coach=${cid}`
+          );
+          const rawCareer: Array<Record<string, any>> = Array.isArray(coachEntry.career)
+            ? coachEntry.career
+            : [];
+          const coachTransfers = rawCareer.map((cr, idx) => {
+            const prev = rawCareer[idx + 1];
+            const inId = Number(cr?.team?.id || 0);
+            const outId = Number(prev?.team?.id || 0);
+            return {
+              date: String(cr?.start || ''),
+              type: cr?.end ? `${cr.start} → ${cr.end}` : 'Head Coach (Active)',
+              teamIn: {
+                id: inId || null,
+                name: String(cr?.team?.name || 'Club'),
+                logo: proxyMediaUrl(cr?.team?.logo, 'teams', inId),
+              },
+              teamOut: {
+                id: outId || null,
+                name: String(prev?.team?.name || 'Appointed'),
+                logo: outId ? proxyMediaUrl(prev?.team?.logo, 'teams', outId) : '',
+              },
+            };
+          });
+          const rawCTrophies: Array<Record<string, any>> = Array.isArray(cTrophiesJson?.response)
+            ? cTrophiesJson.response
+            : [];
+          const coachTrophies = rawCTrophies
+            .filter((tr) => tr?.league)
+            .map((tr) => ({
+              league: String(tr.league || ''),
+              country: String(tr.country || ''),
+              season: String(tr.season || ''),
+              place: String(tr.place || ''),
+              isWinner: /winner|1st|champion/i.test(String(tr.place || '')),
+            }));
+          const curTeamId = Number(coachEntry?.team?.id || rawCareer[0]?.team?.id || 0);
+          const curTeam = {
+            id: curTeamId || null,
+            name: String(coachEntry?.team?.name || rawCareer[0]?.team?.name || ''),
+            logo: proxyMediaUrl(
+              coachEntry?.team?.logo || rawCareer[0]?.team?.logo,
+              'teams',
+              curTeamId
+            ),
+            leagueId: null,
+            leagueName: null,
+          };
+          const cFirst = String(coachEntry.firstname || '').trim();
+          const cLast = String(coachEntry.lastname || '').trim();
+          const cName = String(coachEntry.name || rawName);
+          const emptySummary = {
+            appearances: rawCareer.length,
+            lineups: rawCareer.length,
+            minutes: 0,
+            goals: 0,
+            assists: 0,
+            saves: 0,
+            conceded: 0,
+            shotsTotal: 0,
+            shotsOn: 0,
+            passesTotal: 0,
+            passesKey: 0,
+            tacklesTotal: 0,
+            blocks: 0,
+            interceptions: 0,
+            duelsTotal: 0,
+            duelsWon: 0,
+            dribblesAttempts: 0,
+            dribblesSuccess: 0,
+            foulsDrawn: 0,
+            foulsCommitted: 0,
+            yellowCards: 0,
+            redCards: 0,
+            penaltiesScored: 0,
+            penaltiesMissed: 0,
+            penaltiesWon: 0,
+            avgRating: null,
+          };
+          res.json({
+            configured: true,
+            found: true,
+            season: 2025,
+            seasonLabel: '2025/26',
+            player: {
+              id: cid,
+              name: cName,
+              fullName: cFirst && cLast ? `${cFirst} ${cLast}` : cName,
+              firstname: cFirst,
+              lastname: cLast,
+              age: Number(coachEntry.age || 0) || null,
+              birthDate: String(coachEntry?.birth?.date || ''),
+              birthPlace: String(coachEntry?.birth?.place || ''),
+              birthCountry: String(coachEntry?.birth?.country || ''),
+              nationality: String(coachEntry.nationality || ''),
+              height: coachEntry.height ? String(coachEntry.height) : '',
+              weight: coachEntry.weight ? String(coachEntry.weight) : '',
+              injured: false,
+              position: 'Head Coach / Manager',
+              number: null,
+              photo: proxyMediaUrl(coachEntry.photo, 'coachs', cid),
+              currentTeam: curTeam,
+            },
+            primaryTeam: curTeam,
+            totals: emptySummary,
+            summary: emptySummary,
+            statistics: [],
+            competitions: [],
+            transfers: coachTransfers,
+            trophies: coachTrophies,
+            sidelined: [],
+          });
+          return;
         }
       }
 
