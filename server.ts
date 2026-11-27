@@ -2510,7 +2510,7 @@ async function startServer() {
       return;
     }
 
-    const cacheKey = 'football:normalized_live_feed_v13';
+    const cacheKey = 'football:normalized_live_feed_v14';
     const ttlMs = 2 * 60 * 1000; // 2 minutes SQLite cache
 
     const getFeedSubCached = async (subKey: string, subTtlMs: number, url: string) => {
@@ -2713,7 +2713,31 @@ async function startServer() {
         return p;
       };
 
-      const mappedMatches = rawFixtures.slice(0, 80).map((item, idx) => {
+      // Batch-fetch official optical statistics for up to 20 currently LIVE matches in a single API-Football call
+      const topCandidates = rawFixtures.slice(0, 80);
+      const liveCandidateIds = topCandidates
+        .filter((it) => liveStatuses.has(String(it?.fixture?.status?.short || '')))
+        .map((it) => String(it?.fixture?.id || '').trim())
+        .filter((id) => /^\d+$/.test(id))
+        .slice(0, 20);
+
+      const liveStatsByFixture = new Map<string, Array<Record<string, any>>>();
+      if (liveCandidateIds.length > 0) {
+        const idsParam = liveCandidateIds.join('-');
+        const batchLiveJson = await getFeedSubCached(
+          `football:live_batch_details_v1:${idsParam}`,
+          60 * 1000,
+          `https://v3.football.api-sports.io/fixtures?ids=${idsParam}`
+        );
+        for (const bItem of Array.isArray(batchLiveJson?.response) ? batchLiveJson.response : []) {
+          const bId = String(bItem?.fixture?.id || '');
+          if (bId && Array.isArray(bItem?.statistics) && bItem.statistics.length >= 2) {
+            liveStatsByFixture.set(bId, bItem.statistics);
+          }
+        }
+      }
+
+      const mappedMatches = topCandidates.map((item, idx) => {
         const fixId = String(item?.fixture?.id || `live-${idx}`);
         const homeTeamId = item?.teams?.home?.id;
         const awayTeamId = item?.teams?.away?.id;
@@ -2985,44 +3009,83 @@ async function startServer() {
             ? 'away'
             : 'over25';
 
-        // Time-scaled realistic baseline stats (strictly proportional to elapsed minutes!)
+        // Parse official API-Football optical statistics (if provided for this league/fixture) — NEVER invent fake numbers!
+        const rawStatsArr: Array<Record<string, any>> =
+          liveStatsByFixture.get(fixId) ||
+          (Array.isArray(item?.statistics) ? item.statistics : []);
+
+        const getFeedStat = (teamIndex: number, typeName: string): number => {
+          const teamStats: Array<{ type: string; value: any }> =
+            rawStatsArr[teamIndex]?.statistics || [];
+          const entry = teamStats.find(
+            (s) => String(s?.type || '').toLowerCase() === typeName.toLowerCase()
+          );
+          if (!entry || entry.value === null || entry.value === undefined) return 0;
+          const parsed = parseFloat(String(entry.value).replace('%', ''));
+          return Number.isNaN(parsed) ? 0 : parsed;
+        };
+
+        const hasRealStats =
+          rawStatsArr.length >= 2 &&
+          (getFeedStat(0, 'Total Shots') > 0 ||
+            getFeedStat(1, 'Total Shots') > 0 ||
+            getFeedStat(0, 'Ball Possession') > 0 ||
+            getFeedStat(0, 'Corner Kicks') > 0 ||
+            getFeedStat(1, 'Corner Kicks') > 0 ||
+            getFeedStat(0, 'Fouls') > 0 ||
+            getFeedStat(1, 'Fouls') > 0);
+
+        const realPosHome = hasRealStats ? getFeedStat(0, 'Ball Possession') || 50 : 0;
+        const realPosAway = hasRealStats ? getFeedStat(1, 'Ball Possession') || 100 - realPosHome : 0;
+        const realShotsHome = hasRealStats ? getFeedStat(0, 'Total Shots') : 0;
+        const realShotsAway = hasRealStats ? getFeedStat(1, 'Total Shots') : 0;
+        const realSotHome = hasRealStats ? getFeedStat(0, 'Shots on Goal') : 0;
+        const realSotAway = hasRealStats ? getFeedStat(1, 'Shots on Goal') : 0;
+        const realCornersHome = hasRealStats ? getFeedStat(0, 'Corner Kicks') : 0;
+        const realCornersAway = hasRealStats ? getFeedStat(1, 'Corner Kicks') : 0;
+        const realFoulsHome = hasRealStats ? getFeedStat(0, 'Fouls') : 0;
+        const realFoulsAway = hasRealStats ? getFeedStat(1, 'Fouls') : 0;
+        const realOffsidesHome = hasRealStats ? getFeedStat(0, 'Offsides') : 0;
+        const realOffsidesAway = hasRealStats ? getFeedStat(1, 'Offsides') : 0;
+        const realSavesHome = hasRealStats ? getFeedStat(0, 'Goalkeeper Saves') : 0;
+        const realSavesAway = hasRealStats ? getFeedStat(1, 'Goalkeeper Saves') : 0;
+        const realPassesHome = hasRealStats ? getFeedStat(0, 'Total passes') : 0;
+        const realPassesAway = hasRealStats ? getFeedStat(1, 'Total passes') : 0;
+        const realAttacksHome = hasRealStats
+          ? getFeedStat(0, 'Dangerous Attacks') ||
+            getFeedStat(0, 'Attacks') ||
+            realShotsHome * 3 + realCornersHome * 2
+          : 0;
+        const realAttacksAway = hasRealStats
+          ? getFeedStat(1, 'Dangerous Attacks') ||
+            getFeedStat(1, 'Attacks') ||
+            realShotsAway * 3 + realCornersAway * 2
+          : 0;
+
         const elapsedRatio = isLive
           ? Math.max(0.05, Math.min(1, elapsed / 90))
           : isFinished
           ? 1
           : 0;
-        const posHome = elapsedRatio > 0 ? 46 + (seedNum % 14) : 0;
-        const posAway = elapsedRatio > 0 ? 100 - posHome : 0;
 
-        const estShotsHome =
-          elapsedRatio > 0
-            ? Math.max(homeScore, Math.round(homeScore + elapsedRatio * (5 + (seedNum % 5))))
-            : 0;
-        const estShotsAway =
-          elapsedRatio > 0
-            ? Math.max(awayScore, Math.round(awayScore + elapsedRatio * (4 + ((seedNum * 3) % 5))))
-            : 0;
-        const estSotHome =
-          elapsedRatio > 0
-            ? Math.max(homeScore, Math.min(estShotsHome, Math.round(homeScore + elapsedRatio * 2.5)))
-            : 0;
-        const estSotAway =
-          elapsedRatio > 0
-            ? Math.max(awayScore, Math.min(estShotsAway, Math.round(awayScore + elapsedRatio * 2.0)))
-            : 0;
-
-        const xgCurrentHome = Number(
-          (elapsedRatio > 0
-            ? homeScore * 0.65 + elapsedRatio * calBaseXgHome * 0.55
-            : calBaseXgHome
-          ).toFixed(2)
-        );
-        const xgCurrentAway = Number(
-          (elapsedRatio > 0
-            ? awayScore * 0.65 + elapsedRatio * calBaseXgAway * 0.55
-            : calBaseXgAway
-          ).toFixed(2)
-        );
+        const xgCurrentHome =
+          hasRealStats && getFeedStat(0, 'expected_goals') > 0
+            ? Number(getFeedStat(0, 'expected_goals').toFixed(2))
+            : Number(
+                (elapsedRatio > 0
+                  ? homeScore * 0.65 + elapsedRatio * calBaseXgHome * 0.55
+                  : calBaseXgHome
+                ).toFixed(2)
+              );
+        const xgCurrentAway =
+          hasRealStats && getFeedStat(1, 'expected_goals') > 0
+            ? Number(getFeedStat(1, 'expected_goals').toFixed(2))
+            : Number(
+                (elapsedRatio > 0
+                  ? awayScore * 0.65 + elapsedRatio * calBaseXgAway * 0.55
+                  : calBaseXgAway
+                ).toFixed(2)
+              );
 
         return {
           id: `api-${fixId}`,
@@ -3046,7 +3109,7 @@ async function startServer() {
           startTime,
           venue: venueName,
           referee: refereeName,
-          hasRealStats: false,
+          hasRealStats,
           bookmakerOdds: {
             home: finalBookieOdds.home,
             draw: finalBookieOdds.draw,
@@ -3074,28 +3137,36 @@ async function startServer() {
           },
           events: mappedEvents,
           stats: {
-            possessionHome: posHome,
-            possessionAway: posAway,
-            shotsHome: estShotsHome,
-            shotsAway: estShotsAway,
-            shotsOnTargetHome: estSotHome,
-            shotsOnTargetAway: estSotAway,
-            cornersHome: Math.round(elapsedRatio * (3 + (seedNum % 4))),
-            cornersAway: Math.round(elapsedRatio * (2 + ((seedNum * 3) % 4))),
-            dangerousAttacksHome: Math.round(elapsedRatio * (45 + (seedNum % 25))),
-            dangerousAttacksAway: Math.round(elapsedRatio * (38 + ((seedNum * 3) % 25))),
-            foulsHome: Math.round(elapsedRatio * (9 + (seedNum % 4))),
-            foulsAway: Math.round(elapsedRatio * (10 + ((seedNum * 2) % 4))),
-            yellowCardsHome: realYellowHome,
-            yellowCardsAway: realYellowAway,
-            redCardsHome: realRedHome,
-            redCardsAway: realRedAway,
-            offsidesHome: Math.round(elapsedRatio * (1 + (seedNum % 3))),
-            offsidesAway: Math.round(elapsedRatio * (1 + ((seedNum * 2) % 3))),
-            savesHome: Math.max(0, estSotAway - awayScore),
-            savesAway: Math.max(0, estSotHome - homeScore),
-            passesHome: Math.round(elapsedRatio * (280 + (seedNum % 140))),
-            passesAway: Math.round(elapsedRatio * (250 + ((seedNum * 5) % 130))),
+            possessionHome: realPosHome,
+            possessionAway: realPosAway,
+            shotsHome: realShotsHome,
+            shotsAway: realShotsAway,
+            shotsOnTargetHome: realSotHome,
+            shotsOnTargetAway: realSotAway,
+            cornersHome: realCornersHome,
+            cornersAway: realCornersAway,
+            dangerousAttacksHome: realAttacksHome,
+            dangerousAttacksAway: realAttacksAway,
+            foulsHome: realFoulsHome,
+            foulsAway: realFoulsAway,
+            yellowCardsHome: hasRealStats
+              ? Math.max(realYellowHome, getFeedStat(0, 'Yellow Cards'))
+              : realYellowHome,
+            yellowCardsAway: hasRealStats
+              ? Math.max(realYellowAway, getFeedStat(1, 'Yellow Cards'))
+              : realYellowAway,
+            redCardsHome: hasRealStats
+              ? Math.max(realRedHome, getFeedStat(0, 'Red Cards'))
+              : realRedHome,
+            redCardsAway: hasRealStats
+              ? Math.max(realRedAway, getFeedStat(1, 'Red Cards'))
+              : realRedAway,
+            offsidesHome: realOffsidesHome,
+            offsidesAway: realOffsidesAway,
+            savesHome: realSavesHome,
+            savesAway: realSavesAway,
+            passesHome: realPassesHome,
+            passesAway: realPassesAway,
           },
         };
       });
@@ -3139,7 +3210,7 @@ async function startServer() {
       return;
     }
 
-    const cacheKey = `football:match_intel_v9:${rawId}`;
+    const cacheKey = `football:match_intel_v11:${rawId}`;
     const ttlMs = 45 * 1000; // 45-second cache for live match telemetry
 
     const getCachedHelper = async (subKey: string, subTtlMs: number, url: string) => {
@@ -3479,13 +3550,21 @@ async function startServer() {
         return Number.isNaN(parsed) ? 0 : parsed;
       };
 
+      const seedNum = rawId.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+      const baseXgH = 1.35 + (seedNum % 60) / 100;
+      const baseXgA = 1.02 + ((seedNum * 7) % 55) / 100;
+      const remFrac = isLive ? Math.max(0.06, (90 - Math.min(89, elapsed)) / 90) : 1.0;
+
+      // Strictly check if API-Football returned real optical statistics — NEVER invent fake stats!
       const hasRealStats =
         statsArr.length >= 2 &&
         (getStat(0, 'Total Shots') > 0 ||
           getStat(1, 'Total Shots') > 0 ||
           getStat(0, 'Ball Possession') > 0 ||
           getStat(0, 'Corner Kicks') > 0 ||
-          getStat(1, 'Corner Kicks') > 0);
+          getStat(1, 'Corner Kicks') > 0 ||
+          getStat(0, 'Fouls') > 0 ||
+          getStat(1, 'Fouls') > 0);
 
       const stats = hasRealStats
         ? {
@@ -3518,11 +3597,6 @@ async function startServer() {
       const prematchOddsItem = Array.isArray(prematchOddsJson?.response)
         ? prematchOddsJson.response[0]
         : null;
-
-      const seedNum = rawId.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-      const baseXgH = 1.35 + (seedNum % 60) / 100;
-      const baseXgA = 1.02 + ((seedNum * 7) % 55) / 100;
-      const remFrac = isLive ? Math.max(0.06, (90 - Math.min(89, elapsed)) / 90) : 1.0;
 
       const poissonP = (lambda: number, k: number): number => {
         if (lambda <= 0) return k === 0 ? 1 : 0;

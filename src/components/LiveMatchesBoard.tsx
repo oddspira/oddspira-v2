@@ -1577,8 +1577,9 @@ export function LiveMatchesBoard({
     return () => clearInterval(simInterval);
   }, [setMatches]);
 
-  // Featured Match (First LIVE match or first match in feed)
+  // Featured Match (Prefer a LIVE match with verified official optical statistics, otherwise first LIVE match or first match in feed)
   const featuredMatch =
+    matches.find((m) => m.status === 'LIVE' && m.hasRealStats) ||
     matches.find((m) => m.status === 'LIVE') ||
     matches[0];
 
@@ -2178,6 +2179,9 @@ export function LiveMatchesBoard({
             const isFeatLive = featuredMatch.status === 'LIVE';
             const isFeatFinished = featuredMatch.status === 'FINISHED';
             const hasFeatStarted = isFeatLive || isFeatFinished;
+            const hasFeatRealStats =
+              hasFeatStarted &&
+              (!String(featuredMatch.id).startsWith('api-') || Boolean(featuredMatch.hasRealStats));
 
             const featTitle = isFeatLive
               ? t.featuredMatch
@@ -2400,9 +2404,9 @@ export function LiveMatchesBoard({
                     )}
                   </div>
 
-                  {/* Col 6-8: LIVE MOMENTUM (when match has started) OR PRE-MATCH 1X2 MODEL PROBABILITIES (before kickoff) */}
+                  {/* Col 6-8: LIVE MOMENTUM (ONLY when real optical stats exist) OR 1X2 MODEL PROBABILITIES */}
                   <div className="lg:col-span-3 rounded-xl bg-[#081018]/90 border border-[#162332] p-3">
-                    {hasFeatStarted ? (
+                    {hasFeatRealStats ? (
                       <>
                         <div className="text-[10px] font-mono uppercase tracking-wider text-[#8f9cae] text-center mb-1.5">
                           {t.momentum}
@@ -2467,7 +2471,11 @@ export function LiveMatchesBoard({
                           <div className="bg-cyan-400 h-full" style={{ width: `${p2Pct}%` }} />
                         </div>
                         <div className="text-[9px] font-mono text-[#64748b] text-center">
-                          {language === 'bg'
+                          {hasFeatStarted
+                            ? language === 'bg'
+                              ? 'Официален резултат и коефициенти на живо (без оптична статистика)'
+                              : 'Official live score & odds (no optical stats for this league)'
+                            : language === 'bg'
                             ? 'Моментумът на живо стартира в ' + featuredMatch.startTime
                             : `Live momentum starts at ${featuredMatch.startTime}`}
                         </div>
@@ -2475,17 +2483,17 @@ export function LiveMatchesBoard({
                     )}
                   </div>
 
-                  {/* Col 9-10: LIVE STATS (when match has started) OR PRE-MATCH PROJECTIONS (before kickoff) */}
+                  {/* Col 9-10: LIVE STATS (ONLY when official optical stats exist) OR MODEL PROJECTIONS */}
                   <div className="lg:col-span-2 space-y-2 text-[11px]">
                     <div className="text-[10px] font-mono uppercase tracking-wider text-[#8f9cae] text-center mb-1">
-                      {hasFeatStarted ? t.liveStats : preMatchMetricsTitle}
+                      {hasFeatRealStats ? t.liveStats : preMatchMetricsTitle}
                     </div>
                     {/* xG (Live xG or Projected 90' xG) */}
                     <div>
                       <div className="flex justify-between font-mono text-[10px] text-neutral-300 mb-0.5">
                         <span className="font-bold text-white">{xgH.toFixed(2)}</span>
                         <span className="text-[#8f9cae]">
-                          {hasFeatStarted ? 'xG' : language === 'bg' ? 'Прогн. xG' : 'Proj. xG'}
+                          {hasFeatRealStats ? 'xG' : language === 'bg' ? 'Прогн. xG' : 'Proj. xG'}
                         </span>
                         <span className="font-bold text-white">{xgA.toFixed(2)}</span>
                       </div>
@@ -2495,7 +2503,7 @@ export function LiveMatchesBoard({
                       </div>
                     </div>
 
-                    {hasFeatStarted ? (
+                    {hasFeatRealStats ? (
                       <>
                         {/* Possession */}
                         <div>
@@ -2574,10 +2582,14 @@ export function LiveMatchesBoard({
                           </div>
                         </div>
 
-                        {/* Pre-match status notice */}
+                        {/* Status notice */}
                         <div className="pt-0.5 text-center">
                           <span className="inline-block px-2 py-0.5 rounded bg-[#111c28] border border-[#1e2f42] font-mono text-[9px] text-amber-300">
-                            {language === 'bg'
+                            {hasFeatStarted
+                              ? language === 'bg'
+                                ? 'НЯМА ОПТИЧНА СТАТИСТИКА'
+                                : 'NO OPTICAL STATS'
+                              : language === 'bg'
                               ? `Старт в ${featuredMatch.startTime} · Очаква начало`
                               : `Kickoff ${featuredMatch.startTime} · Pre-Match`}
                           </span>
@@ -2625,13 +2637,16 @@ export function LiveMatchesBoard({
               const isLive = match.status === 'LIVE';
               const isFinished = match.status === 'FINISHED';
               const hasStarted = isLive || isFinished;
+              const hasRowRealStats =
+                hasStarted &&
+                (!String(match.id).startsWith('api-') || Boolean(match.hasRealStats));
               const isFav = favorites.includes(match.id);
               const picked = selectedRowMarket[match.id];
               const extraMarkets = EXTRA_MARKETS_COUNT[match.id] || 112;
-              const posHome = hasStarted ? (match.stats.possessionHome || 50) : 0;
-              const posAway = hasStarted ? (match.stats.possessionAway || 50) : 0;
-              const daHome = hasStarted ? (match.stats.dangerousAttacksHome ?? 0) : 0;
-              const daAway = hasStarted ? (match.stats.dangerousAttacksAway ?? 0) : 0;
+              const posHome = hasRowRealStats ? (match.stats.possessionHome || 50) : 0;
+              const posAway = hasRowRealStats ? (match.stats.possessionAway || 50) : 0;
+              const daHome = hasRowRealStats ? (match.stats.dangerousAttacksHome ?? 0) : 0;
+              const daAway = hasRowRealStats ? (match.stats.dangerousAttacksAway ?? 0) : 0;
               const daTotal = Math.max(daHome + daAway, 1);
 
               // SVG Donut math
@@ -2922,9 +2937,9 @@ export function LiveMatchesBoard({
                       </div>
                     </div>
 
-                    {/* Col 10: POS Circular Donut (Only active once match starts!) */}
+                    {/* Col 10: POS Circular Donut (ONLY rendered when official real optical stats exist!) */}
                     <div className="lg:col-span-1 flex items-center justify-center gap-1.5">
-                      {hasStarted ? (
+                      {hasRowRealStats ? (
                         <>
                           <svg className="w-9 h-9 -rotate-90 shrink-0" viewBox="0 0 36 36">
                             <circle
@@ -2955,21 +2970,31 @@ export function LiveMatchesBoard({
                         <div
                           className="text-center font-mono text-[10px] text-[#64748b]"
                           title={
-                            language === 'bg'
+                            hasStarted
+                              ? language === 'bg'
+                                ? 'Няма официална оптична статистика за тази дивизия'
+                                : 'No official optical statistics for this division'
+                              : language === 'bg'
                               ? 'Владеенето на топката е налично след началото на мача'
                               : 'Possession stats available after kickoff'
                           }
                         >
                           <span className="block text-neutral-500 font-bold">— / —</span>
-                          <span className="block text-[9px] text-[#475569]">PRE-MATCH</span>
+                          <span className="block text-[9px] text-[#475569]">
+                            {hasStarted
+                              ? language === 'bg'
+                                ? 'НЯМА ДАННИ'
+                                : 'NO STATS'
+                              : 'PRE-MATCH'}
+                          </span>
                         </div>
                       )}
                     </div>
 
                     {/* Col 11-12: Dangerous Attacks + Add Bet / Details Buttons */}
                     <div className="lg:col-span-2 flex items-center justify-between gap-2">
-                      {/* Dangerous Attacks Bar (Only active once match starts!) */}
-                      {hasStarted ? (
+                      {/* Dangerous Attacks Bar (ONLY rendered when official real optical stats exist!) */}
+                      {hasRowRealStats ? (
                         <div className="flex items-center gap-1.5 font-mono text-[11px] flex-1">
                           <span className="font-bold text-white tabular-nums">{daHome}</span>
                           <div className="flex-1 h-1.5 rounded-full bg-[#162230] overflow-hidden flex min-w-[36px]">
@@ -2988,7 +3013,11 @@ export function LiveMatchesBoard({
                         <div
                           className="flex flex-col items-center justify-center font-mono text-[10px] text-[#64748b] flex-1"
                           title={
-                            language === 'bg'
+                            hasStarted
+                              ? language === 'bg'
+                                ? 'Математически вероятности (няма оптични данни за атаки)'
+                                : 'Model probabilities (no optical attack data)'
+                              : language === 'bg'
                               ? 'Опасните атаки се отчитат на живо след старта на мача'
                               : 'Dangerous attacks tracked live after kickoff'
                           }

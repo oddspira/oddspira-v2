@@ -2470,12 +2470,22 @@ export const MatchDetailPage: React.FC<MatchDetailPageProps> = ({
       : 'PRE-MATCH');
 
   const isLive = displayStatus === 'LIVE';
+  const isFinished = displayStatus === 'FINISHED';
 
-  // Visibility flags ("Zero Lies" rule: hide stats/lineups on API matches when API-Football does not provide them)
-  const showStatsPanel = !isApiMatch || Boolean(liveIntel?.hasRealStats);
+  // Visibility flags: ONLY show stats tab & panel when official real optical statistics exist (Zero Lies)
+  const showStatsPanel =
+    !isApiMatch ||
+    Boolean(liveIntel?.hasRealStats) ||
+    (!liveIntel && Boolean(match.hasRealStats));
   const showLineupsPanel = !isApiMatch || Boolean(liveIntel?.hasRealLineups);
   const standingsRows: StandingRow[] = liveIntel?.standings || [];
   const hasStandings = standingsRows.length > 0;
+
+  useEffect(() => {
+    if (subTab === 'stats' && !showStatsPanel) {
+      setSubTab('overview');
+    }
+  }, [subTab, showStatsPanel]);
 
   const posHome = liveIntel?.stats?.possessionHome ?? match.stats.possessionHome ?? 50;
   const posAway = liveIntel?.stats?.possessionAway ?? match.stats.possessionAway ?? 50;
