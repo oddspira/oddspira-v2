@@ -2510,7 +2510,7 @@ async function startServer() {
       return;
     }
 
-    const cacheKey = 'football:normalized_live_feed_v12';
+    const cacheKey = 'football:normalized_live_feed_v13';
     const ttlMs = 2 * 60 * 1000; // 2 minutes SQLite cache
 
     const getFeedSubCached = async (subKey: string, subTtlMs: number, url: string) => {
@@ -2991,8 +2991,8 @@ async function startServer() {
           : isFinished
           ? 1
           : 0;
-        const posHome = 46 + (seedNum % 14);
-        const posAway = 100 - posHome;
+        const posHome = elapsedRatio > 0 ? 46 + (seedNum % 14) : 0;
+        const posAway = elapsedRatio > 0 ? 100 - posHome : 0;
 
         const estShotsHome =
           elapsedRatio > 0

@@ -2173,288 +2173,440 @@ export function LiveMatchesBoard({
             </div>
           </div>
 
-          {/* 4. FEATURED MATCH SPOTLIGHT CARD (Bayer Leverkusen 2 - 1 AS Roma) */}
-          {featuredMatch && (
-            <div className="rounded-2xl border border-[#1d563a] bg-gradient-to-r from-[#091914] via-[#0b151e] to-[#0a121a] p-4 sm:p-5 shadow-[0_10px_35px_rgba(0,0,0,0.65)]">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
-                {/* Col 1-5: Featured Match Scoreboard & Goal Scorers */}
-                <div className="lg:col-span-5 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#43f08a] block">
-                        {t.featuredMatch}
+          {/* 4. FEATURED MATCH SPOTLIGHT CARD */}
+          {featuredMatch && (() => {
+            const isFeatLive = featuredMatch.status === 'LIVE';
+            const isFeatFinished = featuredMatch.status === 'FINISHED';
+            const hasFeatStarted = isFeatLive || isFeatFinished;
+
+            const featTitle = isFeatLive
+              ? t.featuredMatch
+              : ({
+                  bg: 'ВОДЕЩ ПРЕДСТОЯЩ МАЧ (PRE-MATCH)',
+                  en: 'FEATURED UPCOMING MATCH (PRE-MATCH)',
+                  es: 'PARTIDO DESTACADO PRÓXIMO (PRE-PARTIDO)',
+                  de: 'TOP KOMMENDES SPIEL (PRE-MATCH)',
+                  it: 'BIG MATCH IN PROGRAMMA (PRE-PARTITA)',
+                  pt: 'JOGO EM DESTAQUE (PRÉ-JOGO)',
+                  fr: 'MATCH À L’AFFICHE (PRÉ-MATCH)',
+                  tr: 'ÖNE ÇIKAN GELECEK MAÇ (MAÇ ÖNCESİ)',
+                  pl: 'HIT DNIA PRZED MECZEM (PRE-MATCH)',
+                  el: 'ΚΟΡΥΦΑΙΟΣ ΕΠΕΡΧΟΜΕΝΟΣ ΑΓΩΝΑΣ (PRE-MATCH)',
+                  ro: 'MECIUL ZILEI ÎN CURÂND (PRE-MECI)',
+                  ru: 'ГЛАВНЫЙ ПРЕДСТОЯЩИЙ МАТЧ (ПРЕМАТЧ)',
+                }[language] || 'FEATURED UPCOMING MATCH');
+
+            const preMatchModelTitle =
+              ({
+                bg: 'МАТЕМАТИЧЕСКА ПРОГНОЗА (1X2)',
+                en: 'PRE-MATCH WIN PROBABILITY (1X2)',
+                es: 'PROBABILIDAD DEL MODELO (1X2)',
+                de: 'MODELL-WAHRSCHEINLICHKEIT (1X2)',
+                it: 'PROBABILITÀ MODELLO (1X2)',
+                pt: 'PROBABILIDADE DO MODELO (1X2)',
+                fr: 'PROBABILITÉS DU MODÈLE (1X2)',
+                tr: 'MAÇ ÖNCESİ MODEL OLASILIĞI (1X2)',
+                pl: 'PRAWDOPODOBIEŃSTWO MODELU (1X2)',
+                el: 'ΠΙΘΑΝΟΤΗΤΕΣ ΜΟΝΤΕΛΟΥ (1X2)',
+                ro: 'PROBABILITĂȚI MODEL (1X2)',
+                ru: 'ВЕРОЯТНОСТИ МОДЕЛИ (1X2)',
+              }[language] || 'PRE-MATCH WIN PROBABILITY');
+
+            const preMatchMetricsTitle =
+              ({
+                bg: 'ПРОГНОЗНИ ПОКАЗАТЕЛИ (90\')',
+                en: 'PRE-MATCH PROJECTIONS (90\')',
+                es: 'PROYECCIONES PRE-PARTIDO (90\')',
+                de: 'PRE-MATCH PROGNOSEN (90\')',
+                it: 'PROIEZIONI PRE-PARTITA (90\')',
+                pt: 'PROJEÇÕES PRÉ-JOGO (90\')',
+                fr: 'PROJECTIONS PRÉ-MATCH (90\')',
+                tr: 'MAÇ ÖNCESİ BEKLENTİLER (90\')',
+                pl: 'PROGNOZA PRZEDMECZOWA (90\')',
+                el: 'ΠΡΟΒΛΕΨΕΙΣ ΠΡΙΝ ΤΗ ΣΕΝΤΡΑ (90\')',
+                ro: 'PROIECȚII PRE-MECI (90\')',
+                ru: 'ПРОГНОЗНЫЕ ПОКАЗАТЕЛИ (90\')',
+              }[language] || 'PRE-MATCH PROJECTIONS');
+
+            const xgH = featuredMatch.fairOdds.expectedGoalsHome;
+            const xgA = featuredMatch.fairOdds.expectedGoalsAway;
+            const xgTotal = Math.max(0.1, xgH + xgA);
+            const xgHomePct = Math.round((xgH / xgTotal) * 100);
+
+            const sotH = featuredMatch.stats.shotsOnTargetHome ?? 0;
+            const sotA = featuredMatch.stats.shotsOnTargetAway ?? 0;
+            const sotTotal = Math.max(1, sotH + sotA);
+            const sotHomePct = sotH + sotA > 0 ? Math.round((sotH / sotTotal) * 100) : 50;
+
+            const daH = featuredMatch.stats.dangerousAttacksHome ?? 0;
+            const daA = featuredMatch.stats.dangerousAttacksAway ?? 0;
+            const daTot = Math.max(1, daH + daA);
+            const daHomePct = daH + daA > 0 ? Math.round((daH / daTot) * 100) : 50;
+
+            const p1Pct = Math.round(featuredMatch.fairOdds.homeProb * 100);
+            const pXPct = Math.round(featuredMatch.fairOdds.drawProb * 100);
+            const p2Pct = Math.max(1, 100 - p1Pct - pXPct);
+            const o25Pct = Math.round(featuredMatch.fairOdds.over25Prob * 100);
+            const bttsPct = Math.round(featuredMatch.fairOdds.bttsProb * 100);
+
+            return (
+              <div className="rounded-2xl border border-[#1d563a] bg-gradient-to-r from-[#091914] via-[#0b151e] to-[#0a121a] p-4 sm:p-5 shadow-[0_10px_35px_rgba(0,0,0,0.65)]">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+                  {/* Col 1-5: Featured Match Scoreboard & Goal Scorers */}
+                  <div className="lg:col-span-5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-mono font-extrabold uppercase tracking-wider text-[#43f08a] block">
+                          {featTitle}
+                        </span>
+                        <div className="flex items-center gap-1.5 text-xs text-neutral-300 mt-0.5">
+                          <LeagueBadge
+                            name={featuredMatch.league}
+                            logoUrl={featuredMatch.leagueLogo}
+                            size="sm"
+                          />
+                          <span className="font-semibold">{featuredMatch.league}</span>
+                        </div>
+                      </div>
+                      <span className="text-sm font-mono font-extrabold text-[#43f08a] tabular-nums">
+                        {isFeatLive
+                          ? `${featuredMatch.minute || 1}:${String(featuredSeconds).padStart(2, '0')}`
+                          : featuredMatch.startTime}
                       </span>
-                      <div className="flex items-center gap-1.5 text-xs text-neutral-300 mt-0.5">
-                        <LeagueBadge
-                          name={featuredMatch.league}
-                          logoUrl={featuredMatch.leagueLogo}
-                          size="sm"
+                    </div>
+
+                    {/* Teams & Big Score (Clickable to open MatchDetailPage) */}
+                    <div
+                      onClick={() => openMatchView(featuredMatch)}
+                      className="flex items-center justify-between gap-2 pt-1 cursor-pointer group"
+                    >
+                      {/* Home Team */}
+                      <div className="flex items-center gap-2.5">
+                        <TeamBadge
+                          name={featuredMatch.homeTeam}
+                          logoUrl={featuredMatch.homeLogo}
+                          teamId={featuredMatch.homeTeamId}
+                          size="md"
                         />
-                        <span className="font-semibold">{featuredMatch.league}</span>
+                        <div>
+                          <div
+                            onClick={(e) =>
+                              openTeamProfile(
+                                {
+                                  teamId: featuredMatch.homeTeamId,
+                                  teamName: featuredMatch.homeTeam,
+                                  teamLogo: featuredMatch.homeLogo,
+                                  leagueId: featuredMatch.leagueId,
+                                  leagueName: featuredMatch.league,
+                                },
+                                e
+                              )
+                            }
+                            className="text-sm sm:text-base font-extrabold text-white hover:text-[#43f08a] hover:underline transition-colors leading-tight cursor-pointer"
+                            title={featuredMatch.homeTeam}
+                          >
+                            {featuredMatch.homeTeam}
+                          </div>
+                          <div className="mt-1">
+                            {renderFormBadges(
+                              featuredMatch.homeTeam,
+                              featuredMatch.homeTeamId,
+                              featuredMatch.homeLogo,
+                              featuredMatch.leagueId,
+                              featuredMatch.league
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Center Score (or VS if Pre-Match) */}
+                      <div className="text-center px-2 shrink-0">
+                        <div className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight tabular-nums">
+                          {hasFeatStarted
+                            ? `${featuredMatch.homeScore} - ${featuredMatch.awayScore}`
+                            : 'VS'}
+                        </div>
+                        <span className="inline-block mt-1 px-2 py-0.5 rounded bg-[#14202e] border border-[#233549] text-[10px] font-mono text-neutral-300">
+                          {hasFeatStarted
+                            ? featuredMatch.halftimeScore ||
+                              `LIVE ${featuredMatch.minute || 1}'`
+                            : `PRE-MATCH · ${featuredMatch.startTime}`}
+                        </span>
+                      </div>
+
+                      {/* Away Team */}
+                      <div className="flex items-center gap-2.5 text-right">
+                        <div>
+                          <div
+                            onClick={(e) =>
+                              openTeamProfile(
+                                {
+                                  teamId: featuredMatch.awayTeamId,
+                                  teamName: featuredMatch.awayTeam,
+                                  teamLogo: featuredMatch.awayLogo,
+                                  leagueId: featuredMatch.leagueId,
+                                  leagueName: featuredMatch.league,
+                                },
+                                e
+                              )
+                            }
+                            className="text-sm sm:text-base font-extrabold text-white hover:text-[#43f08a] hover:underline transition-colors leading-tight cursor-pointer"
+                            title={featuredMatch.awayTeam}
+                          >
+                            {featuredMatch.awayTeam}
+                          </div>
+                          <div className="mt-1 flex justify-end">
+                            {renderFormBadges(
+                              featuredMatch.awayTeam,
+                              featuredMatch.awayTeamId,
+                              featuredMatch.awayLogo,
+                              featuredMatch.leagueId,
+                              featuredMatch.league
+                            )}
+                          </div>
+                        </div>
+                        <TeamBadge
+                          name={featuredMatch.awayTeam}
+                          logoUrl={featuredMatch.awayLogo}
+                          teamId={featuredMatch.awayTeamId}
+                          size="md"
+                        />
                       </div>
                     </div>
-                    <span className="text-sm font-mono font-extrabold text-[#43f08a] tabular-nums">
-                      {featuredMatch.status === 'LIVE'
-                        ? `${featuredMatch.minute || 1}:${String(featuredSeconds).padStart(2, '0')}`
-                        : featuredMatch.startTime}
-                    </span>
+
+                    {/* Real Match Events Strip (only rendered when real events exist!) */}
+                    {featuredMatch.events && featuredMatch.events.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-xl bg-[#070d13]/90 border border-[#162230] text-[11px] text-neutral-300 font-mono">
+                        {featuredMatch.events.slice(0, 3).map((ev, idx) => (
+                          <React.Fragment key={idx}>
+                            {idx > 0 && <span className="text-neutral-600">|</span>}
+                            <span className="inline-flex items-center gap-1 truncate max-w-[160px]">
+                              <span>
+                                {ev.type === 'goal'
+                                  ? '⚽'
+                                  : ev.type === 'red_card'
+                                  ? '🟥'
+                                  : ev.type === 'yellow_card'
+                                  ? '🟨'
+                                  : '⚡'}
+                              </span>
+                              <span>
+                                {ev.minute}&apos; {ev.description.replace(/^Гол:\s*/i, '')}
+                              </span>
+                            </span>
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
-                  {/* Teams & Big Score (Clickable to open MatchDetailPage) */}
-                  <div
-                    onClick={() => openMatchView(featuredMatch)}
-                    className="flex items-center justify-between gap-2 pt-1 cursor-pointer group"
-                  >
-                    {/* Home Team */}
-                    <div className="flex items-center gap-2.5">
-                      <TeamBadge
-                        name={featuredMatch.homeTeam}
-                        logoUrl={featuredMatch.homeLogo}
-                        teamId={featuredMatch.homeTeamId}
-                        size="md"
-                      />
-                      <div>
-                        <div
-                          onClick={(e) =>
-                            openTeamProfile(
-                              {
-                                teamId: featuredMatch.homeTeamId,
-                                teamName: featuredMatch.homeTeam,
-                                teamLogo: featuredMatch.homeLogo,
-                                leagueId: featuredMatch.leagueId,
-                                leagueName: featuredMatch.league,
-                              },
-                              e
-                            )
-                          }
-                          className="text-sm sm:text-base font-extrabold text-white hover:text-[#43f08a] hover:underline transition-colors leading-tight cursor-pointer"
-                          title={featuredMatch.homeTeam}
-                        >
-                          {featuredMatch.homeTeam}
+                  {/* Col 6-8: LIVE MOMENTUM (when match has started) OR PRE-MATCH 1X2 MODEL PROBABILITIES (before kickoff) */}
+                  <div className="lg:col-span-3 rounded-xl bg-[#081018]/90 border border-[#162332] p-3">
+                    {hasFeatStarted ? (
+                      <>
+                        <div className="text-[10px] font-mono uppercase tracking-wider text-[#8f9cae] text-center mb-1.5">
+                          {t.momentum}
                         </div>
-                        <div className="mt-1">
-                          {renderFormBadges(
-                            featuredMatch.homeTeam,
-                            featuredMatch.homeTeamId,
-                            featuredMatch.homeLogo,
-                            featuredMatch.leagueId,
-                            featuredMatch.league
-                          )}
+                        <svg className="w-full h-24 overflow-visible" viewBox="0 0 200 80">
+                          <defs>
+                            <linearGradient id="momGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#22c55e" stopOpacity="0.45" />
+                              <stop offset="100%" stopColor="#22c55e" stopOpacity="0.0" />
+                            </linearGradient>
+                          </defs>
+                          <line x1="0" y1="40" x2="200" y2="40" stroke="#1e293b" strokeWidth="1" strokeDasharray="2 2" />
+                          <line x1="100" y1="5" x2="100" y2="70" stroke="#1e293b" strokeWidth="1" />
+                          <path
+                            d="M 10 40 L 25 22 L 42 32 L 58 16 L 75 28 L 95 20 L 112 30 L 128 24 L 145 54 L 162 46 L 180 34 L 180 40 L 10 40 Z"
+                            fill="url(#momGrad)"
+                          />
+                          <path
+                            d="M 10 40 L 25 22 L 42 32 L 58 16 L 75 28 L 95 20 L 112 30 L 128 24 L 145 54 L 162 46 L 180 34"
+                            fill="none"
+                            stroke="#43f08a"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                          />
+                          <circle cx="128" cy="24" r="3.5" fill="#facc15" stroke="#070b11" strokeWidth="1.5" />
+                        </svg>
+                        <div className="flex justify-between text-[10px] font-mono text-[#64748b] mt-1 px-1">
+                          <span>0&apos;</span>
+                          <span>HT</span>
+                          <span>90&apos;</span>
                         </div>
-                      </div>
-                    </div>
-
-                    {/* Center Score */}
-                    <div className="text-center px-2 shrink-0">
-                      <div className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight tabular-nums">
-                        {featuredMatch.homeScore} - {featuredMatch.awayScore}
-                      </div>
-                      <span className="inline-block mt-1 px-2 py-0.5 rounded bg-[#14202e] border border-[#233549] text-[10px] font-mono text-neutral-300">
-                        {featuredMatch.halftimeScore ||
-                          (featuredMatch.status === 'LIVE'
-                            ? `LIVE ${featuredMatch.minute || 1}'`
-                            : featuredMatch.startTime)}
-                      </span>
-                    </div>
-
-                    {/* Away Team */}
-                    <div className="flex items-center gap-2.5 text-right">
-                      <div>
-                        <div
-                          onClick={(e) =>
-                            openTeamProfile(
-                              {
-                                teamId: featuredMatch.awayTeamId,
-                                teamName: featuredMatch.awayTeam,
-                                teamLogo: featuredMatch.awayLogo,
-                                leagueId: featuredMatch.leagueId,
-                                leagueName: featuredMatch.league,
-                              },
-                              e
-                            )
-                          }
-                          className="text-sm sm:text-base font-extrabold text-white hover:text-[#43f08a] hover:underline transition-colors leading-tight cursor-pointer"
-                          title={featuredMatch.awayTeam}
-                        >
-                          {featuredMatch.awayTeam}
+                      </>
+                    ) : (
+                      <div className="space-y-2.5 py-0.5">
+                        <div className="text-[10px] font-mono uppercase tracking-wider text-[#8f9cae] text-center">
+                          {preMatchModelTitle}
                         </div>
-                        <div className="mt-1 flex justify-end">
-                          {renderFormBadges(
-                            featuredMatch.awayTeam,
-                            featuredMatch.awayTeamId,
-                            featuredMatch.awayLogo,
-                            featuredMatch.leagueId,
-                            featuredMatch.league
-                          )}
+                        <div className="space-y-1.5 font-mono text-[10px]">
+                          <div className="flex items-center justify-between text-neutral-300">
+                            <span className="truncate max-w-[110px]">1 · {featuredMatch.homeTeam}</span>
+                            <span className="text-[#43f08a] font-bold">
+                              {p1Pct}% (@{featuredMatch.bookmakerOdds.home.toFixed(2)})
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-neutral-300">
+                            <span>X · {language === 'bg' ? 'Равенство' : 'Draw'}</span>
+                            <span className="text-amber-300 font-bold">
+                              {pXPct}% (@{featuredMatch.bookmakerOdds.draw.toFixed(2)})
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-neutral-300">
+                            <span className="truncate max-w-[110px]">2 · {featuredMatch.awayTeam}</span>
+                            <span className="text-cyan-300 font-bold">
+                              {p2Pct}% (@{featuredMatch.bookmakerOdds.away.toFixed(2)})
+                            </span>
+                          </div>
+                        </div>
+                        {/* 3-segment probability bar */}
+                        <div className="h-2 rounded-full bg-[#162230] overflow-hidden flex gap-0.5">
+                          <div className="bg-[#43f08a] h-full" style={{ width: `${p1Pct}%` }} />
+                          <div className="bg-amber-400 h-full" style={{ width: `${pXPct}%` }} />
+                          <div className="bg-cyan-400 h-full" style={{ width: `${p2Pct}%` }} />
+                        </div>
+                        <div className="text-[9px] font-mono text-[#64748b] text-center">
+                          {language === 'bg'
+                            ? 'Моментумът на живо стартира в ' + featuredMatch.startTime
+                            : `Live momentum starts at ${featuredMatch.startTime}`}
                         </div>
                       </div>
-                      <TeamBadge
-                        name={featuredMatch.awayTeam}
-                        logoUrl={featuredMatch.awayLogo}
-                        teamId={featuredMatch.awayTeamId}
-                        size="md"
-                      />
-                    </div>
+                    )}
                   </div>
 
-                  {/* Real Match Events Strip (only rendered when real events exist!) */}
-                  {featuredMatch.events && featuredMatch.events.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-xl bg-[#070d13]/90 border border-[#162230] text-[11px] text-neutral-300 font-mono">
-                      {featuredMatch.events.slice(0, 3).map((ev, idx) => (
-                        <React.Fragment key={idx}>
-                          {idx > 0 && <span className="text-neutral-600">|</span>}
-                          <span className="inline-flex items-center gap-1 truncate max-w-[160px]">
-                            <span>
-                              {ev.type === 'goal'
-                                ? '⚽'
-                                : ev.type === 'red_card'
-                                ? '🟥'
-                                : ev.type === 'yellow_card'
-                                ? '🟨'
-                                : '⚡'}
+                  {/* Col 9-10: LIVE STATS (when match has started) OR PRE-MATCH PROJECTIONS (before kickoff) */}
+                  <div className="lg:col-span-2 space-y-2 text-[11px]">
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-[#8f9cae] text-center mb-1">
+                      {hasFeatStarted ? t.liveStats : preMatchMetricsTitle}
+                    </div>
+                    {/* xG (Live xG or Projected 90' xG) */}
+                    <div>
+                      <div className="flex justify-between font-mono text-[10px] text-neutral-300 mb-0.5">
+                        <span className="font-bold text-white">{xgH.toFixed(2)}</span>
+                        <span className="text-[#8f9cae]">
+                          {hasFeatStarted ? 'xG' : language === 'bg' ? 'Прогн. xG' : 'Proj. xG'}
+                        </span>
+                        <span className="font-bold text-white">{xgA.toFixed(2)}</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-[#162230] overflow-hidden flex">
+                        <div className="bg-[#43f08a] h-full" style={{ width: `${xgHomePct}%` }} />
+                        <div className="bg-neutral-500 h-full" style={{ width: `${100 - xgHomePct}%` }} />
+                      </div>
+                    </div>
+
+                    {hasFeatStarted ? (
+                      <>
+                        {/* Possession */}
+                        <div>
+                          <div className="flex justify-between font-mono text-[10px] text-neutral-300 mb-0.5">
+                            <span className="font-bold text-white">{featuredMatch.stats.possessionHome}%</span>
+                            <span className="text-[#8f9cae] truncate px-1">{t.possession}</span>
+                            <span className="font-bold text-white">{featuredMatch.stats.possessionAway}%</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-[#162230] overflow-hidden flex">
+                            <div
+                              className="bg-[#43f08a] h-full"
+                              style={{ width: `${featuredMatch.stats.possessionHome}%` }}
+                            />
+                            <div
+                              className="bg-neutral-500 h-full"
+                              style={{ width: `${featuredMatch.stats.possessionAway}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Shots on Target */}
+                        <div>
+                          <div className="flex justify-between font-mono text-[10px] text-neutral-300 mb-0.5">
+                            <span className="font-bold text-white">{sotH}</span>
+                            <span className="text-[#8f9cae] truncate px-1">{t.shotsOnTarget}</span>
+                            <span className="font-bold text-white">{sotA}</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-[#162230] overflow-hidden flex">
+                            <div className="bg-[#43f08a] h-full" style={{ width: `${sotHomePct}%` }} />
+                            <div className="bg-neutral-500 h-full" style={{ width: `${100 - sotHomePct}%` }} />
+                          </div>
+                        </div>
+
+                        {/* Dangerous Attacks */}
+                        <div>
+                          <div className="flex justify-between font-mono text-[10px] text-neutral-300 mb-0.5">
+                            <span className="font-bold text-white">{daH}</span>
+                            <span className="text-[#8f9cae] truncate px-1">{t.dangerousAttacks}</span>
+                            <span className="font-bold text-white">{daA}</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-[#162230] overflow-hidden flex">
+                            <div className="bg-[#43f08a] h-full" style={{ width: `${daHomePct}%` }} />
+                            <div className="bg-neutral-500 h-full" style={{ width: `${100 - daHomePct}%` }} />
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {/* Over / Under 2.5 Probability */}
+                        <div>
+                          <div className="flex justify-between font-mono text-[10px] text-neutral-300 mb-0.5">
+                            <span className="font-bold text-[#43f08a]">{o25Pct}%</span>
+                            <span className="text-[#8f9cae] truncate px-1">
+                              {language === 'bg' ? 'Над / Под 2.5' : 'Over / Under 2.5'}
                             </span>
-                            <span>
-                              {ev.minute}&apos; {ev.description.replace(/^Гол:\s*/i, '')}
+                            <span className="font-bold text-neutral-300">{100 - o25Pct}%</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-[#162230] overflow-hidden flex">
+                            <div className="bg-[#43f08a] h-full" style={{ width: `${o25Pct}%` }} />
+                            <div className="bg-neutral-500 h-full" style={{ width: `${100 - o25Pct}%` }} />
+                          </div>
+                        </div>
+
+                        {/* BTTS Yes / No Probability */}
+                        <div>
+                          <div className="flex justify-between font-mono text-[10px] text-neutral-300 mb-0.5">
+                            <span className="font-bold text-[#43f08a]">{bttsPct}%</span>
+                            <span className="text-[#8f9cae] truncate px-1">
+                              {language === 'bg' ? 'Гол/Гол (Да/Не)' : 'BTTS (Yes/No)'}
                             </span>
+                            <span className="font-bold text-neutral-300">{100 - bttsPct}%</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-[#162230] overflow-hidden flex">
+                            <div className="bg-[#43f08a] h-full" style={{ width: `${bttsPct}%` }} />
+                            <div className="bg-neutral-500 h-full" style={{ width: `${100 - bttsPct}%` }} />
+                          </div>
+                        </div>
+
+                        {/* Pre-match status notice */}
+                        <div className="pt-0.5 text-center">
+                          <span className="inline-block px-2 py-0.5 rounded bg-[#111c28] border border-[#1e2f42] font-mono text-[9px] text-amber-300">
+                            {language === 'bg'
+                              ? `Старт в ${featuredMatch.startTime} · Очаква начало`
+                              : `Kickoff ${featuredMatch.startTime} · Pre-Match`}
                           </span>
-                        </React.Fragment>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Col 6-8: MOMENTUM Chart */}
-                <div className="lg:col-span-3 rounded-xl bg-[#081018]/90 border border-[#162332] p-3">
-                  <div className="text-[10px] font-mono uppercase tracking-wider text-[#8f9cae] text-center mb-1.5">
-                    {t.momentum}
-                  </div>
-                  <svg className="w-full h-24 overflow-visible" viewBox="0 0 200 80">
-                    <defs>
-                      <linearGradient id="momGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#22c55e" stopOpacity="0.45" />
-                        <stop offset="100%" stopColor="#22c55e" stopOpacity="0.0" />
-                      </linearGradient>
-                    </defs>
-                    {/* Grid lines */}
-                    <line x1="0" y1="40" x2="200" y2="40" stroke="#1e293b" strokeWidth="1" strokeDasharray="2 2" />
-                    <line x1="100" y1="5" x2="100" y2="70" stroke="#1e293b" strokeWidth="1" />
-                    {/* Momentum area & curve */}
-                    <path
-                      d="M 10 40 L 25 22 L 42 32 L 58 16 L 75 28 L 95 20 L 112 30 L 128 24 L 145 54 L 162 46 L 180 34 L 180 40 L 10 40 Z"
-                      fill="url(#momGrad)"
-                    />
-                    <path
-                      d="M 10 40 L 25 22 L 42 32 L 58 16 L 75 28 L 95 20 L 112 30 L 128 24 L 145 54 L 162 46 L 180 34"
-                      fill="none"
-                      stroke="#43f08a"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                    {/* Active point */}
-                    <circle cx="128" cy="24" r="3.5" fill="#facc15" stroke="#070b11" strokeWidth="1.5" />
-                  </svg>
-                  <div className="flex justify-between text-[10px] font-mono text-[#64748b] mt-1 px-1">
-                    <span>0&apos;</span>
-                    <span>HT</span>
-                    <span>90&apos;</span>
-                  </div>
-                </div>
-
-                {/* Col 9-10: LIVE STATS */}
-                <div className="lg:col-span-2 space-y-2 text-[11px]">
-                  <div className="text-[10px] font-mono uppercase tracking-wider text-[#8f9cae] text-center mb-1">
-                    {t.liveStats}
-                  </div>
-                  {/* xG */}
-                  <div>
-                    <div className="flex justify-between font-mono text-[10px] text-neutral-300 mb-0.5">
-                      <span className="font-bold text-white">
-                        {featuredMatch.fairOdds.expectedGoalsHome.toFixed(2)}
-                      </span>
-                      <span className="text-[#8f9cae]">xG</span>
-                      <span className="font-bold text-white">
-                        {featuredMatch.fairOdds.expectedGoalsAway.toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-[#162230] overflow-hidden flex">
-                      <div className="bg-[#43f08a] h-full" style={{ width: '64%' }} />
-                      <div className="bg-neutral-500 h-full" style={{ width: '36%' }} />
-                    </div>
+                        </div>
+                      </>
+                    )}
                   </div>
 
-                  {/* Possession */}
-                  <div>
-                    <div className="flex justify-between font-mono text-[10px] text-neutral-300 mb-0.5">
-                      <span className="font-bold text-white">{featuredMatch.stats.possessionHome}%</span>
-                      <span className="text-[#8f9cae] truncate px-1">{t.possession}</span>
-                      <span className="font-bold text-white">{featuredMatch.stats.possessionAway}%</span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-[#162230] overflow-hidden flex">
-                      <div
-                        className="bg-[#43f08a] h-full"
-                        style={{ width: `${featuredMatch.stats.possessionHome}%` }}
-                      />
-                      <div
-                        className="bg-neutral-500 h-full"
-                        style={{ width: `${featuredMatch.stats.possessionAway}%` }}
-                      />
-                    </div>
+                  {/* Col 11-12: Action Buttons (Add Bet & Match Details) */}
+                  <div className="lg:col-span-2 flex flex-row lg:flex-col gap-2.5 justify-end">
+                    <button
+                      type="button"
+                      onClick={() => handleDirectAddBet(featuredMatch)}
+                      className="flex-1 lg:w-full py-2.5 px-4 rounded-xl bg-[#22c55e] hover:bg-[#43f08a] text-[#04130b] font-extrabold text-xs shadow-lg shadow-[#22c55e]/25 transition-all cursor-pointer text-center"
+                    >
+                      {t.addBet}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openMatchView(featuredMatch)}
+                      className="flex-1 lg:w-full py-2.5 px-4 rounded-xl border border-[#223246] bg-[#0d1622] hover:border-[#43f08a]/50 text-neutral-200 font-semibold text-xs transition-all cursor-pointer text-center"
+                    >
+                      {t.matchDetails}
+                    </button>
                   </div>
-
-                  {/* Shots on Target */}
-                  <div>
-                    <div className="flex justify-between font-mono text-[10px] text-neutral-300 mb-0.5">
-                      <span className="font-bold text-white">{featuredMatch.stats.shotsOnTargetHome}</span>
-                      <span className="text-[#8f9cae] truncate px-1">{t.shotsOnTarget}</span>
-                      <span className="font-bold text-white">{featuredMatch.stats.shotsOnTargetAway}</span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-[#162230] overflow-hidden flex">
-                      <div className="bg-[#43f08a] h-full" style={{ width: '71%' }} />
-                      <div className="bg-neutral-500 h-full" style={{ width: '29%' }} />
-                    </div>
-                  </div>
-
-                  {/* Dangerous Attacks */}
-                  <div>
-                    <div className="flex justify-between font-mono text-[10px] text-neutral-300 mb-0.5">
-                      <span className="font-bold text-white">{featuredMatch.stats.dangerousAttacksHome}</span>
-                      <span className="text-[#8f9cae] truncate px-1">{t.dangerousAttacks}</span>
-                      <span className="font-bold text-white">{featuredMatch.stats.dangerousAttacksAway}</span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-[#162230] overflow-hidden flex">
-                      <div className="bg-[#43f08a] h-full" style={{ width: '62%' }} />
-                      <div className="bg-neutral-500 h-full" style={{ width: '38%' }} />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Col 11-12: Action Buttons (Add Bet & Match Details) */}
-                <div className="lg:col-span-2 flex flex-row lg:flex-col gap-2.5 justify-end">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleDirectAddBet(
-                        featuredMatch,
-                        'Over 2.5 Goals',
-                        1.78,
-                        'Total Goals'
-                      )
-                    }
-                    className="flex-1 lg:w-full py-2.5 px-4 rounded-xl bg-[#22c55e] hover:bg-[#43f08a] text-[#04130b] font-extrabold text-xs shadow-lg shadow-[#22c55e]/25 transition-all cursor-pointer text-center"
-                  >
-                    {t.addBet}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => openMatchView(featuredMatch)}
-                    className="flex-1 lg:w-full py-2.5 px-4 rounded-xl border border-[#223246] bg-[#0d1622] hover:border-[#43f08a]/50 text-neutral-200 font-semibold text-xs transition-all cursor-pointer text-center"
-                  >
-                    {t.matchDetails}
-                  </button>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* 5. LIVE & TODAY'S MATCHES TABLE */}
           <div className="space-y-2.5">
@@ -2471,13 +2623,15 @@ export function LiveMatchesBoard({
             {/* Match Rows */}
             {tableMatches.map((match) => {
               const isLive = match.status === 'LIVE';
+              const isFinished = match.status === 'FINISHED';
+              const hasStarted = isLive || isFinished;
               const isFav = favorites.includes(match.id);
               const picked = selectedRowMarket[match.id];
               const extraMarkets = EXTRA_MARKETS_COUNT[match.id] || 112;
-              const posHome = match.stats.possessionHome || 54;
-              const posAway = match.stats.possessionAway || 46;
-              const daHome = match.stats.dangerousAttacksHome || 28;
-              const daAway = match.stats.dangerousAttacksAway || 19;
+              const posHome = hasStarted ? (match.stats.possessionHome || 50) : 0;
+              const posAway = hasStarted ? (match.stats.possessionAway || 50) : 0;
+              const daHome = hasStarted ? (match.stats.dangerousAttacksHome ?? 0) : 0;
+              const daAway = hasStarted ? (match.stats.dangerousAttacksAway ?? 0) : 0;
               const daTotal = Math.max(daHome + daAway, 1);
 
               // SVG Donut math
@@ -2647,8 +2801,8 @@ export function LiveMatchesBoard({
                         </div>
 
                         <div className="flex flex-col items-center font-mono font-black text-sm sm:text-base text-white tabular-nums pl-1">
-                          <span>{match.homeScore}</span>
-                          <span>{match.awayScore}</span>
+                          <span>{hasStarted ? match.homeScore : '–'}</span>
+                          <span>{hasStarted ? match.awayScore : '–'}</span>
                         </div>
                       </div>
 
@@ -2724,7 +2878,16 @@ export function LiveMatchesBoard({
                     </div>
 
                     {/* Col 9: xG Bars */}
-                    <div className="lg:col-span-1 flex lg:flex-col justify-center gap-1.5 font-mono text-[11px]">
+                    <div
+                      className="lg:col-span-1 flex lg:flex-col justify-center gap-1.5 font-mono text-[11px]"
+                      title={
+                        hasStarted
+                          ? 'Live Expected Goals (xG)'
+                          : language === 'bg'
+                          ? 'Прогнозно xG за целия мач (90 мин.)'
+                          : 'Pre-Match Projected 90m xG'
+                      }
+                    >
                       <div className="flex items-center gap-1.5">
                         <span className="text-white font-bold w-8 text-right tabular-nums">
                           {match.fairOdds.expectedGoalsHome.toFixed(2)}
@@ -2759,51 +2922,85 @@ export function LiveMatchesBoard({
                       </div>
                     </div>
 
-                    {/* Col 10: POS Circular Donut */}
+                    {/* Col 10: POS Circular Donut (Only active once match starts!) */}
                     <div className="lg:col-span-1 flex items-center justify-center gap-1.5">
-                      <svg className="w-9 h-9 -rotate-90 shrink-0" viewBox="0 0 36 36">
-                        <circle
-                          cx="18"
-                          cy="18"
-                          r={radius}
-                          fill="none"
-                          stroke="#1e293b"
-                          strokeWidth="3.8"
-                        />
-                        <circle
-                          cx="18"
-                          cy="18"
-                          r={radius}
-                          fill="none"
-                          stroke="#22c55e"
-                          strokeWidth="3.8"
-                          strokeDasharray={`${homeStroke} ${circumference}`}
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                      <div className="text-[10px] font-mono leading-tight">
-                        <span className="block font-bold text-white">{posHome}%</span>
-                        <span className="block text-[#64748b]">{posAway}%</span>
-                      </div>
+                      {hasStarted ? (
+                        <>
+                          <svg className="w-9 h-9 -rotate-90 shrink-0" viewBox="0 0 36 36">
+                            <circle
+                              cx="18"
+                              cy="18"
+                              r={radius}
+                              fill="none"
+                              stroke="#1e293b"
+                              strokeWidth="3.8"
+                            />
+                            <circle
+                              cx="18"
+                              cy="18"
+                              r={radius}
+                              fill="none"
+                              stroke="#22c55e"
+                              strokeWidth="3.8"
+                              strokeDasharray={`${homeStroke} ${circumference}`}
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                          <div className="text-[10px] font-mono leading-tight">
+                            <span className="block font-bold text-white">{posHome}%</span>
+                            <span className="block text-[#64748b]">{posAway}%</span>
+                          </div>
+                        </>
+                      ) : (
+                        <div
+                          className="text-center font-mono text-[10px] text-[#64748b]"
+                          title={
+                            language === 'bg'
+                              ? 'Владеенето на топката е налично след началото на мача'
+                              : 'Possession stats available after kickoff'
+                          }
+                        >
+                          <span className="block text-neutral-500 font-bold">— / —</span>
+                          <span className="block text-[9px] text-[#475569]">PRE-MATCH</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Col 11-12: Dangerous Attacks + Add Bet / Details Buttons */}
                     <div className="lg:col-span-2 flex items-center justify-between gap-2">
-                      {/* Dangerous Attacks Bar */}
-                      <div className="flex items-center gap-1.5 font-mono text-[11px] flex-1">
-                        <span className="font-bold text-white tabular-nums">{daHome}</span>
-                        <div className="flex-1 h-1.5 rounded-full bg-[#162230] overflow-hidden flex min-w-[36px]">
-                          <div
-                            className="bg-[#43f08a] h-full"
-                            style={{ width: `${(daHome / daTotal) * 100}%` }}
-                          />
-                          <div
-                            className="bg-neutral-600 h-full"
-                            style={{ width: `${(daAway / daTotal) * 100}%` }}
-                          />
+                      {/* Dangerous Attacks Bar (Only active once match starts!) */}
+                      {hasStarted ? (
+                        <div className="flex items-center gap-1.5 font-mono text-[11px] flex-1">
+                          <span className="font-bold text-white tabular-nums">{daHome}</span>
+                          <div className="flex-1 h-1.5 rounded-full bg-[#162230] overflow-hidden flex min-w-[36px]">
+                            <div
+                              className="bg-[#43f08a] h-full"
+                              style={{ width: `${(daHome / daTotal) * 100}%` }}
+                            />
+                            <div
+                              className="bg-neutral-600 h-full"
+                              style={{ width: `${(daAway / daTotal) * 100}%` }}
+                            />
+                          </div>
+                          <span className="text-neutral-400 tabular-nums">{daAway}</span>
                         </div>
-                        <span className="text-neutral-400 tabular-nums">{daAway}</span>
-                      </div>
+                      ) : (
+                        <div
+                          className="flex flex-col items-center justify-center font-mono text-[10px] text-[#64748b] flex-1"
+                          title={
+                            language === 'bg'
+                              ? 'Опасните атаки се отчитат на живо след старта на мача'
+                              : 'Dangerous attacks tracked live after kickoff'
+                          }
+                        >
+                          <span className="text-neutral-400 font-semibold">
+                            O2.5: {(match.fairOdds.over25Prob * 100).toFixed(0)}%
+                          </span>
+                          <span className="text-[9px] text-[#475569]">
+                            BTTS: {(match.fairOdds.bttsProb * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                      )}
 
                       {/* Action Buttons: Add Bet (Direct to My Bets) & Details */}
                       <div className="flex flex-col gap-1.5 shrink-0">
